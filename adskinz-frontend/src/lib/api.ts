@@ -3,7 +3,7 @@
  * The FastAPI backend (Koyeb) plugs in here. Everything below is mocked in
  * src/lib/mock-data.ts until the real endpoints are wired.
  */
-export const API_BASE = import.meta.env["VITE_API_BASE"] ?? "https://api.adskinz.io";
+export const API_BASE = import.meta.env["VITE_API_BASE"] ?? "competent-rebekkah-davelam-58380a6b.koyeb.app";
 
 export const ENDPOINTS = {
   // Auth — email/password only. No fiat providers anywhere in the product.

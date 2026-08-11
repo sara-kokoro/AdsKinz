@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     LOG_LEVEL: str = "INFO"
     ENABLE_API_DOCS: bool = True
-    API_BASE_URL: str = "https://api.adskinz.io"
+    API_BASE_URL: str = "competent-rebekkah-davelam-58380a6b.koyeb.app"
     PUBLIC_BASE_URL: str = "https://adskinz.io"
     CORS_ORIGINS: str = "http://localhost:3000,https://adskinz.io,https://kingcey.adskinz.io"
     CORS_ORIGIN_REGEX: str = ""
@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_TTL_DAYS: int = 7
     ADMIN_PARTIAL_TOKEN_TTL_SECONDS: int = 300  # token between /login and /totp
-    ADMIN_SESSION_TTL_HOURS: int = 12
+    ADMIN_SESSION_TTL_HOURS: int = 10
     IP_HASH_SALT: str = "change-me-too"
     TOTP_ISSUER: str = "AdsKinz"
 
