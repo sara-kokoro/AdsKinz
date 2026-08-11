@@ -11,7 +11,7 @@ email-validator==2.3.*
 bcrypt==5.0.*
 pyjwt==2.13.*
 pyotp==2.10.*
-aiogram==3.26.*
+aiogram==3.30.*
 kurigram==2.1.*
 tgcrypto==1.2.*
 bip-utils==2.9.*
