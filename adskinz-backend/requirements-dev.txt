@@ -1,0 +1,5 @@
+# Development-only. The Docker image installs requirements.txt only.
+-r requirements.txt
+pytest==9.0.*
+anyio==4.*
+ruff==0.14.*

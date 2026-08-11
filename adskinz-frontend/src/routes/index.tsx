@@ -305,7 +305,6 @@ function Landing() {
           <div className="ml-auto flex flex-wrap gap-5 font-semibold">
             <Link to="/traffic">traffic</Link>
             <Link to="/partner">partner</Link>
-            <Link to="/kingcey">kingcey</Link>
           </div>
         </div>
       </footer>
