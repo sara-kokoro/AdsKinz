@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     ENABLE_API_DOCS: bool = True
     API_BASE_URL: str = "competent-rebekkah-davelam-58380a6b.koyeb.app"
-    PUBLIC_BASE_URL: str = "https://adskinz.io"
+    PUBLIC_BASE_URL: str = "https://preview--dfghfffghjj-rrtgghy-zejjj.lovable.app/partner"
     CORS_ORIGINS: str = "http://localhost:3000,https://adskinz.io,https://kingcey.adskinz.io"
     CORS_ORIGIN_REGEX: str = ""
     # Comma-separated Host header allowlist. Empty disables the check, which is
@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     SDK_CREATIVE_TTL: int = 30
     TRACKING_LINK_TTL_DAYS: int = 30
     # A click costs this multiple of one impression at the campaign's CPM.
-    CLICK_PRICE_MULTIPLIER: Decimal = Decimal("7")
+    CLICK_PRICE_MULTIPLIER: Decimal = Decimal("5")
 
     # ------------------------------------------------------------------ #
     # Database
@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_TTL_DAYS: int = 7
     ADMIN_PARTIAL_TOKEN_TTL_SECONDS: int = 300  # token between /login and /totp
-    ADMIN_SESSION_TTL_HOURS: int = 10
+    ADMIN_SESSION_TTL_HOURS: int = 2
     IP_HASH_SALT: str = "change-me-too"
     TOTP_ISSUER: str = "AdsKinz"
 
