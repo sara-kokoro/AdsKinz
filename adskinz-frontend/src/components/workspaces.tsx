@@ -16,12 +16,14 @@ import {
   IconTrend,
   IconWallet,
 } from "@/components/icons";
-import { advertiserSummary, publisherSummary } from "@/lib/mock-data";
+import { useBalance, usePublisherStats, useAdminOverview } from "@/lib/queries";
+import { num } from "@/lib/api";
 
 const ico = { width: 18, height: 18 };
 
 export function AdvShell({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   const { t } = useTranslation();
+  const { data: balance } = useBalance();
   const nav: NavItem[] = [
     { to: "/traffic", label: t("adv.nav.dashboard"), icon: <IconGrid {...ico} /> },
     { to: "/traffic/campaigns", label: t("adv.nav.campaigns"), icon: <IconMegaphone {...ico} /> },
@@ -37,7 +39,7 @@ export function AdvShell({ title, action, children }: { title: string; action?: 
       sidebarFooter={
         <div>
           <p className="text-xs font-semibold text-paper-dim">{t("adv.balance")}</p>
-          <p className="num mt-1 text-2xl font-extrabold text-bounty">{fmtMoney(advertiserSummary.balance)}</p>
+          <p className="num mt-1 text-2xl font-extrabold text-bounty">{fmtMoney(num(balance?.balance))}</p>
           <Link to="/traffic/deposits" className="mt-3 block">
             <Btn tone="bounty" className="w-full">
               {t("adv.topUp")}
@@ -53,6 +55,8 @@ export function AdvShell({ title, action, children }: { title: string; action?: 
 
 export function PubShell({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   const { t } = useTranslation();
+  const { data: stats } = usePublisherStats();
+  const available = num(stats?.availableBalance);
   const nav: NavItem[] = [
     { to: "/partner", label: t("pub.nav.dashboard"), icon: <IconGrid {...ico} /> },
     { to: "/partner/channels", label: t("pub.nav.channels"), icon: <IconChannel {...ico} /> },
@@ -60,7 +64,7 @@ export function PubShell({ title, action, children }: { title: string; action?: 
     { to: "/partner/withdrawals", label: t("pub.nav.withdrawals"), icon: <IconWallet {...ico} /> },
     { to: "/partner/settings", label: t("pub.nav.settings"), icon: <IconSettings {...ico} /> },
   ];
-  const locked = publisherSummary.balance < 50 || publisherSummary.withdrawUnlockHours > 0;
+  const locked = available < 50;
   return (
     <DashboardShell
       workspace={t("pub.workspace")}
@@ -70,18 +74,16 @@ export function PubShell({ title, action, children }: { title: string; action?: 
       sidebarFooter={
         <div>
           <p className="text-xs font-semibold text-paper-dim">{t("pub.balance")}</p>
-          <p className="num mt-1 text-2xl font-extrabold text-bounty">{fmtMoney(publisherSummary.balance)}</p>
+          <p className="num mt-1 text-2xl font-extrabold text-bounty">{fmtMoney(available)}</p>
           <p className="mt-1 text-[11px] text-paper-dim">{t("pub.withdrawThreshold")}</p>
           <Link to="/partner/withdrawals" className="mt-3 block">
             <Btn tone="bounty" className="w-full" disabled={locked}>
-              {publisherSummary.withdrawUnlockHours > 0
-                ? t("pub.withdrawLocked", { hours: publisherSummary.withdrawUnlockHours })
-                : t("pub.withdraw")}
+              {t("pub.withdraw")}
             </Btn>
           </Link>
-          {publisherSummary.balance < 50 && (
+          {available < 50 && (
             <p className="mt-2 text-[11px] text-paper-dim">
-              {t("pub.belowThreshold", { amount: fmtMoney(publisherSummary.balance) })}
+              {t("pub.belowThreshold", { amount: fmtMoney(available) })}
             </p>
           )}
         </div>
@@ -104,16 +106,25 @@ export function AdminShell({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
+  const { data: overview } = useAdminOverview();
+  const liveBadges = {
+    campaigns: overview?.pendingCampaigns,
+    channels: overview?.pendingChannels,
+    miniapps: overview?.pendingMiniApps,
+    withdrawals: overview?.pendingWithdrawals,
+    anomalies: overview?.openAnomalies,
+    ...badges,
+  };
   const nav: NavItem[] = [
     { to: "/kingcey/overview", label: t("admin.nav.overview"), icon: <IconGrid {...ico} /> },
-    { to: "/kingcey/campaigns", label: t("admin.nav.campaigns"), icon: <IconMegaphone {...ico} />, badge: badges?.campaigns },
-    { to: "/kingcey/channels", label: t("admin.nav.channels"), icon: <IconChannel {...ico} />, badge: badges?.channels },
-    { to: "/kingcey/mini-apps", label: t("x.admin.miniApps"), icon: <IconApp {...ico} />, badge: badges?.miniapps },
-    { to: "/kingcey/users", label: t("x.admin.users"), icon: <IconShield {...ico} />, badge: badges?.users },
-    { to: "/kingcey/withdrawals", label: t("admin.nav.withdrawals"), icon: <IconWallet {...ico} />, badge: badges?.withdrawals },
-    { to: "/kingcey/disputes", label: t("admin.nav.disputes"), icon: <IconScale {...ico} />, badge: badges?.disputes },
+    { to: "/kingcey/campaigns", label: t("admin.nav.campaigns"), icon: <IconMegaphone {...ico} />, badge: liveBadges.campaigns },
+    { to: "/kingcey/channels", label: t("admin.nav.channels"), icon: <IconChannel {...ico} />, badge: liveBadges.channels },
+    { to: "/kingcey/mini-apps", label: t("x.admin.miniApps"), icon: <IconApp {...ico} />, badge: liveBadges.miniapps },
+    { to: "/kingcey/users", label: t("x.admin.users"), icon: <IconShield {...ico} />, badge: liveBadges.users },
+    { to: "/kingcey/withdrawals", label: t("admin.nav.withdrawals"), icon: <IconWallet {...ico} />, badge: liveBadges.withdrawals },
+    { to: "/kingcey/disputes", label: t("admin.nav.disputes"), icon: <IconScale {...ico} />, badge: liveBadges.disputes },
     { to: "/kingcey/finances", label: t("admin.nav.finances"), icon: <IconTrend {...ico} /> },
-    { to: "/kingcey/anomalies", label: t("admin.nav.anomalies"), icon: <IconAlert {...ico} />, badge: badges?.anomalies },
+    { to: "/kingcey/anomalies", label: t("admin.nav.anomalies"), icon: <IconAlert {...ico} />, badge: liveBadges.anomalies },
     { to: "/kingcey/audit", label: t("admin.nav.audit"), icon: <IconList {...ico} /> },
   ];
   return (

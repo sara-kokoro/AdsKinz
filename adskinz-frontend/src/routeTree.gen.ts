@@ -10,6 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DocsRouteImport } from './routes/docs'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as DocsIndexRouteImport } from './routes/docs.index'
+import { Route as DocsAdFormatsRouteImport } from './routes/docs.ad-formats'
+import { Route as DocsChangelogRouteImport } from './routes/docs.changelog'
+import { Route as DocsErrorHandlingRouteImport } from './routes/docs.error-handling'
+import { Route as DocsFaqRouteImport } from './routes/docs.faq'
+import { Route as DocsQuickstartRouteImport } from './routes/docs.quickstart'
+import { Route as DocsReactHookRouteImport } from './routes/docs.react-hook'
+import { Route as DocsSdkReferenceRouteImport } from './routes/docs.sdk-reference'
 import { Route as KingceyIndexRouteImport } from './routes/kingcey.index'
 import { Route as KingceyAnomaliesRouteImport } from './routes/kingcey.anomalies'
 import { Route as KingceyAuditRouteImport } from './routes/kingcey.audit'
@@ -37,6 +47,56 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsAdFormatsRoute = DocsAdFormatsRouteImport.update({
+  id: '/ad-formats',
+  path: '/ad-formats',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsChangelogRoute = DocsChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsErrorHandlingRoute = DocsErrorHandlingRouteImport.update({
+  id: '/error-handling',
+  path: '/error-handling',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsFaqRoute = DocsFaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsQuickstartRoute = DocsQuickstartRouteImport.update({
+  id: '/quickstart',
+  path: '/quickstart',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsReactHookRoute = DocsReactHookRouteImport.update({
+  id: '/react-hook',
+  path: '/react-hook',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsSdkReferenceRoute = DocsSdkReferenceRouteImport.update({
+  id: '/sdk-reference',
+  path: '/sdk-reference',
+  getParentRoute: () => DocsRoute,
 } as any)
 const KingceyIndexRoute = KingceyIndexRouteImport.update({
   id: '/kingcey/',
@@ -151,6 +211,15 @@ const TrafficCampaignsNewRoute = TrafficCampaignsNewRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/docs': typeof DocsRouteWithChildren
+  '/login': typeof LoginRoute
+  '/docs/ad-formats': typeof DocsAdFormatsRoute
+  '/docs/changelog': typeof DocsChangelogRoute
+  '/docs/error-handling': typeof DocsErrorHandlingRoute
+  '/docs/faq': typeof DocsFaqRoute
+  '/docs/quickstart': typeof DocsQuickstartRoute
+  '/docs/react-hook': typeof DocsReactHookRoute
+  '/docs/sdk-reference': typeof DocsSdkReferenceRoute
   '/kingcey/anomalies': typeof KingceyAnomaliesRoute
   '/kingcey/audit': typeof KingceyAuditRoute
   '/kingcey/campaigns': typeof KingceyCampaignsRoute
@@ -167,6 +236,7 @@ export interface FileRoutesByFullPath {
   '/partner/withdrawals': typeof PartnerWithdrawalsRoute
   '/traffic/deposits': typeof TrafficDepositsRoute
   '/traffic/settings': typeof TrafficSettingsRoute
+  '/docs/': typeof DocsIndexRoute
   '/kingcey/': typeof KingceyIndexRoute
   '/partner/': typeof PartnerIndexRoute
   '/traffic/': typeof TrafficIndexRoute
@@ -176,6 +246,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/docs/ad-formats': typeof DocsAdFormatsRoute
+  '/docs/changelog': typeof DocsChangelogRoute
+  '/docs/error-handling': typeof DocsErrorHandlingRoute
+  '/docs/faq': typeof DocsFaqRoute
+  '/docs/quickstart': typeof DocsQuickstartRoute
+  '/docs/react-hook': typeof DocsReactHookRoute
+  '/docs/sdk-reference': typeof DocsSdkReferenceRoute
   '/kingcey/anomalies': typeof KingceyAnomaliesRoute
   '/kingcey/audit': typeof KingceyAuditRoute
   '/kingcey/campaigns': typeof KingceyCampaignsRoute
@@ -192,6 +270,7 @@ export interface FileRoutesByTo {
   '/partner/withdrawals': typeof PartnerWithdrawalsRoute
   '/traffic/deposits': typeof TrafficDepositsRoute
   '/traffic/settings': typeof TrafficSettingsRoute
+  '/docs': typeof DocsIndexRoute
   '/kingcey': typeof KingceyIndexRoute
   '/partner': typeof PartnerIndexRoute
   '/traffic': typeof TrafficIndexRoute
@@ -202,6 +281,15 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/docs': typeof DocsRouteWithChildren
+  '/login': typeof LoginRoute
+  '/docs/ad-formats': typeof DocsAdFormatsRoute
+  '/docs/changelog': typeof DocsChangelogRoute
+  '/docs/error-handling': typeof DocsErrorHandlingRoute
+  '/docs/faq': typeof DocsFaqRoute
+  '/docs/quickstart': typeof DocsQuickstartRoute
+  '/docs/react-hook': typeof DocsReactHookRoute
+  '/docs/sdk-reference': typeof DocsSdkReferenceRoute
   '/kingcey/anomalies': typeof KingceyAnomaliesRoute
   '/kingcey/audit': typeof KingceyAuditRoute
   '/kingcey/campaigns': typeof KingceyCampaignsRoute
@@ -218,6 +306,7 @@ export interface FileRoutesById {
   '/partner/withdrawals': typeof PartnerWithdrawalsRoute
   '/traffic/deposits': typeof TrafficDepositsRoute
   '/traffic/settings': typeof TrafficSettingsRoute
+  '/docs/': typeof DocsIndexRoute
   '/kingcey/': typeof KingceyIndexRoute
   '/partner/': typeof PartnerIndexRoute
   '/traffic/': typeof TrafficIndexRoute
@@ -229,6 +318,15 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/docs'
+    | '/login'
+    | '/docs/ad-formats'
+    | '/docs/changelog'
+    | '/docs/error-handling'
+    | '/docs/faq'
+    | '/docs/quickstart'
+    | '/docs/react-hook'
+    | '/docs/sdk-reference'
     | '/kingcey/anomalies'
     | '/kingcey/audit'
     | '/kingcey/campaigns'
@@ -245,6 +343,7 @@ export interface FileRouteTypes {
     | '/partner/withdrawals'
     | '/traffic/deposits'
     | '/traffic/settings'
+    | '/docs/'
     | '/kingcey/'
     | '/partner/'
     | '/traffic/'
@@ -254,6 +353,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
+    | '/docs/ad-formats'
+    | '/docs/changelog'
+    | '/docs/error-handling'
+    | '/docs/faq'
+    | '/docs/quickstart'
+    | '/docs/react-hook'
+    | '/docs/sdk-reference'
     | '/kingcey/anomalies'
     | '/kingcey/audit'
     | '/kingcey/campaigns'
@@ -270,6 +377,7 @@ export interface FileRouteTypes {
     | '/partner/withdrawals'
     | '/traffic/deposits'
     | '/traffic/settings'
+    | '/docs'
     | '/kingcey'
     | '/partner'
     | '/traffic'
@@ -279,6 +387,15 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/docs'
+    | '/login'
+    | '/docs/ad-formats'
+    | '/docs/changelog'
+    | '/docs/error-handling'
+    | '/docs/faq'
+    | '/docs/quickstart'
+    | '/docs/react-hook'
+    | '/docs/sdk-reference'
     | '/kingcey/anomalies'
     | '/kingcey/audit'
     | '/kingcey/campaigns'
@@ -295,6 +412,7 @@ export interface FileRouteTypes {
     | '/partner/withdrawals'
     | '/traffic/deposits'
     | '/traffic/settings'
+    | '/docs/'
     | '/kingcey/'
     | '/partner/'
     | '/traffic/'
@@ -305,6 +423,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DocsRoute: typeof DocsRouteWithChildren
+  LoginRoute: typeof LoginRoute
   KingceyAnomaliesRoute: typeof KingceyAnomaliesRoute
   KingceyAuditRoute: typeof KingceyAuditRoute
   KingceyCampaignsRoute: typeof KingceyCampaignsRoute
@@ -337,6 +457,76 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/': {
+      id: '/docs/'
+      path: '/'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/ad-formats': {
+      id: '/docs/ad-formats'
+      path: '/ad-formats'
+      fullPath: '/docs/ad-formats'
+      preLoaderRoute: typeof DocsAdFormatsRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/changelog': {
+      id: '/docs/changelog'
+      path: '/changelog'
+      fullPath: '/docs/changelog'
+      preLoaderRoute: typeof DocsChangelogRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/error-handling': {
+      id: '/docs/error-handling'
+      path: '/error-handling'
+      fullPath: '/docs/error-handling'
+      preLoaderRoute: typeof DocsErrorHandlingRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/faq': {
+      id: '/docs/faq'
+      path: '/faq'
+      fullPath: '/docs/faq'
+      preLoaderRoute: typeof DocsFaqRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/quickstart': {
+      id: '/docs/quickstart'
+      path: '/quickstart'
+      fullPath: '/docs/quickstart'
+      preLoaderRoute: typeof DocsQuickstartRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/react-hook': {
+      id: '/docs/react-hook'
+      path: '/react-hook'
+      fullPath: '/docs/react-hook'
+      preLoaderRoute: typeof DocsReactHookRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/sdk-reference': {
+      id: '/docs/sdk-reference'
+      path: '/sdk-reference'
+      fullPath: '/docs/sdk-reference'
+      preLoaderRoute: typeof DocsSdkReferenceRouteImport
+      parentRoute: typeof DocsRoute
     }
     '/kingcey/': {
       id: '/kingcey/'
@@ -495,8 +685,34 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DocsRouteChildren {
+  DocsAdFormatsRoute: typeof DocsAdFormatsRoute
+  DocsChangelogRoute: typeof DocsChangelogRoute
+  DocsErrorHandlingRoute: typeof DocsErrorHandlingRoute
+  DocsFaqRoute: typeof DocsFaqRoute
+  DocsQuickstartRoute: typeof DocsQuickstartRoute
+  DocsReactHookRoute: typeof DocsReactHookRoute
+  DocsSdkReferenceRoute: typeof DocsSdkReferenceRoute
+  DocsIndexRoute: typeof DocsIndexRoute
+}
+
+const DocsRouteChildren: DocsRouteChildren = {
+  DocsAdFormatsRoute: DocsAdFormatsRoute,
+  DocsChangelogRoute: DocsChangelogRoute,
+  DocsErrorHandlingRoute: DocsErrorHandlingRoute,
+  DocsFaqRoute: DocsFaqRoute,
+  DocsQuickstartRoute: DocsQuickstartRoute,
+  DocsReactHookRoute: DocsReactHookRoute,
+  DocsSdkReferenceRoute: DocsSdkReferenceRoute,
+  DocsIndexRoute: DocsIndexRoute,
+}
+
+const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DocsRoute: DocsRouteWithChildren,
+  LoginRoute: LoginRoute,
   KingceyAnomaliesRoute: KingceyAnomaliesRoute,
   KingceyAuditRoute: KingceyAuditRoute,
   KingceyCampaignsRoute: KingceyCampaignsRoute,
@@ -523,3 +739,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

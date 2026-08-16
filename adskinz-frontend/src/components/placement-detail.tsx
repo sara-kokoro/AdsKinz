@@ -1,7 +1,17 @@
 import { useTranslation } from "react-i18next";
 import { Panel, Quote, SectionTitle, Sparkline, StatusPill, fmtInt, fmtMoney } from "@/components/kit";
 import { IconArrowUp } from "@/components/icons";
-import type { PlacementStats } from "@/lib/mock-data";
+/** Performance snapshot for one channel or Mini App, built from live API data. */
+export type PlacementStats = {
+  impressions30: number;
+  clicks30: number;
+  earnings30: number;
+  avgCpm: number;
+  fillRate: number;
+  adsDelivered30: number;
+  daily: number[];
+  activity: { id: string; at: string; campaign: string; impressions: number; clicks: number; revenue: number }[];
+};
 
 const ctr = (c: number, i: number) => (i === 0 ? "0.00%" : `${((c / i) * 100).toFixed(2)}%`);
 

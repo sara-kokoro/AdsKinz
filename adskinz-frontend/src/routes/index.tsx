@@ -16,7 +16,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "AdsKinz — Native advertising inside Telegram" },
       {
         property: "og:description",
-        content: "Channel posts and Mini App placements that look like content, not banners.",
+        content: "Native ads inside Telegram channels and Mini Apps. Campaigns from $50, 12 languages, USDT payouts for publishers from $50.",
       },
     ],
   }),
@@ -33,13 +33,13 @@ function Nav() {
           <a href="#formats" className="hover:text-paper">{t("nav.advertisers")}</a>
           <a href="#audience" className="hover:text-paper">{t("nav.publishers")}</a>
           <a href="#formats" className="hover:text-paper">{t("nav.sdk")}</a>
-          <a href="#faq" className="hover:text-paper">{t("nav.docs")}</a>
+          <Link to="/docs" className="hover:text-paper">{t("nav.docs")}</Link>
         </nav>
         <div className="ml-auto flex items-center gap-2">
           <LanguageSelect compact />
           <ThemeToggle />
           <Link
-            to="/traffic"
+            to="/login"
             className="hidden min-h-9 items-center rounded-xl border border-seam px-3 text-sm font-semibold sm:inline-flex"
           >
             {t("common.login")}
@@ -303,8 +303,10 @@ function Landing() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-8 text-sm text-paper-dim">
           <Logo />
           <div className="ml-auto flex flex-wrap gap-5 font-semibold">
+            <Link to="/docs">docs</Link>
             <Link to="/traffic">traffic</Link>
             <Link to="/partner">partner</Link>
+            <Link to="/kingcey">kingcey</Link>
           </div>
         </div>
       </footer>

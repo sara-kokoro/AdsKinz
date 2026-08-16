@@ -1,12 +1,13 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdvShell } from "@/components/workspaces";
 import { Btn, FieldError, ImageUpload, Panel, Quote, SectionTitle, fmtMoney, inputCls } from "@/components/kit";
 import { TelegramPostPreview } from "@/components/telegram-preview";
 import { IconCheck, IconSparkle } from "@/components/icons";
-import { AD_LANGUAGES, BUTTON_LABELS } from "@/lib/mock-data";
-import { ENDPOINTS, trackingUrl } from "@/lib/api";
+import { AD_LANGUAGES, BUTTON_LABELS } from "@/lib/constants";
+import { ApiError } from "@/lib/api";
+import { useCreateCampaign, useGenerateCopy } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/traffic/campaigns/new")({
@@ -25,15 +26,14 @@ const STEPS = ["step1", "step2", "step3", "step4", "step5"] as const;
 
 function Wizard() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const [submitted, setSubmitted] = useState(false);
 
   const [format, setFormat] = useState<"channel" | "interstitial" | "pop">("channel");
   const [image, setImage] = useState<{ url: string; name: string } | null>(null);
   const [copy, setCopy] = useState("");
   const [brief, setBrief] = useState("");
   const [briefOpen, setBriefOpen] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [label, setLabel] = useState("Learn more");
   const [url, setUrl] = useState("");
   const [lang, setLang] = useState("all");
@@ -41,19 +41,19 @@ function Wizard() {
   const [daily, setDaily] = useState("");
   const [cpm, setCpm] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const trackingId = "t8419kq";
+  const generateCopy = useGenerateCopy();
+  const createCampaign = useCreateCampaign();
 
   const generate = () => {
-    setGenerating(true);
-    // INTEGRATION: POST ENDPOINTS.generateCopy { brief } -> Groq-generated ad copy
-    void ENDPOINTS.generateCopy;
-    setTimeout(() => {
-      setCopy(
-        `Trade smarter on Telegram. ${brief || "Your product"} — set up in under a minute, no wallet switching, no hidden routing fees.`,
-      );
-      setGenerating(false);
-    }, 600);
+    generateCopy.mutate(
+      { brief: brief || format, language: lang === "all" ? "en" : lang, tone: "confident" },
+      {
+        onSuccess: (res) => setCopy(res.copy),
+        onError: (err) => setErrors((e) => ({ ...e, copy: err instanceof ApiError ? err.message : t("common.loadError") })),
+      },
+    );
   };
 
   const validate = () => {
@@ -80,22 +80,30 @@ function Wizard() {
   const competitiveness =
     Number(cpm) >= 4.5 ? "compHigh" : Number(cpm) >= 2.8 ? "compMid" : "compLow";
 
-  if (submitted) {
-    return (
-      <AdvShell title={t("adv.wizard.title")}>
-        <Panel className="mx-auto max-w-lg text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-bounty-soft text-bounty">
-            <IconCheck />
-          </div>
-          <h2 className="mt-4 font-display text-xl font-bold">{t("adv.wizard.submitted")}</h2>
-          <p className="mt-2 text-sm text-paper-dim">{t("adv.wizard.editNotice")}</p>
-          <Link to="/traffic/campaigns" className="mt-6 inline-block">
-            <Btn variant="secondary">{t("adv.nav.campaigns")}</Btn>
-          </Link>
-        </Panel>
-      </AdvShell>
+  const submit = () => {
+    setSubmitError(null);
+    createCampaign.mutate(
+      {
+        name: `${format} campaign — ${new Date().toISOString().slice(0, 10)}`,
+        format,
+        copy,
+        button_label: label,
+        destinationUrl: url,
+        language: lang,
+        budget: Number(budget),
+        dailyBudget: daily ? Number(daily) : null,
+        cpm: Number(cpm),
+        imageUrl: image?.url ?? null,
+        ai_generated: generateCopy.isSuccess,
+      },
+      {
+        onSuccess: (campaign) => {
+          void navigate({ to: "/traffic/campaigns/$id", params: { id: campaign.id } });
+        },
+        onError: (err) => setSubmitError(err instanceof ApiError ? err.message : t("common.loadError")),
+      },
     );
-  }
+  };
 
   return (
     <AdvShell title={t("adv.wizard.title")}>
@@ -159,7 +167,7 @@ function Wizard() {
                     variant="secondary"
                     className="ml-auto min-h-9 px-3 text-xs"
                     onClick={() => (briefOpen ? generate() : setBriefOpen(true))}
-                    disabled={generating}
+                    disabled={generateCopy.isPending}
                   >
                     <IconSparkle width={14} height={14} />
                     {copy && briefOpen ? t("adv.wizard.regenerate") : t("adv.wizard.generateAi")}
@@ -213,7 +221,6 @@ function Wizard() {
                   className="mt-2 w-full rounded-xl border border-seam bg-transparent p-3 text-sm"
                 />
                 <FieldError>{errors["url"]}</FieldError>
-                <p className="num mt-2 text-xs text-paper-dim">{t("common.trackingNote", { id: trackingId })}</p>
               </div>
             </div>
           )}
@@ -287,7 +294,7 @@ function Wizard() {
           {step === 4 && (
             <div className="space-y-5">
               <SectionTitle sub={t("adv.wizard.previewTitle")}>{t("adv.wizard.step5")}</SectionTitle>
-              <TelegramPostPreview copy={copy} buttonLabel={label} trackingId={trackingId} imageUrl={image?.url ?? null} imageAlt={image?.name} />
+              <TelegramPostPreview copy={copy} buttonLabel={label} imageUrl={image?.url ?? null} imageAlt={image?.name} />
               <Quote tone="signal" label={t("adv.wizard.step5")}>{t("adv.quotes.review")}</Quote>
               <dl className="grid gap-3 border-t border-seam pt-4 text-sm sm:grid-cols-2">
                 {[
@@ -296,7 +303,6 @@ function Wizard() {
                   [t("adv.wizard.totalBudget"), fmtMoney(Number(budget || 0))],
                   [t("adv.wizard.cpm"), fmtMoney(Number(cpm || 0))],
                   [t("admin.detail.destinationUrl"), url],
-                  [t("admin.detail.trackedUrl"), trackingUrl(trackingId)],
                 ].map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-xs font-semibold text-paper-dim">{k}</dt>
@@ -304,6 +310,7 @@ function Wizard() {
                   </div>
                 ))}
               </dl>
+              {submitError && <FieldError>{submitError}</FieldError>}
             </div>
           )}
 
@@ -318,12 +325,16 @@ function Wizard() {
                 {t("common.continue")}
               </Btn>
             ) : (
-              <Btn className="ml-auto" onClick={() => setSubmitted(true)}>
+              <Btn className="ml-auto" onClick={submit} disabled={createCampaign.isPending}>
                 {t("adv.wizard.submitReview")}
               </Btn>
             )}
           </div>
         </Panel>
+
+        <p className="text-center text-xs text-paper-dim">
+          <Link to="/traffic/campaigns" className="underline">{t("adv.nav.campaigns")}</Link>
+        </p>
       </div>
     </AdvShell>
   );
