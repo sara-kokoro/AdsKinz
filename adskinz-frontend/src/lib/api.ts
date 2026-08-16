@@ -44,6 +44,7 @@ export const tokenStore = {
     } catch {
       /* storage unavailable */
     }
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("adskinz:session-cleared"));
   },
 };
 

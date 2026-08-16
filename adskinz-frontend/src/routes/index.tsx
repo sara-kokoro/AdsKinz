@@ -44,12 +44,12 @@ function Nav() {
           >
             {t("common.login")}
           </Link>
-          <Link
-            to="/traffic/campaigns/new"
+          <a
+            href="/login?returnTo=%2Ftraffic%2Fcampaigns%2Fnew&role=advertiser"
             className="inline-flex min-h-11 items-center rounded-xl bg-signal px-4 text-sm font-bold text-white transition-all hover:brightness-110"
           >
             {t("common.launchCampaign")}
-          </Link>
+          </a>
         </div>
       </div>
     </header>
@@ -152,18 +152,18 @@ function Landing() {
             {t("landing.heroSub_post")}
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              to="/traffic/campaigns/new"
+            <a
+              href="/login?returnTo=%2Ftraffic%2Fcampaigns%2Fnew&role=advertiser"
               className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-signal px-6 text-sm font-bold text-white transition-all hover:brightness-110 sm:w-auto"
             >
               {t("common.launchCampaign")}
-            </Link>
-            <Link
-              to="/partner/channels"
+            </a>
+            <a
+              href="/login?returnTo=%2Fpartner%2Fchannels&role=publisher"
               className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-seam px-6 text-sm font-semibold transition-colors hover:bg-panel sm:w-auto"
             >
               {t("common.becomePublisher")}
-            </Link>
+            </a>
           </div>
 
           <div className="mt-12">
@@ -240,12 +240,12 @@ function Landing() {
                   </li>
                 ))}
               </ul>
-              <Link
-                to="/traffic/campaigns/new"
+              <a
+                href="/login?returnTo=%2Ftraffic%2Fcampaigns%2Fnew&role=advertiser"
                 className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-signal text-sm font-bold text-white"
               >
                 {t("common.launchCampaign")}
-              </Link>
+              </a>
             </article>
             <article className="surface flex flex-col p-6">
               <span className="text-xs font-bold tracking-[0.16em] text-bounty uppercase">
@@ -260,12 +260,12 @@ function Landing() {
                   </li>
                 ))}
               </ul>
-              <Link
-                to="/partner/channels"
+              <a
+                href="/login?returnTo=%2Fpartner%2Fchannels&role=publisher"
                 className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-seam text-sm font-bold"
               >
                 {t("common.becomePublisher")}
-              </Link>
+              </a>
             </article>
           </div>
         </section>
@@ -289,12 +289,12 @@ function Landing() {
           <div className="surface flex flex-wrap items-center gap-4 p-6">
             <IconSparkle className="text-signal" />
             <p className="font-display text-lg font-bold">{t("landing.eyebrow")}</p>
-            <Link
-              to="/traffic/campaigns/new"
+            <a
+              href="/login?returnTo=%2Ftraffic%2Fcampaigns%2Fnew&role=advertiser"
               className="ml-auto inline-flex min-h-11 items-center rounded-xl bg-signal px-5 text-sm font-bold text-white"
             >
               {t("common.getStarted")}
-            </Link>
+            </a>
           </div>
         </section>
       </main>

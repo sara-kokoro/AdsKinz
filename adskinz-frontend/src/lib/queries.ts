@@ -147,8 +147,8 @@ export function useAdLanguages() {
 
 /* ---------------------------------- billing --------------------------------- */
 
-export function useBalance() {
-  return useQuery({ queryKey: ["billing", "balance"], queryFn: () => apiFetch<Balance>("/billing/balance") });
+export function useBalance(enabled = true) {
+  return useQuery({ queryKey: ["billing", "balance"], queryFn: () => apiFetch<Balance>("/billing/balance"), enabled });
 }
 
 export function useDeposits() {
@@ -175,8 +175,8 @@ export type { Deposit };
 
 /* --------------------------------- publisher -------------------------------- */
 
-export function usePublisherStats() {
-  return useQuery({ queryKey: ["publisher", "stats"], queryFn: () => apiFetch<PublisherStats>("/publisher/stats") });
+export function usePublisherStats(enabled = true) {
+  return useQuery({ queryKey: ["publisher", "stats"], queryFn: () => apiFetch<PublisherStats>("/publisher/stats"), enabled });
 }
 
 export function useChannels() {
@@ -282,8 +282,8 @@ export function useCreateWithdrawal() {
 
 /* ----------------------------------- admin ---------------------------------- */
 
-export function useAdminOverview() {
-  return useQuery({ queryKey: ["admin", "overview"], queryFn: () => apiFetch<AdminOverview>("/admin/overview") });
+export function useAdminOverview(enabled = true) {
+  return useQuery({ queryKey: ["admin", "overview"], queryFn: () => apiFetch<AdminOverview>("/admin/overview"), enabled });
 }
 
 export function useAdminQueue<T = Record<string, unknown>>(

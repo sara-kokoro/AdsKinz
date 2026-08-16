@@ -35,10 +35,18 @@ function LoginPage() {
   const [telegram, setTelegram] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [returnTo] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const value = new URLSearchParams(window.location.search).get("returnTo");
+    return value && value.startsWith("/") && !value.startsWith("//") ? value : null;
+  });
 
   useEffect(() => {
-    if (ready && token && role) void navigate({ to: HOME_FOR_ROLE[role], replace: true });
-  }, [ready, token, role, navigate]);
+    if (ready && token && role) {
+      if (returnTo) window.location.assign(returnTo);
+      else void navigate({ to: HOME_FOR_ROLE[role], replace: true });
+    }
+  }, [ready, token, role, navigate, returnTo]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +63,8 @@ function LoginPage() {
               ...(displayName.trim() ? { display_name: displayName.trim() } : {}),
               ...(telegram.trim() ? { telegram_username: telegram.trim() } : {}),
             });
-      await navigate({ to: HOME_FOR_ROLE[nextRole], replace: true });
+      if (returnTo) window.location.assign(returnTo);
+      else await navigate({ to: HOME_FOR_ROLE[nextRole], replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     } finally {

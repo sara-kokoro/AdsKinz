@@ -50,6 +50,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const onSessionCleared = () => {
+      setToken(null);
+      setRole(null);
+      setUser(null);
+      qc.clear();
+    };
+    window.addEventListener("adskinz:session-cleared", onSessionCleared);
     const stored = tokenStore.get();
     const storedRole = tokenStore.role();
     setToken(stored);
@@ -59,7 +66,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setReady(true);
     }
-  }, [loadProfile]);
+    return () => window.removeEventListener("adskinz:session-cleared", onSessionCleared);
+  }, [loadProfile, qc]);
 
   const applySession = useCallback(
     (accessToken: string, nextRole: Role, profile: UserProfile | null) => {

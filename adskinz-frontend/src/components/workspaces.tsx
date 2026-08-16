@@ -18,12 +18,19 @@ import {
 } from "@/components/icons";
 import { useBalance, usePublisherStats, useAdminOverview } from "@/lib/queries";
 import { num } from "@/lib/api";
+import { useAuthGuard } from "@/lib/auth";
 
 const ico = { width: 18, height: 18 };
 
+function AuthLoading() {
+  return <div className="flex min-h-screen items-center justify-center bg-ink text-sm text-paper-dim">Checking your session…</div>;
+}
+
 export function AdvShell({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   const { t } = useTranslation();
-  const { data: balance } = useBalance();
+  const allowed = useAuthGuard("advertiser");
+  const { data: balance } = useBalance(allowed);
+  if (!allowed) return <AuthLoading />;
   const nav: NavItem[] = [
     { to: "/traffic", label: t("adv.nav.dashboard"), icon: <IconGrid {...ico} /> },
     { to: "/traffic/campaigns", label: t("adv.nav.campaigns"), icon: <IconMegaphone {...ico} /> },
@@ -55,7 +62,9 @@ export function AdvShell({ title, action, children }: { title: string; action?: 
 
 export function PubShell({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   const { t } = useTranslation();
-  const { data: stats } = usePublisherStats();
+  const allowed = useAuthGuard("publisher");
+  const { data: stats } = usePublisherStats(allowed);
+  if (!allowed) return <AuthLoading />;
   const available = num(stats?.availableBalance);
   const nav: NavItem[] = [
     { to: "/partner", label: t("pub.nav.dashboard"), icon: <IconGrid {...ico} /> },
@@ -106,7 +115,9 @@ export function AdminShell({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
-  const { data: overview } = useAdminOverview();
+  const allowed = useAuthGuard("admin");
+  const { data: overview } = useAdminOverview(allowed);
+  if (!allowed) return <AuthLoading />;
   const liveBadges = {
     campaigns: overview?.pendingCampaigns,
     channels: overview?.pendingChannels,
