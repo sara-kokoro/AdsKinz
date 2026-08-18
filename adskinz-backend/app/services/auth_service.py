@@ -20,13 +20,14 @@ from app.core.security import (
     create_access_token,
     create_admin_partial_token,
     create_admin_session_token,
+    create_refresh_token,
     decode_token,
     hash_password,
     needs_rehash,
     token_expiry_seconds,
     verify_password,
 )
-from app.models.accounts import AdminUser, Advertiser, Publisher
+from app.models.accounts import AdminUser, Advertiser, Publisher, RefreshToken
 from app.schemas.auth import (
     AdminPartialTokenResponse,
     AdminSessionResponse,
@@ -61,9 +62,33 @@ def _profile(account: Account, role: Role) -> UserProfile:
     )
 
 
-def _token_response(account: Account, role: Role) -> TokenResponse:
+async def _create_refresh_token_row(
+    session: AsyncSession,
+    account: Account | AdminUser,
+    role: Role,
+) -> str:
+    token = create_refresh_token(account.id, role)
+    payload = decode_token(token, expected_kind="refresh")
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if not jti or not exp:
+        raise RuntimeError("Refresh token missing jti or exp.")
+    account_type = "admin" if isinstance(account, AdminUser) else role.value
+    record = RefreshToken(
+        account_type=account_type,
+        account_id=account.id,
+        jti=jti,
+        expires_at=datetime.fromtimestamp(exp, tz=UTC),
+    )
+    session.add(record)
+    await session.flush()
+    return token
+
+
+def _token_response(account: Account, role: Role, refresh_token: str) -> TokenResponse:
     return TokenResponse(
         access_token=create_access_token(account.id, role),
+        refresh_token=refresh_token,
         expires_in=token_expiry_seconds("access"),
         role=role,
         user=_profile(account, role),
@@ -118,10 +143,11 @@ async def register(
         await session.rollback()
         raise ConflictError("An account already exists with this email address.") from exc
 
+    logger.info("account.registered role=%s id=%s", role, account.id)
+    refresh_token = await _create_refresh_token_row(session, account, role)
     await session.commit()
     await session.refresh(account)
-    logger.info("account.registered role=%s id=%s", role, account.id)
-    return _token_response(account, role)
+    return _token_response(account, role, refresh_token)
 
 
 async def login(
@@ -168,10 +194,11 @@ async def login(
 
     account.last_login_at = datetime.now(UTC)
     account.last_login_ip_hash = ip_hash
+    refresh_token = await _create_refresh_token_row(session, account, role)
     await session.commit()
     await session.refresh(account)
 
-    return _token_response(account, role)
+    return _token_response(account, role, refresh_token)
 
 
 # --------------------------------------------------------------------------- #
@@ -250,15 +277,91 @@ async def admin_verify_totp(
     admin.totp_confirmed = True
     admin.last_login_at = datetime.now(UTC)
     admin.last_login_ip_hash = ip_hash
-    await session.commit()
 
     logger.info("admin.login id=%s", admin.id)
+    refresh_token = await _create_refresh_token_row(session, admin, Role.ADMIN)
+    await session.commit()
+    await session.refresh(admin)
     return AdminSessionResponse(
         access_token=create_admin_session_token(admin.id),
+        refresh_token=refresh_token,
         expires_in=token_expiry_seconds("admin_session"),
         admin_id=admin.id,
         email=admin.email,
     )
+
+
+async def refresh_access_token(
+    session: AsyncSession,
+    *,
+    refresh_token: str,
+    ip_hash: str | None = None,
+) -> TokenResponse:
+    """Exchange a valid refresh token for a new access/refresh token pair."""
+    from datetime import UTC, datetime
+    from uuid import UUID
+
+    from sqlalchemy import delete, select
+
+    payload = decode_token(refresh_token, expected_kind="refresh")
+    subject = payload.get("sub")
+    role_raw = payload.get("role")
+    jti = payload.get("jti")
+    if not subject or not role_raw or not jti:
+        raise TokenError("Malformed refresh token.")
+
+    role = Role(role_raw)
+    account_id = UUID(str(subject))
+
+    # Reject unknown or already-used refresh tokens.
+    token_row = (
+        await session.execute(select(RefreshToken).where(RefreshToken.jti == jti))
+    ).scalar_one_or_none()
+    if token_row is None:
+        raise AuthenticationError("Invalid refresh token.")
+    if token_row.expires_at < datetime.now(UTC):
+        await session.execute(delete(RefreshToken).where(RefreshToken.jti == jti))
+        await session.commit()
+        raise AuthenticationError("Refresh token expired.")
+
+    # Load the matching account and enforce block status.
+    account: Account | AdminUser | None = None
+    if role == Role.ADMIN:
+        account = await session.get(AdminUser, account_id)
+        if account is None or not account.is_active:
+            raise AuthenticationError("Account is not active.")
+    else:
+        model: type[Advertiser] | type[Publisher] = (
+            Advertiser if role == Role.ADVERTISER else Publisher
+        )
+        account = await session.get(model, account_id)
+        if account is None:
+            raise AuthenticationError("Account no longer exists.")
+        if getattr(account, "is_blocked", False):
+            raise AccountBlockedError(
+                account.blocked_reason
+                or "This account has been suspended. Contact support for assistance."
+            )
+
+    # Single-use: delete the consumed token and issue a fresh pair.
+    await session.execute(delete(RefreshToken).where(RefreshToken.jti == jti))
+    new_refresh_token = await _create_refresh_token_row(session, account, role)
+    account.last_login_at = datetime.now(UTC)
+    account.last_login_ip_hash = ip_hash
+    await session.commit()
+    await session.refresh(account)
+
+    if role == Role.ADMIN:
+        # Admins use a separate response shape, but the frontend expects the
+        # same TokenResponse contract on /auth/refresh. We map admin here too.
+        return TokenResponse(
+            access_token=create_admin_session_token(account.id),
+            refresh_token=new_refresh_token,
+            expires_in=token_expiry_seconds("admin_session"),
+            role=role,
+            user=_profile(account, role) if isinstance(account, (Advertiser, Publisher)) else None,
+        )
+    return _token_response(account, role, new_refresh_token)
 
 
 async def change_password(
@@ -268,7 +371,16 @@ async def change_password(
     current_password: str,
     new_password: str,
 ) -> None:
+    from sqlalchemy import delete
+
     if not verify_password(current_password, account.password_hash):
         raise AuthenticationError("Current password is incorrect.")
     account.password_hash = hash_password(new_password)
+    role = Role.ADVERTISER if isinstance(account, Advertiser) else Role.PUBLISHER
+    await session.execute(
+        delete(RefreshToken).where(
+            RefreshToken.account_id == account.id,
+            RefreshToken.account_type == role.value,
+        )
+    )
     await session.commit()

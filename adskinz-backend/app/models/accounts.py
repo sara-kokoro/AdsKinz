@@ -145,6 +145,30 @@ class AdminUser(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
         return f"<AdminUser {self.email}>"
 
 
+class RefreshToken(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """Stored refresh-token metadata so tokens can be revoked server-side.
+
+    The actual token is a JWT issued to the client; this table stores the
+    matching ``jti`` claim. A token is accepted by ``POST /auth/refresh`` only
+    while its ``jti`` row exists and has not expired.
+    """
+
+    __tablename__ = "refresh_tokens"
+    __table_args__ = (
+        Index("ix_refresh_tokens_account", "account_type", "account_id"),
+        Index("ix_refresh_tokens_expires", "expires_at"),
+    )
+
+    account_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    account_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    # JWT ID (jti claim). The client never sees this value.
+    jti: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<RefreshToken {self.account_type} {self.account_id}>"
+
+
 class LedgerEntry(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     """Append-only movement log behind every balance mutation.
 

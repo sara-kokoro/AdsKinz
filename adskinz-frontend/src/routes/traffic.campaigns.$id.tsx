@@ -1,23 +1,16 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdvShell } from "@/components/workspaces";
 import {
-  BudgetBar,
-  Btn,
-  Field,
-  Modal,
-  Panel,
-  Quote,
-  SectionTitle,
-  StatusPill,
-  Sparkline,
-  fmtInt,
-  fmtMoney,
-  inputCls,
+  BudgetBar, Btn, ErrorBanner, Field, FieldError, Modal, Panel, Quote, SectionTitle,
+  StatusPill, fmtInt, fmtMoney, inputCls,
 } from "@/components/kit";
 import { UsdtMark } from "@/components/usdt";
-import { AD_LANGUAGES, campaigns, spark } from "@/lib/mock-data";
+import { ArtFunnel } from "@/components/illustrations";
+import { AD_LANGUAGES } from "@/lib/constants";
+import { ApiError, num, trackingUrl } from "@/lib/api";
+import { useCampaign, useCampaignTranslations, useUpdateCampaign } from "@/lib/queries";
 
 export const Route = createFileRoute("/traffic/campaigns/$id")({
   head: () => ({
@@ -36,20 +29,48 @@ const MIN_BUDGET = 50;
 function CampaignDetail() {
   const { t } = useTranslation();
   const { id } = useParams({ from: "/traffic/campaigns/$id" });
-  const base = useMemo(() => campaigns.find((c) => c.id === id), [id]);
+  const campaignQ = useCampaign(id);
+  const translationsQ = useCampaignTranslations(id);
+  const update = useUpdateCampaign(id);
 
-  const [draft, setDraft] = useState(() => base && { ...base });
   const [editing, setEditing] = useState(false);
+  const [name, setName] = useState("");
+  const [cpm, setCpm] = useState("");
+  const [budget, setBudget] = useState("");
+  const [language, setLanguage] = useState("");
   const [topUp, setTopUp] = useState(false);
   const [amount, setAmount] = useState("100");
   const [notice, setNotice] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  if (!base || !draft) {
+  const c = campaignQ.data;
+
+  const startEdit = () => {
+    if (!c) return;
+    setName(c.name);
+    setCpm(c.cpm);
+    setBudget(c.budget);
+    setLanguage(c.language);
+    setEditing(true);
+  };
+
+  if (campaignQ.isLoading) {
+    return (
+      <AdvShell title={t("adv.nav.campaigns")}>
+        <Panel><div className="h-40 animate-pulse rounded-md bg-panel-2" /></Panel>
+      </AdvShell>
+    );
+  }
+
+  if (campaignQ.isError || !c) {
     return (
       <AdvShell title={t("adv.nav.campaigns")}>
         <Panel>
-          <p className="text-sm text-paper-dim">{t("adv.detail.notFound")}</p>
+          {campaignQ.isError ? (
+            <ErrorBanner onRetry={() => campaignQ.refetch()} message={(campaignQ.error as Error)?.message} />
+          ) : (
+            <p className="text-sm text-paper-dim">{t("adv.detail.notFound")}</p>
+          )}
           <div className="mt-4">
             <Link to="/traffic/campaigns"><Btn variant="secondary">{t("adv.detail.back")}</Btn></Link>
           </div>
@@ -58,18 +79,24 @@ function CampaignDetail() {
     );
   }
 
-  const remaining = Math.max(0, draft.budget - draft.spent);
-  const ctr = draft.impressions ? ((draft.clicks / draft.impressions) * 100).toFixed(2) : "0.00";
+  const spent = num(c.spent);
+  const budgetTotal = num(c.budget);
+  const remaining = Math.max(0, budgetTotal - spent);
+  const ctr = c.impressions ? ((c.clicks / c.impressions) * 100).toFixed(2) : c.ctr.toFixed(2);
 
   const saveEdit = () => {
-    if (draft.budget < MIN_BUDGET) {
+    if (Number(budget) < MIN_BUDGET) {
       setErr(t("adv.wizard.budgetMin"));
       return;
     }
     setErr(null);
-    setEditing(false);
-    setDraft((d) => d && { ...d, status: "pending_review" });
-    setNotice(t("adv.detail.saved"));
+    update.mutate(
+      { name, cpm: Number(cpm), budget: Number(budget), language },
+      {
+        onSuccess: () => { setEditing(false); setNotice(t("adv.detail.saved")); },
+        onError: (e) => setErr(e instanceof ApiError ? e.message : t("common.loadError")),
+      },
+    );
   };
 
   const addFunds = () => {
@@ -79,18 +106,31 @@ function CampaignDetail() {
       return;
     }
     setErr(null);
-    setDraft((d) => d && { ...d, budget: d.budget + n, status: d.status === "rejected" ? d.status : "active" });
-    setTopUp(false);
-    setNotice(t("adv.detail.funded"));
+    update.mutate(
+      { budget: budgetTotal + n },
+      {
+        onSuccess: () => { setTopUp(false); setNotice(t("adv.detail.funded")); },
+        onError: (e) => setErr(e instanceof ApiError ? e.message : t("common.loadError")),
+      },
+    );
+  };
+
+  const togglePause = () => {
+    update.mutate({ status: c.status === "active" ? "paused" : "active" });
   };
 
   return (
     <AdvShell
-      title={draft.name}
+      title={c.name}
       action={
         <div className="flex flex-wrap gap-2">
           <Btn tone="bounty" onClick={() => setTopUp(true)}>{t("adv.detail.topUp")}</Btn>
-          <Btn variant="secondary" onClick={() => setEditing((v) => !v)}>{t("adv.detail.edit")}</Btn>
+          {["active", "paused"].includes(c.status) && (
+            <Btn variant="secondary" onClick={togglePause} disabled={update.isPending}>
+              {c.status === "active" ? t("adv.detail.pause") : t("adv.detail.relaunch")}
+            </Btn>
+          )}
+          <Btn variant="secondary" onClick={() => (editing ? setEditing(false) : startEdit())}>{t("adv.detail.edit")}</Btn>
         </div>
       }
     >
@@ -109,16 +149,19 @@ function CampaignDetail() {
               {fmtMoney(remaining)}
             </p>
             <p className="num mt-1 text-xs text-paper-dim">
-              {fmtMoney(draft.spent)} / {fmtMoney(draft.budget, 0)}
+              {fmtMoney(spent)} / {fmtMoney(budgetTotal, 0)}
             </p>
-            <div className="mt-3 w-56"><BudgetBar used={draft.spent} total={draft.budget} /></div>
+            <div className="mt-3 w-56"><BudgetBar used={spent} total={budgetTotal || 1} /></div>
           </div>
-          <div className="min-w-44 flex-1"><Sparkline points={spark(4, 30)} tone="signal" /></div>
-          <StatusPill status={draft.status} />
+          <div className="min-w-44 flex-1"><ArtFunnel /></div>
+          <StatusPill status={c.status} />
         </Panel>
 
-        {draft.status === "paused_balance" && (
+        {c.status === "paused_balance" && (
           <Quote tone="danger" label={t("adv.detail.topUp")}>{t("adv.detail.topUpSub")}</Quote>
+        )}
+        {c.rejectionReason && (
+          <Quote tone="danger" label={t("status.rejected")}>{c.rejectionReason}</Quote>
         )}
 
         <div className="grid gap-5 lg:grid-cols-2">
@@ -126,84 +169,76 @@ function CampaignDetail() {
             <SectionTitle>{t("adv.detail.overview")}</SectionTitle>
             <dl className="text-sm">
               {[
-                [t("adv.colCampaign"), draft.name],
-                ["ID", draft.id],
-                [t("adv.colFormat"), draft.format],
-                [t("adv.targeting"), draft.language],
-                [t("adv.colCpm"), fmtMoney(draft.cpm)],
-                [t("adv.colClicks"), fmtInt(draft.clicks)],
-                [t("pub.impressions30"), fmtInt(draft.impressions)],
+                [t("adv.colCampaign"), c.name],
+                ["ID", c.id],
+                [t("adv.colFormat"), c.format],
+                [t("adv.targeting"), c.language],
+                [t("adv.colCpm"), fmtMoney(num(c.cpm))],
+                [t("adv.colClicks"), fmtInt(c.clicks)],
+                [t("pub.impressions30"), fmtInt(c.impressions)],
                 [t("pub.ctr"), `${ctr}%`],
+                [t("admin.detail.trackedUrl"), c.trackingId ? trackingUrl(c.trackingId) : "—"],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3 border-b border-seam py-2 last:border-0">
                   <dt className="text-paper-dim">{k}</dt>
-                  <dd className="num font-semibold">{v}</dd>
+                  <dd className="num max-w-[60%] truncate text-right font-semibold">{v}</dd>
                 </div>
               ))}
             </dl>
-            {draft.rejectionReason && <p className="mt-3 text-xs text-danger">{draft.rejectionReason}</p>}
           </Panel>
 
           <Panel>
             <SectionTitle>{t("adv.detail.settings")}</SectionTitle>
             <div className="space-y-4">
               <Field label={t("adv.colCampaign")} htmlFor="cname">
-                <input
-                  id="cname"
-                  disabled={!editing}
-                  value={draft.name}
-                  onChange={(e) => setDraft((d) => d && { ...d, name: e.target.value })}
-                  className={inputCls()}
-                />
+                <input id="cname" disabled={!editing} value={editing ? name : c.name} onChange={(e) => setName(e.target.value)} className={inputCls()} />
               </Field>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={t("adv.colCpm")} htmlFor="ccpm">
-                  <input
-                    id="ccpm"
-                    type="number"
-                    step="0.1"
-                    disabled={!editing}
-                    value={draft.cpm}
-                    onChange={(e) => setDraft((d) => d && { ...d, cpm: Number(e.target.value) })}
-                    className={`num ${inputCls()}`}
-                  />
+                  <input id="ccpm" type="number" step="0.1" disabled={!editing} value={editing ? cpm : c.cpm} onChange={(e) => setCpm(e.target.value)} className={`num ${inputCls()}`} />
                 </Field>
-                <Field label={t("adv.budget")} error={draft.budget < MIN_BUDGET ? t("adv.wizard.budgetMin") : undefined} htmlFor="cbud">
-                  <input
-                    id="cbud"
-                    type="number"
-                    disabled={!editing}
-                    value={draft.budget}
-                    onChange={(e) => setDraft((d) => d && { ...d, budget: Number(e.target.value) })}
-                    className={`num ${inputCls(draft.budget < MIN_BUDGET)}`}
-                  />
+                <Field label={t("adv.budget")} error={editing && Number(budget) < MIN_BUDGET ? t("adv.wizard.budgetMin") : undefined} htmlFor="cbud">
+                  <input id="cbud" type="number" disabled={!editing} value={editing ? budget : c.budget} onChange={(e) => setBudget(e.target.value)} className={`num ${inputCls(editing && Number(budget) < MIN_BUDGET)}`} />
                 </Field>
               </div>
               <Field label={t("adv.targeting")} htmlFor="clang">
-                <select
-                  id="clang"
-                  disabled={!editing}
-                  value={draft.language}
-                  onChange={(e) => setDraft((d) => d && { ...d, language: e.target.value })}
-                  className={inputCls()}
-                >
+                <select id="clang" disabled={!editing} value={editing ? language : c.language} onChange={(e) => setLanguage(e.target.value)} className={inputCls()}>
                   {AD_LANGUAGES.map((l) => (
-                    <option key={l.code} value={l.label}>{l.label}</option>
+                    <option key={l.code} value={l.code}>{l.label}</option>
                   ))}
                 </select>
               </Field>
-              {err && <p className="text-xs font-semibold text-danger">{err}</p>}
+              {err && <FieldError>{err}</FieldError>}
               {editing && (
                 <div className="flex flex-wrap gap-2">
-                  <Btn onClick={saveEdit}>{t("adv.detail.save")}</Btn>
-                  <Btn variant="secondary" onClick={() => { setDraft({ ...base }); setEditing(false); setErr(null); }}>
-                    {t("common.cancel")}
-                  </Btn>
+                  <Btn onClick={saveEdit} disabled={update.isPending}>{t("adv.detail.save")}</Btn>
+                  <Btn variant="secondary" onClick={() => { setEditing(false); setErr(null); }}>{t("common.cancel")}</Btn>
                 </div>
               )}
             </div>
           </Panel>
         </div>
+
+        <Panel>
+          <SectionTitle>{t("nav.docs")} — Translations</SectionTitle>
+          {translationsQ.isLoading ? (
+            <div className="h-16 animate-pulse rounded-md bg-panel-2" />
+          ) : translationsQ.isError ? (
+            <ErrorBanner onRetry={() => translationsQ.refetch()} message={(translationsQ.error as Error)?.message} />
+          ) : !translationsQ.data || translationsQ.data.translations.length === 0 ? (
+            <p className="text-sm text-paper-dim">{t("common.none")}</p>
+          ) : (
+            <ul className="divide-y divide-seam">
+              {translationsQ.data.translations.map((tr) => (
+                <li key={tr.lang_code} className="py-3">
+                  <p className="text-xs font-semibold text-paper-dim uppercase">{tr.lang_code}</p>
+                  <p className="mt-1 text-sm">{tr.translated_text}</p>
+                  {tr.translated_button_label && <p className="mt-1 text-xs text-signal">{tr.translated_button_label}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
       </div>
 
       <Modal
@@ -213,25 +248,15 @@ function CampaignDetail() {
         sub={t("adv.detail.topUpSub")}
         footer={
           <>
-            <Btn tone="bounty" onClick={addFunds}>{t("adv.detail.addFunds")}</Btn>
+            <Btn tone="bounty" onClick={addFunds} disabled={update.isPending}>{t("adv.detail.addFunds")}</Btn>
             <Btn variant="secondary" onClick={() => setTopUp(false)}>{t("common.cancel")}</Btn>
           </>
         }
       >
-        <Field
-          label={t("adv.detail.amount")}
-          error={Number(amount) < MIN_BUDGET ? t("adv.wizard.budgetMin") : undefined}
-          htmlFor="amt"
-        >
+        <Field label={t("adv.detail.amount")} error={Number(amount) < MIN_BUDGET ? t("adv.wizard.budgetMin") : undefined} htmlFor="amt">
           <div className="flex items-center gap-2">
             <UsdtMark size={20} />
-            <input
-              id="amt"
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className={`num ${inputCls(Number(amount) < MIN_BUDGET)}`}
-            />
+            <input id="amt" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className={`num ${inputCls(Number(amount) < MIN_BUDGET)}`} />
           </div>
         </Field>
       </Modal>

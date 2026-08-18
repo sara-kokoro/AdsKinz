@@ -17,7 +17,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Query
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.deps import ClientIPHashDep, CurrentAdminDep, PaginationDep, SessionDep
@@ -29,7 +29,7 @@ from app.core.enums import (
     WithdrawalStatus,
 )
 from app.core.errors import NotFoundError, ValidationError
-from app.models.accounts import Advertiser, AdminUser, Publisher
+from app.models.accounts import Advertiser, AdminUser, Publisher, RefreshToken
 from app.models.campaigns import Campaign, campaign_format_to_frontend
 from app.models.finance import Deposit, PlatformRevenue, Withdrawal
 from app.models.placements import Channel, MiniApp
@@ -893,6 +893,14 @@ async def block_account(
 
     account.is_blocked = payload.blocked
     account.blocked_reason = payload.reason if payload.blocked else None
+
+    if payload.blocked:
+        await session.execute(
+            delete(RefreshToken).where(
+                RefreshToken.account_id == account.id,
+                RefreshToken.account_type == role,
+            )
+        )
 
     moderation_service.log_action(
         session,

@@ -23,4 +23,5 @@ python-multipart==0.0.*
 orjson==3.11.*
 tronpy==0.5.*
 eth-account==0.13.*
+web3==7.10.*
 pytoniq-core==0.1.*

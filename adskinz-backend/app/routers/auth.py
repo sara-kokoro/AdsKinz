@@ -25,8 +25,10 @@ from app.schemas.auth import (
     AdminTotpRequest,
     ChangePasswordRequest,
     LoginRequest,
+    RefreshTokenRequest,
     RegisterRequest,
     SettingsUpdateRequest,
+    TokenRefreshResponse,
     TokenResponse,
     UserProfile,
 )
@@ -137,6 +139,29 @@ async def change_password(
         new_password=payload.new_password,
     )
     return MessageResponse(message="Password updated.")
+
+
+@router.post(
+    "/refresh",
+    response_model=TokenRefreshResponse,
+    summary="Exchange a refresh token for a new access token",
+)
+async def refresh(
+    payload: RefreshTokenRequest,
+    session: SessionDep,
+    ip_hash: ClientIPHashDep,
+) -> TokenRefreshResponse:
+    result = await auth_service.refresh_access_token(
+        session,
+        refresh_token=payload.refresh_token,
+        ip_hash=ip_hash,
+    )
+    return TokenRefreshResponse(
+        access_token=result.access_token,
+        refresh_token=result.refresh_token,
+        expires_in=result.expires_in,
+        role=result.role,
+    )
 
 
 # --------------------------------------------------------------------------- #

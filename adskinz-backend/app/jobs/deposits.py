@@ -16,7 +16,7 @@ from app.core.enums import DepositStatus
 from app.database import session_scope
 from app.models.accounts import Advertiser
 from app.models.finance import Deposit, WalletAddress
-from app.services import billing_service, email_service, wallet_service
+from app.services import bep20_sweep_service, billing_service, email_service, wallet_service
 
 logger = logging.getLogger(__name__)
 
@@ -351,6 +351,18 @@ async def deposit_watcher() -> dict:
             summary["deposits_confirmed"] += 1
             if credited > 0:
                 summary["deposits_credited"] += 1
+
+            # Automatic BEP20 sweep: send USDT from the derived address to treasury.
+            if deposit.network == "bnb" and wallet.derivation_index is not None:
+                try:
+                    await bep20_sweep_service.sweep_bep20_deposit(session, deposit, wallet)
+                except Exception as exc:
+                    logger.warning(
+                        "deposits.bep20_sweep_failed deposit=%s error=%s",
+                        deposit.id,
+                        exc,
+                    )
+
             notifications.append(
                 (
                     advertiser.email,

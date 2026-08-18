@@ -7,10 +7,12 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider } from "../lib/theme";
+import { AuthProvider } from "../lib/auth";
 import "../lib/i18n";
 
 function NotFoundComponent() {
@@ -38,6 +40,9 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  useEffect(() => {
+    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+  }, [error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -75,14 +80,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "AdsKinz — Native Telegram advertising" },
+      { title: "AdsKinz — Native advertising inside Telegram" },
       {
         name: "description",
         content:
-          "AdsKinz runs native ads inside Telegram channels and Mini Apps. Campaigns from $50, USDT payouts for publishers.",
+          "Native ads inside Telegram channels and Mini Apps. Campaigns from $50, 12 languages, USDT payouts for publishers from $50.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:title", content: "AdsKinz — Native advertising inside Telegram" },
+      { name: "twitter:title", content: "AdsKinz — Native advertising inside Telegram" },
+      { property: "og:description", content: "Native ads inside Telegram channels and Mini Apps. Campaigns from $50, 12 languages, USDT payouts for publishers from $50." },
+      { name: "twitter:description", content: "Native ads inside Telegram channels and Mini Apps. Campaigns from $50, 12 languages, USDT payouts for publishers from $50." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/473767d6-6f66-4aec-9bef-d03dfb231b02" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/473767d6-6f66-4aec-9bef-d03dfb231b02" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -93,7 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap",
       },
       { rel: "stylesheet", href: "https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" },
-      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
     ],
     scripts: [
       {
@@ -127,8 +138,10 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
+        <AuthProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

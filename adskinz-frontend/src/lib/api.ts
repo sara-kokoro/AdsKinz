@@ -1,53 +1,247 @@
 /**
- * Central API integration points.
- * The FastAPI backend (Koyeb) plugs in here. Everything below is mocked in
- * src/lib/mock-data.ts until the real endpoints are wired.
+ * AdsKinz API client — production wiring against the FastAPI backend.
+ * No mock data: every screen reads from these endpoints.
  */
-export const API_BASE = import.meta.env["VITE_API_BASE"] ?? "competent-rebekkah-davelam-58380a6b.koyeb.app";
+export const API_BASE = (
+  import.meta.env["VITE_API_URL"] ??
+  import.meta.env["VITE_API_BASE"] ??
+  "https://competent-rebekkah-davelam-58380a6b.koyeb.app"
+).replace(/\/$/, "");
 
-export const ENDPOINTS = {
-  // Auth — email/password only. No fiat providers anywhere in the product.
-  login: `${API_BASE}/auth/login`,
-  register: `${API_BASE}/auth/register`,
-  adminLogin: `${API_BASE}/admin/auth/login`,
-  adminTotp: `${API_BASE}/admin/auth/totp`, // mandatory second factor for kingcey
+const TOKEN_KEY = "adskinz.token";
+const REFRESH_KEY = "adskinz.refresh";
+const ROLE_KEY = "adskinz.role";
 
-  // Advertiser
-  campaigns: `${API_BASE}/advertiser/campaigns`,
-  campaignStats: `${API_BASE}/advertiser/stats`,
-  // Groq-backed ad copy generation
-  generateCopy: `${API_BASE}/advertiser/creatives/generate`,
-  // Pre-generated campaign translations, stored at creation time.
-  // No realtime translation call happens per impression.
-  campaignTranslations: `${API_BASE}/advertiser/campaigns/:id/translations`,
+export type Role = "advertiser" | "publisher" | "admin";
 
-  // Deposits — crypto only: USDT TON (memo tag), USDT TRC20, USDT BNB.
-  // Deposit addresses are derived server-side per user.
-  depositAddress: `${API_BASE}/billing/deposit-address`, // ?network=ton|trc20|bnb
-  deposits: `${API_BASE}/billing/deposits`,
+export const tokenStore = {
+  get(): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+      return window.localStorage.getItem(TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  },
+  getRefresh(): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+      return window.localStorage.getItem(REFRESH_KEY);
+    } catch {
+      return null;
+    }
+  },
+  role(): Role | null {
+    if (typeof window === "undefined") return null;
+    try {
+      return window.localStorage.getItem(ROLE_KEY) as Role | null;
+    } catch {
+      return null;
+    }
+  },
+  set(token: string, refreshToken: string, role: Role) {
+    try {
+      window.localStorage.setItem(TOKEN_KEY, token);
+      window.localStorage.setItem(REFRESH_KEY, refreshToken);
+      window.localStorage.setItem(ROLE_KEY, role);
+    } catch {
+      /* storage unavailable */
+    }
+  },
+  clear() {
+    try {
+      window.localStorage.removeItem(TOKEN_KEY);
+      window.localStorage.removeItem(REFRESH_KEY);
+      window.localStorage.removeItem(ROLE_KEY);
+    } catch {
+      /* storage unavailable */
+    }
+  },
+};
 
-  // Publisher
-  channels: `${API_BASE}/publisher/channels`,
-  botAdminCheck: `${API_BASE}/publisher/channels/bot-status`,
-  miniApps: `${API_BASE}/publisher/mini-apps`,
-  kinzKey: `${API_BASE}/publisher/mini-apps/:id/key`,
-  withdrawals: `${API_BASE}/publisher/withdrawals`,
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    if (code) this.code = code;
+  }
+}
 
-  // Admin
-  adminQueueCampaigns: `${API_BASE}/admin/queue/campaigns`,
-  adminQueueChannels: `${API_BASE}/admin/queue/channels`,
-  adminQueueMiniApps: `${API_BASE}/admin/queue/mini-apps`,
-  adminQueueWithdrawals: `${API_BASE}/admin/queue/withdrawals`,
-  adminFinances: `${API_BASE}/admin/finances`,
-  adminAnomalies: `${API_BASE}/admin/anomalies`,
-  adminAudit: `${API_BASE}/admin/audit`,
-} as const;
+function messageFromBody(body: unknown, status: number): string {
+  if (typeof body === "string" && body) return body;
+  if (body && typeof body === "object") {
+    const b = body as Record<string, unknown>;
+    const detail = b["detail"] ?? b["message"] ?? b["error"];
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      const first = detail[0] as Record<string, unknown> | undefined;
+      if (first && typeof first["msg"] === "string") return String(first["msg"]);
+    }
+  }
+  if (status === 401) return "Your session expired. Please sign in again.";
+  if (status === 403) return "You don't have access to this resource.";
+  if (status === 404) return "Not found.";
+  return `Request failed (${status}).`;
+}
 
-/**
- * Mini App runtime: the SDK reads initData.user.language_code and asks the
- * backend for the creative already translated into that language.
- */
-export const MINI_APP_SERVE = `${API_BASE}/sdk/serve`; // ?key=<kinz-id>&lang=<language_code>
+export type RequestOptions = {
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  body?: unknown;
+  query?: Record<string, string | number | boolean | undefined | null>;
+  token?: string | null;
+  auth?: boolean;
+  signal?: AbortSignal;
+};
 
-/** Click tracking wrapper. Real redirect + budget decrement happen backend-side. */
-export const trackingUrl = (id: string) => `adskinz.io/t/${id}`;
+let isRefreshing = false;
+let refreshPromise: Promise<string> | null = null;
+const refreshQueue: Array<(token: string | null) => void> = [];
+
+async function doRefresh(): Promise<string> {
+  const refresh = tokenStore.getRefresh();
+  if (!refresh) {
+    throw new ApiError("No refresh token available.", 401, "NO_REFRESH_TOKEN");
+  }
+
+  const res = await fetch(`${API_BASE}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ refresh_token: refresh }),
+  });
+
+  const text = await res.text();
+  let parsed: unknown = null;
+  if (text) {
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = text;
+    }
+  }
+
+  if (!res.ok) {
+    throw new ApiError(messageFromBody(parsed, res.status), res.status);
+  }
+
+  const data = parsed as Record<string, unknown>;
+  const accessToken = String(data["access_token"] ?? "");
+  const newRefresh = String(data["refresh_token"] ?? "");
+  const role = String(data["role"] ?? tokenStore.role() ?? "advertiser") as Role;
+  if (!accessToken || !newRefresh) {
+    throw new ApiError("Invalid refresh response.", 401, "INVALID_REFRESH_RESPONSE");
+  }
+  tokenStore.set(accessToken, newRefresh, role);
+  return accessToken;
+}
+
+async function refreshToken(): Promise<string> {
+  if (isRefreshing && refreshPromise) {
+    return refreshPromise;
+  }
+  isRefreshing = true;
+  refreshPromise = doRefresh()
+    .then((token) => {
+      refreshQueue.forEach((resolve) => resolve(token));
+      refreshQueue.length = 0;
+      return token;
+    })
+    .catch((err) => {
+      refreshQueue.forEach((resolve) => resolve(null));
+      refreshQueue.length = 0;
+      tokenStore.clear();
+      throw err;
+    })
+    .finally(() => {
+      isRefreshing = false;
+      refreshPromise = null;
+    });
+  return refreshPromise;
+}
+
+function enqueueRefresh(): Promise<string | null> {
+  return new Promise((resolve) => refreshQueue.push(resolve));
+}
+
+export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const { method = "GET", body, query, auth = true, signal } = opts;
+
+  const url = new URL(`${API_BASE}${path.startsWith("/") ? path : `/${path}`}`);
+  if (query) {
+    for (const [k, v] of Object.entries(query)) {
+      if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
+    }
+  }
+
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const token = opts.token ?? (auth ? tokenStore.get() : null);
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), {
+      method,
+      headers,
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(signal ? { signal } : {}),
+    });
+  } catch {
+    throw new ApiError("Network error — the AdsKinz API is unreachable.", 0, "NETWORK_ERROR");
+  }
+
+  if (res.status === 401 && auth && typeof window !== "undefined" && tokenStore.get()) {
+    let newToken: string | null;
+    if (isRefreshing) {
+      newToken = await enqueueRefresh();
+    } else {
+      try {
+        newToken = await refreshToken();
+      } catch {
+        newToken = null;
+      }
+    }
+    if (newToken) {
+      return apiFetch(path, { ...opts, token: newToken });
+    }
+    tokenStore.clear();
+  }
+
+  const text = await res.text();
+  let parsed: unknown = null;
+  if (text) {
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = text;
+    }
+  }
+
+  if (!res.ok) {
+    if (res.status === 401 && auth && typeof window !== "undefined" && tokenStore.get()) {
+      tokenStore.clear();
+    }
+    const code =
+      parsed && typeof parsed === "object"
+        ? (((parsed as Record<string, unknown>)["code"] as string) ?? undefined)
+        : undefined;
+    throw new ApiError(messageFromBody(parsed, res.status), res.status, code);
+  }
+
+  return parsed as T;
+}
+
+/** Numeric fields come back as decimal strings from the API. */
+export const num = (v: string | number | null | undefined, fallback = 0): number => {
+  if (v === null || v === undefined || v === "") return fallback;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+/** Public click-tracking URL for a campaign tracking id. */
+export const trackingUrl = (id: string) => `${API_BASE}/t/${id}`;
+
+/** Kinz-ID Mini App SDK script URL served by the API. */
+export const SDK_SCRIPT_URL = `${API_BASE}/sdk/kinz.js`;

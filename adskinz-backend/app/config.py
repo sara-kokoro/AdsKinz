@@ -33,8 +33,8 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     ENABLE_API_DOCS: bool = True
     API_BASE_URL: str = "competent-rebekkah-davelam-58380a6b.koyeb.app"
-    PUBLIC_BASE_URL: str = "https://preview--dfghfffghjj-rrtgghy-zejjj.lovable.app/partner"
-    CORS_ORIGINS: str = "http://localhost:3000,https://adskinz.io,https://kingcey.adskinz.io"
+    PUBLIC_BASE_URL: str = "https://ads-kinz.vercel.app"
+    CORS_ORIGINS: str = "http://localhost:3000,https://adskinz.io,https://kingcey.adskinz.io,https://ads-kinz.vercel.app"
     CORS_ORIGIN_REGEX: str = ""
     # Comma-separated Host header allowlist. Empty disables the check, which is
     # the right default behind a platform proxy that already filters hosts.
@@ -48,12 +48,12 @@ class Settings(BaseSettings):
     SDK_CREATIVE_TTL: int = 30
     TRACKING_LINK_TTL_DAYS: int = 30
     # A click costs this multiple of one impression at the campaign's CPM.
-    CLICK_PRICE_MULTIPLIER: Decimal = Decimal("5")
+    CLICK_PRICE_MULTIPLIER: Decimal = Decimal("4")
 
     # ------------------------------------------------------------------ #
     # Database
     # ------------------------------------------------------------------ #
-    DATABASE_URL: str = "postgresql+asyncpg://adskinz:adskinz@localhost:5432/adskinz"
+    DATABASE_URL: str = "postgresql://neondb_owner:npg_6ockmfAH8tgl@ep-late-dew-axz8nu8u-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
     DB_POOL_RECYCLE: int = 1800
@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Redis — cache, distributed locks, rate limiting, fraud dedup
     # ------------------------------------------------------------------ #
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = "redis-cli --tls -u redis://default:gQAAAAAAAbpkAAIgcDFiZDdiMDBkNzdlOTM0YTQzYWI0NDUyZTk5OGY2ZjZhZg@informed-iguana-113252.upstash.io:6379"
     REDIS_ENABLED: bool = True
     REDIS_NAMESPACE: str = "adskinz"
     # TTL (seconds) for the ad-selection cache used by /sdk/serve
@@ -75,12 +75,13 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Security / auth
     # ------------------------------------------------------------------ #
-    JWT_SECRET: str = "change-me-in-production"
+    JWT_SECRET: str = "de3eb828ac366f5ded9d65a6665c49306c8e4d49d604358036e50f27b4665f2a"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_TTL_DAYS: int = 7
+    REFRESH_TOKEN_TTL_DAYS: int = 30
     ADMIN_PARTIAL_TOKEN_TTL_SECONDS: int = 300  # token between /login and /totp
     ADMIN_SESSION_TTL_HOURS: int = 2
-    IP_HASH_SALT: str = "change-me-too"
+    IP_HASH_SALT: str = "d325aba518966f51e592b88e2b21f2226f22363cc194665379e85ec2d7192486"
     TOTP_ISSUER: str = "AdsKinz"
 
     # Rate limits (requests per window, window in seconds)
@@ -94,13 +95,13 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Telegram
     # ------------------------------------------------------------------ #
-    BOT_TOKEN: str = ""
+    BOT_TOKEN: str = "8517598174:AAFhANCor9iLfhr4VLJhSumK1IA65CNJBhU"
     BOT_USERNAME: str = "AdsKinzBot"
-    MTPROTO_API_ID: int = 0
-    MTPROTO_API_HASH: str = ""
-    MTPROTO_SESSION_STRING: str = ""
-    ENABLE_BOT: bool = False
-    ENABLE_MTPROTO: bool = False
+    MTPROTO_API_ID: int = 37641587
+    MTPROTO_API_HASH: str = "9bce1167e828939f39452795e56202a9"
+    MTPROTO_SESSION_STRING: str = "BAI-XXMAPRj1cv2w0A2DzKq3El9CLj4nMBaEo_2RFtehsOgDB-8WqYXTHT_cgRo8RVgOGawCBehBfZHNeIH_rAeQ7i4ui_5sm5INbuDLCJmaRSO30fMiupHg6TaIa_ILE-7Ymp7N8D4FLT6AOeyt3M090p0csLSx1LI-Ei4lRqyxk695Y0lMj_5SJ9nzxi-Ocx1r-vYRDQhkHVE8Z1R0H0kXPMCPH53qtX_5zRoM6opjVtaI0v4avUotpCqmibAhPCwzxpLWQLrqIzn3umHg3-FQgC4SY-gXTUntk8vMDIjHuE8e7H5RpRFZcm_NbVsgCldGIO_ciN4aTSY-bETFFPu7tANrWwAAAAH4szcSAA"
+    ENABLE_BOT: bool = True
+    ENABLE_MTPROTO: bool = True
     ENABLE_SCHEDULER: bool = True
 
     # ------------------------------------------------------------------ #
@@ -108,25 +109,42 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     GROQ_API_KEY: str = "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"
     GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
     GROQ_TIMEOUT_SECONDS: float = 30.0
 
     # ------------------------------------------------------------------ #
-    # Wallets — WATCH-ONLY. The backend never holds a full mnemonic seed.
+    # Wallets — WATCH-ONLY deposit derivation (xpub) + sweep signing (xprv).
     # ------------------------------------------------------------------ #
+    # Extended public keys used to derive advertiser deposit addresses.
     XPUB_TRC20: str = ""
     XPUB_BEP20: str = ""
-    TON_DEPOSIT_ADDRESS: str = ""
+    # Extended private key for BEP20 deposit addresses. Required to sign the
+    # automatic sweep of USDT from derived addresses to the treasury.
+    ACCOUNT_XPRV: str = ""
+    # Hot wallet that funds derived addresses with BNB for gas. Must hold BNB.
+    BSC_GAS_WALLET_PRIVATE_KEY: str = ""
+    # Main treasury address that receives swept USDT on BNB Smart Chain.
+    BSC_TREASURY_ADDRESS: str = ""
+    # RPC endpoint for BNB Smart Chain.
+    BSC_RPC_URL: str = "https://bsc-dataseed.binance.org/"
+    # Minimum native BNB balance (in BNB) a derived address must keep after the
+    # gas top-up. Anything above this is sent back to the gas wallet.
+    BSC_GAS_DUST_BNB: Decimal = Decimal("0.0001")
+    # Estimated gas limit for a BEP20 transfer. Used to compute the BNB top-up.
+    BSC_TRANSFER_GAS_LIMIT: int = 100_000
     # Wallet 2 (payouts) — separate key, only used for withdrawal disbursement.
-    WALLET_2_PRIVATE_KEY: str = ""
-    WALLET_2_ADDRESS: str = ""
-    ENABLE_AUTO_PAYOUT: bool = False
+    WALLET_2_PRIVATE_KEY: str = "drastic enforce bicycle fox satisfy major excuse depend amount acoustic figure exist typical reduce glimpse charge kite volume truck bicycle post when only bunker"
+    WALLET_2_ADDRESS: str = "UQBXWGv8ni_K5RdVt8pkBjdxAuq4hHSMWVocLs-JDYSbpuv6"
+    ENABLE_AUTO_PAYOUT: bool = True
+    # Whether automatic BEP20 sweeps are enabled. Disable to keep deposits
+    # watch-only even when ACCOUNT_XPRV is configured.
+    ENABLE_BEP20_SWEEP: bool = True
 
-    TRONGRID_API_KEY: str = ""
+    TRONGRID_API_KEY: str = "b94228c9-c234-4399-8c39-ccaf46d13b97"
     TRONGRID_BASE_URL: str = "https://api.trongrid.io"
-    BSCSCAN_API_KEY: str = ""
+    BSCSCAN_API_KEY: str = "RAYN37HRFNVPYJYNEWMUJJ6RVBZFY4M2ZH"
     BSCSCAN_BASE_URL: str = "https://api.bscscan.com/api"
-    TONCENTER_API_KEY: str = ""
+    TONCENTER_API_KEY: str = "f355c8138b5f1d7158541863828cdd9693470c25621006e54615bfdee49785ad"
     TONCENTER_BASE_URL: str = "https://toncenter.com/api/v2"
 
     USDT_TRC20_CONTRACT: str = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
@@ -154,7 +172,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     MIN_CAMPAIGN_BUDGET: Decimal = Decimal("50.00")
     MIN_CPM_BID: Decimal = Decimal("2.00")
-    MIN_DAILY_BUDGET: Decimal = Decimal("2.00")
+    MIN_DAILY_BUDGET: Decimal = Decimal("1.80")
     MIN_WITHDRAWAL: Decimal = Decimal("50.00")
     MIN_CHANNEL_SUBSCRIBERS: int = 500
     MIN_CHANNEL_NAME_LENGTH: int = 5

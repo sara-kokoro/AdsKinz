@@ -10,6 +10,7 @@ from app.models.accounts import (
     Advertiser,
     LedgerEntry,
     Publisher,
+    RefreshToken,
     hd_wallet_index_seq,
 )
 from app.models.campaigns import (
@@ -20,7 +21,7 @@ from app.models.campaigns import (
     campaign_format_to_frontend,
     campaign_status_to_frontend,
 )
-from app.models.finance import Deposit, PlatformRevenue, WalletAddress, Withdrawal
+from app.models.finance import Bep20Sweep, Deposit, PlatformRevenue, WalletAddress, Withdrawal
 from app.models.placements import Channel, MiniApp, PlacementDailyStat
 from app.models.tracking import (
     Anomaly,
@@ -39,6 +40,7 @@ __all__ = [
     "Anomaly",
     "AuditLog",
     "Base",
+    "Bep20Sweep",
     "Campaign",
     "CampaignDailySpend",
     "CampaignTranslation",
@@ -52,6 +54,7 @@ __all__ = [
     "PlacementDailyStat",
     "PlatformRevenue",
     "Publisher",
+    "RefreshToken",
     "ScheduledPost",
     "TrackingLink",
     "ViewSnapshot",

@@ -17,7 +17,7 @@ from app.config import settings
 from app.core.enums import Role
 from app.core.errors import TokenError
 
-TokenKind = Literal["access", "admin_partial", "admin_session"]
+TokenKind = Literal["access", "refresh", "admin_partial", "admin_session"]
 
 # bcrypt is used directly rather than through passlib: recent bcrypt releases
 # dropped the internal attributes passlib probes at import time, which makes the
@@ -90,6 +90,15 @@ def create_access_token(subject: uuid.UUID | str, role: Role) -> str:
     )
 
 
+def create_refresh_token(subject: uuid.UUID | str, role: Role) -> str:
+    """Long-lived refresh token used to obtain a new access token."""
+    return _encode(
+        {"sub": str(subject), "role": role.value},
+        timedelta(days=settings.REFRESH_TOKEN_TTL_DAYS),
+        "refresh",
+    )
+
+
 def create_admin_partial_token(subject: uuid.UUID | str) -> str:
     """Short-lived token issued after password check, before TOTP validation."""
     return _encode(
@@ -130,6 +139,7 @@ def decode_token(token: str, expected_kind: TokenKind | None = None) -> dict[str
 def token_expiry_seconds(kind: TokenKind) -> int:
     return {
         "access": settings.ACCESS_TOKEN_TTL_DAYS * 86_400,
+        "refresh": settings.REFRESH_TOKEN_TTL_DAYS * 86_400,
         "admin_partial": settings.ADMIN_PARTIAL_TOKEN_TTL_SECONDS,
         "admin_session": settings.ADMIN_SESSION_TTL_HOURS * 3_600,
     }[kind]

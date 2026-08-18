@@ -82,6 +82,7 @@ class TokenResponse(APIModel):
     """
 
     access_token: str
+    refresh_token: str
     token_type: Literal["bearer"] = "bearer"
     expires_in: int
     role: Role
@@ -101,6 +102,18 @@ class TokenResponse(APIModel):
     @property
     def expiresIn(self) -> int:  # noqa: N802
         return self.expires_in
+
+
+class RefreshTokenRequest(RequestModel):
+    refresh_token: str = Field(min_length=10)
+
+
+class TokenRefreshResponse(APIModel):
+    access_token: str
+    refresh_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_in: int
+    role: Role
 
 
 class AdminPartialTokenResponse(APIModel):
@@ -128,6 +141,7 @@ class AdminPartialTokenResponse(APIModel):
 
 class AdminSessionResponse(APIModel):
     access_token: str
+    refresh_token: str
     token_type: Literal["bearer"] = "bearer"
     expires_in: int
     role: Literal["admin"] = "admin"

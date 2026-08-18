@@ -9,11 +9,12 @@ import {
   fmtInt,
   fmtMoney,
 } from "@/components/kit";
-import type { Campaign } from "@/lib/mock-data";
+import type { Campaign } from "@/lib/types";
+import { num } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 import { Btn } from "@/components/kit";
 
-function FormatBadge({ format }: { format: Campaign["format"] }) {
+function FormatBadge({ format }: { format: string }) {
   const label = format === "channel" ? "Channel post" : format === "interstitial" ? "Interstitial" : "Pop interstitial";
   return (
     <span className="rounded-md border border-seam px-2 py-0.5 text-[11px] font-semibold text-paper-dim">{label}</span>
@@ -83,12 +84,12 @@ export function CampaignTable({
                 </td>
                 <td className="px-5 py-4"><StatusPill status={c.status} /></td>
                 <td className="px-5 py-4"><FormatBadge format={c.format} /></td>
-                <td className="num px-5 py-4 font-semibold">{fmtMoney(c.cpm)}</td>
+                <td className="num px-5 py-4 font-semibold">{fmtMoney(num(c.cpm))}</td>
                 <td className="px-5 py-4">
                   <p className="num text-xs font-semibold text-bounty">
-                    {fmtMoney(c.spent)} / {fmtMoney(c.budget, 0)}
+                    {fmtMoney(num(c.spent))} / {fmtMoney(num(c.budget), 0)}
                   </p>
-                  <div className="mt-2"><BudgetBar used={c.spent} total={c.budget} /></div>
+                  <div className="mt-2"><BudgetBar used={num(c.spent)} total={num(c.budget)} /></div>
                 </td>
                 <td className="num px-5 py-4 font-semibold">{fmtInt(c.clicks)}</td>
                 <td className="px-5 py-4 text-right">
@@ -115,14 +116,14 @@ export function CampaignTable({
             </div>
             <div className="flex flex-wrap items-center gap-3 text-xs text-paper-dim">
               <FormatBadge format={c.format} />
-              <span className="num">CPM {fmtMoney(c.cpm)}</span>
+              <span className="num">CPM {fmtMoney(num(c.cpm))}</span>
               <span className="num">{fmtInt(c.clicks)} clicks</span>
             </div>
             <div>
               <p className="num text-xs font-semibold text-bounty">
-                {fmtMoney(c.spent)} / {fmtMoney(c.budget, 0)}
+                {fmtMoney(num(c.spent))} / {fmtMoney(num(c.budget), 0)}
               </p>
-              <div className="mt-2"><BudgetBar used={c.spent} total={c.budget} /></div>
+              <div className="mt-2"><BudgetBar used={num(c.spent)} total={num(c.budget)} /></div>
             </div>
             {c.rejectionReason && <p className="text-xs text-danger">{c.rejectionReason}</p>}
             <Link to="/traffic/campaigns/$id" params={{ id: c.id }} className="inline-block text-xs font-semibold text-signal">
