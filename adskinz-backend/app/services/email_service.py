@@ -180,6 +180,17 @@ async def send_deposit_confirmed(to: str, *, amount: Any, network: str, fee: Any
     return await send_email(to, "AdsKinz — deposit confirmed", body)
 
 
+async def send_verification_code(to: str, *, code: str) -> bool:
+    """Send the 6-digit email verification code for a new account."""
+    body = _render(
+        "Verify your AdsKinz account",
+        "Thanks for signing up. Enter the code below in the verification screen to activate your account.",
+        {"Verification code": code},
+        "This code expires in 30 minutes. If you did not create an account, you can safely ignore this email.",
+    )
+    return await send_email(to, "AdsKinz — verify your email", body)
+
+
 async def send_admin_alert(subject: str, detail: str) -> bool:
     """Operational alert to the platform operator."""
     return await send_email(

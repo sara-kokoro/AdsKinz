@@ -11,6 +11,7 @@ import { ArtFunnel } from "@/components/illustrations";
 import { AD_LANGUAGES } from "@/lib/constants";
 import { ApiError, num, trackingUrl } from "@/lib/api";
 import { useCampaign, useCampaignTranslations, useUpdateCampaign } from "@/lib/queries";
+import { useAuthGuard } from "@/lib/auth";
 
 export const Route = createFileRoute("/traffic/campaigns/$id")({
   head: () => ({
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/traffic/campaigns/$id")({
 const MIN_BUDGET = 50;
 
 function CampaignDetail() {
+  useAuthGuard("advertiser");
   const { t } = useTranslation();
   const { id } = useParams({ from: "/traffic/campaigns/$id" });
   const campaignQ = useCampaign(id);

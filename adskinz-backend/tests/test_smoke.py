@@ -71,14 +71,22 @@ def _register(client, role: str) -> tuple[str, dict]:
         json={
             "email": email,
             "password": "SuperSecret123",
+            "password_confirm": "SuperSecret123",
             "role": role,
             "display_name": f"Test {role}",
         },
     )
     assert response.status_code == 201, response.text
     body = response.json()
-    assert body["token"]
-    return email, {"Authorization": f"Bearer {body['token']}"}
+    code = body.get("verification_code")
+    assert code, "verification_code must be present in non-production responses"
+
+    verify = client.post(
+        "/auth/verify-email",
+        json={"email": email, "code": code},
+    )
+    assert verify.status_code == 200, verify.text
+    return email, {"Authorization": f"Bearer {verify.json()['token']}"}
 
 
 def test_health(client):
@@ -91,12 +99,18 @@ def test_advertiser_journey(client):
     # Duplicate registration must be refused.
     dup = client.post(
         "/auth/register",
-        json={"email": email, "password": "SuperSecret123", "role": "advertiser"},
+        json={
+            "email": email,
+            "password": "SuperSecret123",
+            "password_confirm": "SuperSecret123",
+            "role": "advertiser",
+        },
     )
     assert dup.status_code == 409
 
     login = client.post(
-        "/auth/login", json={"email": email, "password": "SuperSecret123"}
+        "/auth/login",
+        json={"email": email, "password": "SuperSecret123", "role": "advertiser"},
     )
     assert login.status_code == 200
 

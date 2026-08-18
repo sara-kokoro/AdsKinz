@@ -59,6 +59,9 @@ class Advertiser(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
 
     is_blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     blocked_reason: Mapped[str | None] = mapped_column(Text)
+    email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    email_verification_code: Mapped[str | None] = mapped_column(String(8))
+    email_verification_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_ip_hash: Mapped[str | None] = mapped_column(String(64))
     low_balance_alerted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -104,6 +107,9 @@ class Publisher(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
 
     is_blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     blocked_reason: Mapped[str | None] = mapped_column(Text)
+    email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    email_verification_code: Mapped[str | None] = mapped_column(String(8))
+    email_verification_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_ip_hash: Mapped[str | None] = mapped_column(String(64))
 

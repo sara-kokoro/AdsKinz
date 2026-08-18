@@ -8,6 +8,7 @@ import { IconTrend } from "@/components/icons";
 import { ArtCampaignEmpty } from "@/components/illustrations";
 import { useCampaigns, useUpdateCampaign } from "@/lib/queries";
 import { num } from "@/lib/api";
+import { useAuthGuard } from "@/lib/auth";
 
 export const Route = createFileRoute("/traffic/campaigns/")({
   head: () => ({
@@ -22,6 +23,7 @@ export const Route = createFileRoute("/traffic/campaigns/")({
 });
 
 function CampaignsPage() {
+  useAuthGuard("advertiser");
   const { t } = useTranslation();
   const [filter, setFilter] = useState<"all" | "active" | "pending_review" | "stopped">("all");
   const campaignsQ = useCampaigns(filter === "all" ? undefined : filter);

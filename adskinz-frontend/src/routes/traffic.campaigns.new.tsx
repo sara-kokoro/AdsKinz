@@ -9,6 +9,7 @@ import { AD_LANGUAGES, BUTTON_LABELS } from "@/lib/constants";
 import { ApiError } from "@/lib/api";
 import { useCreateCampaign, useGenerateCopy } from "@/lib/queries";
 import { cn } from "@/lib/utils";
+import { useAuthGuard } from "@/lib/auth";
 
 export const Route = createFileRoute("/traffic/campaigns/new")({
   head: () => ({
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/traffic/campaigns/new")({
 const STEPS = ["step1", "step2", "step3", "step4", "step5"] as const;
 
 function Wizard() {
+  useAuthGuard("advertiser");
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);

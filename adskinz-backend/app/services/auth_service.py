@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -31,6 +31,7 @@ from app.models.accounts import AdminUser, Advertiser, Publisher, RefreshToken
 from app.schemas.auth import (
     AdminPartialTokenResponse,
     AdminSessionResponse,
+    RegisterResponse,
     TokenResponse,
     UserProfile,
 )
@@ -105,6 +106,20 @@ async def _email_taken(session: AsyncSession, email: str) -> bool:
     return False
 
 
+def _generate_verification_code() -> str:
+    """Cryptographically random 6-digit code."""
+    import secrets
+
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+async def _set_verification_code(session: AsyncSession, account: Account) -> str:
+    code = _generate_verification_code()
+    account.email_verification_code = code
+    account.email_verification_expires_at = datetime.now(UTC) + timedelta(minutes=30)
+    return code
+
+
 async def register(
     session: AsyncSession,
     *,
@@ -114,12 +129,15 @@ async def register(
     display_name: str | None = None,
     telegram_username: str | None = None,
     ip_hash: str | None = None,
-) -> TokenResponse:
-    """Create an advertiser or publisher account and return a session token.
+) -> RegisterResponse:
+    """Create an unverified advertiser or publisher account.
 
-    Admin accounts are never created through this path — they are provisioned
-    manually with ``scripts/create_admin.py``.
+    The account cannot log in until ``verify_email`` confirms the 6-digit code
+    sent to the email address. Admin accounts are never created here.
     """
+    from app.config import settings
+    from app.services.email_service import send_verification_code
+
     email = email.strip().lower()
     if role not in (Role.ADVERTISER, Role.PUBLISHER):
         raise ConflictError("Only advertiser and publisher accounts can self-register.")
@@ -133,7 +151,6 @@ async def register(
         password_hash=hash_password(password),
         display_name=display_name or email.split("@")[0],
         telegram_username=telegram_username,
-        last_login_at=datetime.now(UTC),
         last_login_ip_hash=ip_hash,
     )
     session.add(account)
@@ -143,21 +160,26 @@ async def register(
         await session.rollback()
         raise ConflictError("An account already exists with this email address.") from exc
 
-    logger.info("account.registered role=%s id=%s", role, account.id)
-    refresh_token = await _create_refresh_token_row(session, account, role)
+    code = await _set_verification_code(session, account)
     await session.commit()
     await session.refresh(account)
-    return _token_response(account, role, refresh_token)
+
+    sent = await send_verification_code(email, code=code)
+    logger.info("account.registered role=%s id=%s email=%s sent=%s", role, account.id, email, sent)
+    return RegisterResponse(
+        email=email,
+        verification_code=code if not settings.is_production else None,
+    )
 
 
-async def login(
+async def verify_email(
     session: AsyncSession,
     *,
     email: str,
-    password: str,
+    code: str,
     ip_hash: str | None = None,
 ) -> TokenResponse:
-    """Authenticate an advertiser or publisher by email and password."""
+    """Confirm a 6-digit verification code and issue the first session."""
     email = email.strip().lower()
 
     account: Account | None = None
@@ -176,12 +198,129 @@ async def login(
             account, role = publisher, Role.PUBLISHER
 
     if account is None:
+        raise AuthenticationError("Invalid email or verification code.")
+
+    if account.email_verified:
+        raise ConflictError("This email is already verified. Please sign in.")
+
+    if (
+        account.email_verification_code is None
+        or account.email_verification_code != code
+        or account.email_verification_expires_at is None
+        or account.email_verification_expires_at < datetime.now(UTC)
+    ):
+        raise AuthenticationError("Invalid or expired verification code.")
+
+    account.email_verified = True
+    account.email_verification_code = None
+    account.email_verification_expires_at = None
+    account.last_login_at = datetime.now(UTC)
+    account.last_login_ip_hash = ip_hash
+    refresh_token = await _create_refresh_token_row(session, account, role)
+    await session.commit()
+    await session.refresh(account)
+
+    logger.info("account.verified role=%s id=%s", role, account.id)
+    return _token_response(account, role, refresh_token)
+
+
+async def resend_verification(
+    session: AsyncSession,
+    *,
+    email: str,
+) -> RegisterResponse:
+    """Regenerate and resend the verification code for an unverified account."""
+    from app.config import settings
+    from app.services.email_service import send_verification_code
+
+    email = email.strip().lower()
+
+    account: Account | None = None
+    role = Role.ADVERTISER
+
+    advertiser = (
+        await session.execute(select(Advertiser).where(Advertiser.email == email))
+    ).scalar_one_or_none()
+    if advertiser is not None:
+        account, role = advertiser, Role.ADVERTISER
+    else:
+        publisher = (
+            await session.execute(select(Publisher).where(Publisher.email == email))
+        ).scalar_one_or_none()
+        if publisher is not None:
+            account, role = publisher, Role.PUBLISHER
+
+    if account is None:
+        # Don't reveal whether the email exists.
+        return RegisterResponse(email=email)
+
+    if account.email_verified:
+        raise ConflictError("This email is already verified. Please sign in.")
+
+    code = await _set_verification_code(session, account)
+    await session.commit()
+    await session.refresh(account)
+
+    await send_verification_code(email, code=code)
+    logger.info("account.verification_resent role=%s id=%s", role, account.id)
+    return RegisterResponse(
+        email=email,
+        verification_code=code if not settings.is_production else None,
+    )
+
+
+async def login(
+    session: AsyncSession,
+    *,
+    email: str,
+    password: str,
+    role: Role,
+    ip_hash: str | None = None,
+) -> TokenResponse:
+    """Authenticate an advertiser or publisher by email and password.
+
+    ``role`` is the workspace the user is trying to enter. If the account exists
+    but belongs to the other role, we return a dedicated error so the frontend
+    can explain that the credential is for the other portal.
+    """
+    email = email.strip().lower()
+
+    account: Account | None = None
+    actual_role: Role | None = None
+
+    advertiser = (
+        await session.execute(select(Advertiser).where(Advertiser.email == email))
+    ).scalar_one_or_none()
+    if advertiser is not None:
+        account, actual_role = advertiser, Role.ADVERTISER
+    else:
+        publisher = (
+            await session.execute(select(Publisher).where(Publisher.email == email))
+        ).scalar_one_or_none()
+        if publisher is not None:
+            account, actual_role = publisher, Role.PUBLISHER
+
+    if account is None:
         # Burn a comparable amount of CPU so timing does not leak existence.
         verify_password(password, hash_password("timing-equaliser"))
         raise AuthenticationError(_INVALID_CREDENTIALS)
 
     if not verify_password(password, account.password_hash):
         raise AuthenticationError(_INVALID_CREDENTIALS)
+
+    if actual_role != role:
+        portal = "advertiser" if actual_role == Role.ADVERTISER else "publisher"
+        other = "https://adskinz.io" if actual_role == Role.ADVERTISER else "https://partner.adskinz.io"
+        raise AuthenticationError(
+            f"These credentials belong to the {portal} portal. "
+            f"Please sign in at {other}."
+        )
+
+    if not account.email_verified:
+        raise AuthenticationError(
+            "Please verify your email before signing in. "
+            "Enter the 6-digit code sent to your inbox, or request a new one."
+        )
 
     if account.is_blocked:
         raise AccountBlockedError(
@@ -298,7 +437,6 @@ async def refresh_access_token(
     ip_hash: str | None = None,
 ) -> TokenResponse:
     """Exchange a valid refresh token for a new access/refresh token pair."""
-    from datetime import UTC, datetime
     from uuid import UUID
 
     from sqlalchemy import delete, select

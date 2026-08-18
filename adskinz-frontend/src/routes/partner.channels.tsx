@@ -32,6 +32,7 @@ import {
 } from "@/lib/queries";
 import type { Channel } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useAuthGuard } from "@/lib/auth";
 
 export const Route = createFileRoute("/partner/channels")({
   head: () => ({
@@ -125,6 +126,7 @@ function ChannelCard({
 }
 
 function ChannelsPage() {
+  useAuthGuard("publisher");
   const { t } = useTranslation();
   const { data: channels, isLoading, isError, refetch } = useChannels();
   const { data: botStatus } = useBotStatus();

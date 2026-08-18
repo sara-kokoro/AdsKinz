@@ -5,7 +5,7 @@ import { AdvShell } from "@/components/workspaces";
 import { Btn, ErrorBanner, Field, FieldError, Panel, SectionTitle, inputCls } from "@/components/kit";
 import { LanguageSelect, ThemeToggle } from "@/components/controls";
 import { ApiError } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useAuthGuard } from "@/lib/auth";
 import { useChangePassword, useMe, useUpdateProfile } from "@/lib/queries";
 
 export const Route = createFileRoute("/traffic/settings")({
@@ -21,6 +21,7 @@ export const Route = createFileRoute("/traffic/settings")({
 });
 
 function SettingsPage() {
+  useAuthGuard("advertiser");
   const { t } = useTranslation();
   const { logout } = useAuth();
   const { data: me, isLoading, isError, refetch } = useMe();

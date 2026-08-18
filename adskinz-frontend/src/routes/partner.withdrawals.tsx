@@ -21,6 +21,7 @@ import { UsdtMark } from "@/components/usdt";
 import { ApiError, num } from "@/lib/api";
 import { useCreateWithdrawal, useWithdrawals } from "@/lib/queries";
 import { cn } from "@/lib/utils";
+import { useAuthGuard } from "@/lib/auth";
 
 export const Route = createFileRoute("/partner/withdrawals")({
   head: () => ({
@@ -40,6 +41,7 @@ function fmtDate(iso: string | null) {
 }
 
 function WithdrawalsPage() {
+  useAuthGuard("publisher");
   const { t } = useTranslation();
   const { data, isLoading, isError, refetch } = useWithdrawals();
   const createWithdrawal = useCreateWithdrawal();

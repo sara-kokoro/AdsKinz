@@ -8,6 +8,7 @@ import { UsdtMark } from "@/components/usdt";
 import { useDepositAddress, useDeposits } from "@/lib/queries";
 import { num } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useAuthGuard } from "@/lib/auth";
 
 export const Route = createFileRoute("/traffic/deposits")({
   head: () => ({
@@ -28,6 +29,7 @@ const NETWORKS = [
 ];
 
 function Deposits() {
+  useAuthGuard("advertiser");
   const { t } = useTranslation();
   const [net, setNet] = useState("ton");
   const deposits = useDeposits();

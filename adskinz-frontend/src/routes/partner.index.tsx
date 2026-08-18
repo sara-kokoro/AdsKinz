@@ -17,6 +17,7 @@ import { UsdtMark } from "@/components/usdt";
 import { ArtChannelPayout } from "@/components/illustrations";
 import { num } from "@/lib/api";
 import { usePublisherStats } from "@/lib/queries";
+import { useAuthGuard } from "@/lib/auth";
 
 export const Route = createFileRoute("/partner/")({
   head: () => ({
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/partner/")({
 });
 
 function PubDashboard() {
+  useAuthGuard("publisher");
   const { t } = useTranslation();
   const { data, isLoading, isError, refetch, isFetching } = usePublisherStats();
 

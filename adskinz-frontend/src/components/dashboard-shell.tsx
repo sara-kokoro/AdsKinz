@@ -4,14 +4,13 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { IconMenu, IconX } from "@/components/icons";
 import { LanguageSelect, ThemeToggle } from "@/components/controls";
-import logoAsset from "@/assets/adskinz-logo.png.asset.json";
 
 export type NavItem = { to: string; label: string; icon: ReactNode; badge?: number | undefined };
 
 export function Logo({ workspace }: { workspace?: string }) {
   return (
     <Link to="/" className="flex items-center gap-2">
-      <img src={logoAsset.url} alt="AdsKinz" className="size-8 shrink-0 object-contain" width={32} height={32} />
+      <img src="/adskinz-logo.png" alt="AdsKinz" className="size-8 shrink-0 object-contain" width={32} height={32} />
       <span className="font-display text-lg font-extrabold tracking-tight">
         Ads<span className="text-signal">Kinz</span>
       </span>

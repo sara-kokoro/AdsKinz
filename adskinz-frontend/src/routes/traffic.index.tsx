@@ -22,6 +22,7 @@ import { ArtCampaignBroadcast, ArtCampaignEmpty } from "@/components/illustratio
 import { useAdvertiserStats, useCampaigns } from "@/lib/queries";
 import { num } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useAuthGuard } from "@/lib/auth";
 
 export const Route = createFileRoute("/traffic/")({
   head: () => ({
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/traffic/")({
 });
 
 function Period() {
+  useAuthGuard("advertiser");
   const { t } = useTranslation();
   const [p, setP] = useState("30");
   const opts = [

@@ -21,6 +21,7 @@ import { ArtMiniAppPlacement } from "@/components/illustrations";
 import { ApiError, num } from "@/lib/api";
 import { useCreateMiniApp, useMiniAppKey, useMiniApps } from "@/lib/queries";
 import type { MiniApp } from "@/lib/types";
+import { useAuthGuard } from "@/lib/auth";
 
 export const Route = createFileRoute("/partner/mini-apps")({
   head: () => ({
@@ -83,6 +84,7 @@ function KeyPanel({ appId }: { appId: string }) {
 }
 
 function t_docs() {
+  useAuthGuard("publisher");
   return "Read the Kinz-ID quickstart docs →";
 }
 

@@ -24,9 +24,12 @@ from app.schemas.auth import (
     AdminSessionResponse,
     AdminTotpRequest,
     ChangePasswordRequest,
+    EmailVerifyRequest,
     LoginRequest,
     RefreshTokenRequest,
     RegisterRequest,
+    RegisterResponse,
+    ResendVerificationRequest,
     SettingsUpdateRequest,
     TokenRefreshResponse,
     TokenResponse,
@@ -41,7 +44,7 @@ admin_auth_router = APIRouter(prefix="/admin/auth", tags=["admin-auth"])
 
 @router.post(
     "/register",
-    response_model=TokenResponse,
+    response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(login_rate_limit)],
     summary="Create an advertiser or publisher account",
@@ -50,7 +53,7 @@ async def register(
     payload: RegisterRequest,
     session: SessionDep,
     ip_hash: ClientIPHashDep,
-) -> TokenResponse:
+) -> RegisterResponse:
     return await auth_service.register(
         session,
         email=payload.email,
@@ -59,6 +62,41 @@ async def register(
         display_name=payload.display_name,
         telegram_username=payload.telegram_username,
         ip_hash=ip_hash,
+    )
+
+
+@router.post(
+    "/verify-email",
+    response_model=TokenResponse,
+    dependencies=[Depends(login_rate_limit)],
+    summary="Verify a 6-digit email code and start the session",
+)
+async def verify_email(
+    payload: EmailVerifyRequest,
+    session: SessionDep,
+    ip_hash: ClientIPHashDep,
+) -> TokenResponse:
+    return await auth_service.verify_email(
+        session,
+        email=payload.email,
+        code=payload.code,
+        ip_hash=ip_hash,
+    )
+
+
+@router.post(
+    "/resend-verification",
+    response_model=RegisterResponse,
+    dependencies=[Depends(login_rate_limit)],
+    summary="Resend the email verification code",
+)
+async def resend_verification(
+    payload: ResendVerificationRequest,
+    session: SessionDep,
+) -> RegisterResponse:
+    return await auth_service.resend_verification(
+        session,
+        email=payload.email,
     )
 
 
@@ -77,6 +115,7 @@ async def login(
         session,
         email=payload.email,
         password=payload.password,
+        role=Role(payload.role),
         ip_hash=ip_hash,
     )
 

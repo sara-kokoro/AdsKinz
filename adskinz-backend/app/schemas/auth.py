@@ -29,11 +29,20 @@ def _validate_password(value: str) -> str:
 class RegisterRequest(RequestModel):
     email: EmailStr
     password: str = Field(min_length=PASSWORD_MIN)
+    password_confirm: str = Field(min_length=PASSWORD_MIN)
     role: Literal["advertiser", "publisher"] = "advertiser"
     display_name: str | None = Field(default=None, max_length=120)
     telegram_username: str | None = Field(default=None, max_length=64)
 
     _check_password = field_validator("password")(_validate_password)
+
+    @field_validator("password_confirm")
+    @classmethod
+    def _passwords_match(cls, value: str, info) -> str:
+        password = info.data.get("password")
+        if password is not None and value != password:
+            raise ValueError("Passwords do not match.")
+        return value
 
     @field_validator("telegram_username")
     @classmethod
@@ -43,11 +52,36 @@ class RegisterRequest(RequestModel):
         return value if value.startswith("@") else f"@{value}"
 
 
+class RegisterResponse(APIModel):
+    """Registration creates an unverified account; the client must confirm the
+    email with the 6-digit code before a session is issued.
+
+    ``verification_code`` is only populated in non-production environments when
+    outgoing email is disabled, so front-end smoke tests can complete the flow
+    without a real mailbox.
+    """
+
+    message: str = "Check your email for a 6-digit verification code."
+    email: str
+    requires_verification: bool = True
+    verification_code: str | None = None
+
+
 class LoginRequest(RequestModel):
     email: EmailStr
     password: str = Field(min_length=1)
-    # Optional hint; the server still resolves the account by email.
-    role: Literal["advertiser", "publisher"] | None = None
+    # Required so the backend can reject advertiser credentials on the publisher
+    # portal (and vice-versa) with a clear error instead of silently succeeding.
+    role: Literal["advertiser", "publisher"]
+
+
+class EmailVerifyRequest(RequestModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class ResendVerificationRequest(RequestModel):
+    email: EmailStr
 
 
 class AdminLoginRequest(RequestModel):
