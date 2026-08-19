@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Database
     # ------------------------------------------------------------------ #
-    DATABASE_URL: str = "postgresql://neondb_owner:npg_6ockmfAH8tgl@ep-late-dew-axz8nu8u-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    DATABASE_URL: str = "postgresql://neondb_owner:npg_6ockmfAH8tgl@ep-late-dew-axz8nu8u-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require"
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
     DB_POOL_RECYCLE: int = 1800
