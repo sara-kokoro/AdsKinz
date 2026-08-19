@@ -40,6 +40,7 @@ function LoginPage() {
   const [telegram, setTelegram] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [passwordConfirmError, setPasswordConfirmError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
@@ -71,8 +72,9 @@ function LoginPage() {
   const submitRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setPasswordConfirmError(null);
     if (password !== passwordConfirm) {
-      setError("Passwords do not match.");
+      setPasswordConfirmError("Passwords do not match.");
       return;
     }
     setBusy(true);
@@ -265,10 +267,14 @@ function LoginPage() {
                     minLength={8}
                     autoComplete="new-password"
                     value={passwordConfirm}
-                    onChange={(e) => setPasswordConfirm(e.target.value)}
+                    onChange={(e) => {
+                      setPasswordConfirm(e.target.value);
+                      setPasswordConfirmError(null);
+                    }}
                     className={inputCls()}
                     placeholder="••••••••"
                   />
+                  <FieldError>{passwordConfirmError}</FieldError>
                 </Field>
               )}
 

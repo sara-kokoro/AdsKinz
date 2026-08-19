@@ -75,10 +75,26 @@ function messageFromBody(body: unknown, status: number): string {
   if (body && typeof body === "object") {
     const b = body as Record<string, unknown>;
     const detail = b["detail"] ?? b["message"] ?? b["error"];
+
     if (typeof detail === "string") return detail;
+
+    // FastAPI / Pydantic standard 422: { "detail": [{ "msg": "..." }] }
     if (Array.isArray(detail)) {
       const first = detail[0] as Record<string, unknown> | undefined;
-      if (first && typeof first["msg"] === "string") return String(first["msg"]);
+      const msg = first?.["msg"] ?? first?.["message"];
+      if (typeof msg === "string") return String(msg);
+    }
+
+    // Custom backend shape: { "detail": { "message": "...", "fields": [...] } }
+    if (detail && typeof detail === "object") {
+      const d = detail as Record<string, unknown>;
+      if (typeof d["message"] === "string") return d["message"];
+      const fields = d["fields"];
+      if (Array.isArray(fields)) {
+        const firstField = fields[0] as Record<string, unknown> | undefined;
+        const fieldMsg = firstField?.["message"];
+        if (typeof fieldMsg === "string") return fieldMsg;
+      }
     }
   }
   if (status === 401) return "Your session expired. Please sign in again.";
