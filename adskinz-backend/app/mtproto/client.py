@@ -8,6 +8,7 @@ an interactive login flow or requests a phone number/code.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -32,6 +33,11 @@ logger = logging.getLogger(__name__)
 _client: Any | None = None
 _started = False
 _disabled_reason: str | None = None
+_start_task: asyncio.Task[Any | None] | None = None
+
+# Kurigram's ``client.start()`` has no built-in timeout: a slow or unreachable
+# Telegram DC would hang forever. Bound it so startup and jobs can never stall.
+START_TIMEOUT_SECONDS = 30
 
 
 def is_configured() -> bool:
@@ -76,9 +82,9 @@ async def start_client() -> Any | None:
     if _started:
         return client
     try:
-        await client.start()
+        await asyncio.wait_for(client.start(), timeout=START_TIMEOUT_SECONDS)
     except Exception as exc:  # noqa: BLE001 - invalid sessions must disable, not prompt
-        _disabled_reason = f"session start failed: {exc}"
+        _disabled_reason = f"session start failed: {exc!r}"
         logger.warning("mtproto.disabled reason=%s", _disabled_reason)
         _started = False
         return None
@@ -87,9 +93,32 @@ async def start_client() -> Any | None:
     return client
 
 
+async def start_client_background() -> None:
+    """Start the Kurigram session in a background task so startup never blocks.
+
+    ``client.start()`` performs a network handshake with Telegram that can hang;
+    awaiting it from the FastAPI lifespan would prevent the HTTP server from
+    ever answering (e.g. the Koyeb health check). The views watcher still calls
+    ``start_client()`` directly and simply skips its run until the session is up.
+    """
+    global _start_task
+    if not settings.ENABLE_MTPROTO or not is_configured():
+        return
+    if _start_task is not None and not _start_task.done():
+        return
+    _start_task = asyncio.create_task(start_client(), name="adskinz-mtproto-start")
+
+
 async def stop_client() -> None:
-    """Disconnect the shared Kurigram client if this process started it."""
-    global _started
+    """Cancel any pending start, then disconnect the shared Kurigram client."""
+    global _started, _start_task
+    if _start_task is not None:
+        _start_task.cancel()
+        try:
+            await _start_task
+        except asyncio.CancelledError:
+            pass
+        _start_task = None
     if _client is not None and _started:
         try:
             await _client.stop()

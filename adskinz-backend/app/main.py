@@ -92,9 +92,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     mtproto_started = False
     if settings.ENABLE_MTPROTO:
         try:
-            from app.mtproto.client import start_client
+            from app.mtproto.client import start_client_background
 
-            await start_client()
+            await start_client_background()
             mtproto_started = True
         except Exception:  # noqa: BLE001
             logger.exception("adskinz.mtproto_failed")
