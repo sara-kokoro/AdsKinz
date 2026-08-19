@@ -7,18 +7,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# curl is retained for the runtime health check; compiler packages are removed
-# after Python dependencies have been installed.
+# Installation des dépendances système (on garde curl pour le healthcheck)
 RUN apt-get update \
     && apt-get install --no-install-recommends -y build-essential gcc libpq-dev curl \
     && useradd --create-home --shell /usr/sbin/nologin appuser \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
-RUN pip install -r requirements.txt \
-    && apt-get purge --auto-remove -y build-essential gcc libpq-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=appuser:appuser app ./app
 COPY --chown=appuser:appuser alembic ./alembic
