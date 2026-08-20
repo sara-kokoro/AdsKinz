@@ -127,7 +127,7 @@ function LoginPage() {
   return (
     <div className="min-h-screen bg-ink">
       <header className="border-b border-seam">
-        <div className="mx-auto flex min-h-16 max-w-6xl items-center gap-4 px-4">
+        <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2">
           <Logo />
           <div className="ml-auto flex items-center gap-2">
             <LanguageSelect compact />
@@ -182,7 +182,7 @@ function LoginPage() {
             <form onSubmit={submitVerify} className="space-y-4">
               <h2 className="font-display text-xl font-bold">Verify your email</h2>
               <p className="text-sm text-paper-dim">
-                We sent a 6-digit code to <span className="font-semibold text-paper">{email}</span>. Enter it below to activate your account.
+                We sent a 6-digit code to <span className="font-semibold break-all text-paper">{email}</span>. Enter it below to activate your account.
               </p>
               <Field label="Verification code">
                 <input
