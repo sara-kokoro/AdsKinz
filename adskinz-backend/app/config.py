@@ -146,6 +146,8 @@ class Settings(BaseSettings):
     BSCSCAN_BASE_URL: str = "https://api.bscscan.com/api"
     TONCENTER_API_KEY: str = "f355c8138b5f1d7158541863828cdd9693470c25621006e54615bfdee49785ad"
     TONCENTER_BASE_URL: str = "https://toncenter.com/api/v2"
+    
+    TON_DEPOSIT_ADDRESS: str = "UQCTEfgy5MouZG3gcLzTFvi8JoPDWCVfU4HTx4Lukoo8Lcou"
 
     USDT_TRC20_CONTRACT: str = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
     USDT_BEP20_CONTRACT: str = "0x55d398326f99059fF775485246999027B3197955"
