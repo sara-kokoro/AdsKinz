@@ -239,10 +239,16 @@ export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Prom
     if (res.status === 401 && auth && typeof window !== "undefined" && tokenStore.get()) {
       tokenStore.clear();
     }
-    const code =
-      parsed && typeof parsed === "object"
-        ? (((parsed as Record<string, unknown>)["code"] as string) ?? undefined)
-        : undefined;
+    let code: string | undefined;
+    if (parsed && typeof parsed === "object") {
+      const root = parsed as Record<string, unknown>;
+      const detail = root["detail"];
+      if (detail && typeof detail === "object") {
+        code = ((detail as Record<string, unknown>)["code"] as string) ?? undefined;
+      } else {
+        code = (root["code"] as string) ?? undefined;
+      }
+    }
     throw new ApiError(messageFromBody(parsed, res.status), res.status, code);
   }
 
