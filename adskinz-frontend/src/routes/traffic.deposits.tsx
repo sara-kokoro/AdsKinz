@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AdvShell } from "@/components/workspaces";
 import { Btn, EmptyState, ErrorBanner, Panel, RowSkeleton, SectionTitle, StatusPill, fmtMoney } from "@/components/kit";
 import { IconAlert, IconCopy, IconList, IconWallet, IconShield } from "@/components/icons";
-import { UsdtMark } from "@/components/usdt";
+import { NetworkUsdtMark, UsdtMark } from "@/components/usdt";
 import { useDepositAddress, useDeposits } from "@/lib/queries";
 import { num } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -84,7 +84,7 @@ function Deposits() {
                     net === n.id ? "border-signal bg-signal-soft text-signal" : "border-seam text-paper-dim",
                   )}
                 >
-                  <UsdtMark size={16} />
+                  <NetworkUsdtMark network={n.id} size={18} />
                   {t(n.key)}
                 </button>
               ))}
