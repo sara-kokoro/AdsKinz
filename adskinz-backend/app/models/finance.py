@@ -76,6 +76,9 @@ class Deposit(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
     bep20_sweep: Mapped["Bep20Sweep"] = relationship(
         back_populates="deposit", lazy="noload", uselist=False
     )
+    trc20_sweep: Mapped["Trc20Sweep"] = relationship(
+        back_populates="deposit", lazy="noload", uselist=False
+    )
 
     @property
     def network_label(self) -> str:
@@ -190,6 +193,57 @@ class Bep20Sweep(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Bep20Sweep {self.derived_address} {self.status}>"
+
+
+class Trc20Sweep(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
+    """Automatic consolidation of a TRC20 (TRON) USDT deposit to the treasury.
+
+    Mirrors Bep20Sweep. Each row tracks the full lifecycle: gas top-up (in
+    TRX), USDT sweep, and dust return. If any step fails the row stays in
+    ``failed`` status so an operator can retry or investigate.
+    """
+
+    __tablename__ = "trc20_sweeps"
+    __table_args__ = (
+        Index("ix_trc20_sweeps_deposit", "deposit_id", unique=True),
+        Index("ix_trc20_sweeps_status", "status"),
+    )
+
+    deposit_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("deposits.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+
+    # Source derived address that received the USDT deposit.
+    derived_address: Mapped[str] = mapped_column(String(128), nullable=False)
+    derivation_index: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Destination treasury address.
+    treasury_address: Mapped[str] = mapped_column(String(128), nullable=False)
+
+    # USDT amount detected on chain and swept.
+    gross_amount_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))
+    swept_amount_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))
+
+    # Gas top-up step (in TRX).
+    gas_topup_tx_hash: Mapped[str | None] = mapped_column(String(128))
+    gas_topup_amount_trx: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+
+    # USDT sweep step.
+    sweep_tx_hash: Mapped[str | None] = mapped_column(String(128))
+
+    # Dust return step (left-over TRX sent back to the gas wallet).
+    dust_return_tx_hash: Mapped[str | None] = mapped_column(String(128))
+    dust_return_amount_trx: Mapped[str | None] = mapped_column(String(128))
+
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending", server_default="pending"
+    )
+    error: Mapped[str | None] = mapped_column(Text)
+
+    deposit: Mapped["Deposit"] = relationship(back_populates="trc20_sweep", lazy="joined")
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<Trc20Sweep {self.derived_address} {self.status}>"
 
 
 class PlatformRevenue(Base, UUIDPrimaryKeyMixin):

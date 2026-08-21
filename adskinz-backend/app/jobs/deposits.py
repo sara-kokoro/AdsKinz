@@ -16,7 +16,7 @@ from app.core.enums import DepositStatus
 from app.database import session_scope
 from app.models.accounts import Advertiser
 from app.models.finance import Deposit, WalletAddress
-from app.services import bep20_sweep_service, billing_service, email_service, wallet_service
+from app.services import bep20_sweep_service, billing_service, email_service, trc20_sweep_service, wallet_service
 
 logger = logging.getLogger(__name__)
 
@@ -359,6 +359,17 @@ async def deposit_watcher() -> dict:
                 except Exception as exc:
                     logger.warning(
                         "deposits.bep20_sweep_failed deposit=%s error=%s",
+                        deposit.id,
+                        exc,
+                    )
+
+            # Automatic TRC20 sweep: send USDT from the derived address to treasury.
+            if deposit.network == "trc20" and wallet.derivation_index is not None:
+                try:
+                    await trc20_sweep_service.sweep_trc20_deposit(session, deposit, wallet)
+                except Exception as exc:
+                    logger.warning(
+                        "deposits.trc20_sweep_failed deposit=%s error=%s",
                         deposit.id,
                         exc,
                     )

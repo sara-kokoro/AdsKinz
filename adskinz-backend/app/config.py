@@ -116,15 +116,15 @@ class Settings(BaseSettings):
     # Wallets — WATCH-ONLY deposit derivation (xpub) + sweep signing (xprv).
     # ------------------------------------------------------------------ #
     # Extended public keys used to derive advertiser deposit addresses.
-    XPUB_TRC20: str = ""
-    XPUB_BEP20: str = ""
+    XPUB_BEP20: str = "xpub6BudUdijXt6ssjdwCd4wL82zjADiKDjtctq1DTzuuGuf8eKzgrwfKNLuuwqM34oLNMBtEfNdkZ4GuDc6B3JGfJc1NKy5FSCDvKnTbynf5FD"
+    XPUB_TRC20: str = "xpub6D4E86ZuWj39YuRsXZMkuHoqtU4bvhqGmq8tfzCH6a6jKCPpwwqt44et8YGJcK68wx5jSn9nRJrzZxjty8ynjCSRJcFZmMe1jKPeDrsydsm"
     # Extended private key for BEP20 deposit addresses. Required to sign the
     # automatic sweep of USDT from derived addresses to the treasury.
-    ACCOUNT_XPRV: str = ""
+    ACCOUNT_XPRV: str = "xprv9xvH58BqhWYafFZU6bXvxz6GB8PDum23FfuQR5bJLwNgFqzr9KdQma2S4gxnE5QxJcivH2acZXKjZVhdhBNbpuEzVgdWsPRH4t1qvTyytf2"
     # Hot wallet that funds derived addresses with BNB for gas. Must hold BNB.
     BSC_GAS_WALLET_PRIVATE_KEY: str = ""
     # Main treasury address that receives swept USDT on BNB Smart Chain.
-    BSC_TREASURY_ADDRESS: str = ""
+    BSC_TREASURY_ADDRESS: str = "0x92c15096035f8e37606fa4d907cf84c5b5b2ecc5"
     # RPC endpoint for BNB Smart Chain.
     BSC_RPC_URL: str = "https://bsc-dataseed.binance.org/"
     # Minimum native BNB balance (in BNB) a derived address must keep after the
@@ -187,6 +187,14 @@ class Settings(BaseSettings):
     POST_LIFETIME_HOURS: int = 24
     PLATFORM_COMMISSION_RATE: Decimal = Decimal("0.35")
     TRC20_DEPOSIT_FEE_USDT: Decimal = Decimal("3.25")
+    ACCOUNT_XPRV_TRC20: str = "xprv9z4sib31gMUrLRMQRXpkY9s7LSE7XF7RQcDHsbnfYEZkSQ4gQQXdWGLQHGfzULXDPuyr7LY331c7he8gCRcNMgo4n8T12yy8sy6uCax1C4j"
+    TRC_GAS_WALLET_PRIVATE_KEY: str = ""
+    TRC_TREASURY_ADDRESS: str = ""
+    TRC20_GAS_MIN_TRX: Decimal = Decimal("15")
+    TRC20_GAS_TOPUP_TRX: Decimal = Decimal("20")
+    TRC20_GAS_DUST_TRX: Decimal = Decimal("1")
+    TRC20_TRANSFER_FEE_LIMIT_SUN: int = 100_000_000
+    ENABLE_TRC20_SWEEP: bool = True
     LOW_BALANCE_ALERT_RATIO: Decimal = Decimal("0.10")
     FRAUD_SCORE_BILLING_THRESHOLD: Decimal = Decimal("0.70")
     SUPPORTED_TRANSLATION_LANGS: str = "en,fr,ru,zh"

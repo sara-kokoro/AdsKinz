@@ -1,11 +1,10 @@
-import usdtAsset from "@/assets/usdt.png.asset.json";
 import { cn } from "@/lib/utils";
 
 /** Transparent-background Tether (USDT) mark, used everywhere money moves. */
 export function UsdtMark({ size = 20, className }: { size?: number; className?: string }) {
   return (
     <img
-      src={usdtAsset.url}
+      src="/usdt.png"
       alt="USDT"
       width={size}
       height={size}
