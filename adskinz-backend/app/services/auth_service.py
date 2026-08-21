@@ -14,6 +14,7 @@ from app.core.errors import (
     AccountBlockedError,
     AuthenticationError,
     ConflictError,
+    EmailNotVerifiedError,
     TokenError,
 )
 from app.core.security import (
@@ -116,7 +117,7 @@ def _generate_verification_code() -> str:
 async def _set_verification_code(session: AsyncSession, account: Account) -> str:
     code = _generate_verification_code()
     account.email_verification_code = code
-    account.email_verification_expires_at = datetime.now(UTC) + timedelta(minutes=30)
+    account.email_verification_expires_at = datetime.now(UTC) + timedelta(hours=3)
     return code
 
 
@@ -317,10 +318,7 @@ async def login(
         )
 
     if not account.email_verified:
-        raise AuthenticationError(
-            "Please verify your email before signing in. "
-            "Enter the 6-digit code sent to your inbox, or request a new one."
-        )
+        raise EmailNotVerifiedError()
 
     if account.is_blocked:
         raise AccountBlockedError(

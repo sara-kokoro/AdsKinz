@@ -82,6 +82,15 @@ class AuthenticationError(AppError):
     message = "Invalid credentials."
 
 
+class EmailNotVerifiedError(AppError):
+    status_code = status.HTTP_401_UNAUTHORIZED
+    code = "email_not_verified"
+    message = (
+        "Please verify your email before signing in. "
+        "Enter the 6-digit code sent to your inbox, or request a new one."
+    )
+
+
 class TokenError(AppError):
     status_code = status.HTTP_401_UNAUTHORIZED
     code = "invalid_token"

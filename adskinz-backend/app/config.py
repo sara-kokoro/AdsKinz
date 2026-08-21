@@ -156,16 +156,16 @@ class Settings(BaseSettings):
     DEPOSIT_MIN_CONFIRMATIONS_TON: int = 1
 
     # ------------------------------------------------------------------ #
-    # Email (SMTP)
+    # Email (Resend)
     # ------------------------------------------------------------------ #
-    SMTP_HOST: str = ""
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
-    SMTP_FROM: str = "AdsKinz <no-reply@adskinz.io>"
-    SMTP_USE_TLS: bool = True
-    ADMIN_ALERT_EMAIL: str = ""
-    ENABLE_EMAIL: bool = False
+    RESEND_API_KEY: str = "re_ixaWFLmD_4MLXCxQ9yZaDJp3ZxP5q8DvP"
+    # No domain purchased/verified yet: falls back to Resend's shared testing
+    # domain, which can only deliver to the address on the Resend account
+    # itself. Switch to "AdsKinz <no-reply@yourdomain.tld>" once a domain is
+    # verified in the Resend dashboard.
+    EMAIL_FROM: str = "AdsKinz <onboarding@resend.dev>"
+    ADMIN_ALERT_EMAIL: str = "abdoulmadjidkingceymarkouma@gmail.com"
+    ENABLE_EMAIL: bool = True
 
     # ------------------------------------------------------------------ #
     # Business rules — single source of truth, enforced server-side

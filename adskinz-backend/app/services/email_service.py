@@ -1,16 +1,16 @@
-"""Transactional email over SMTP.
+"""Transactional email via the Resend API.
 
-Every send is best-effort: an SMTP outage must never break a request or abort a
-background job, so failures are logged and swallowed.
+Every send is best-effort: a Resend outage must never break a request or abort
+a background job, so failures are logged and swallowed.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import smtplib
-from email.message import EmailMessage
 from typing import Any
+
+import resend
 
 from app.config import settings
 
@@ -30,33 +30,36 @@ def _render(title: str, intro: str, rows: dict[str, Any] | None, outro: str | No
     return "\n".join(lines)
 
 
-def _send_blocking(to: str, subject: str, body: str) -> None:
-    message = EmailMessage()
-    message["From"] = settings.SMTP_FROM
-    message["To"] = to
-    message["Subject"] = subject
-    message.set_content(body)
-
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:
-        if settings.SMTP_USE_TLS:
-            server.starttls()
-        if settings.SMTP_USER:
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        server.send_message(message)
+def _send_blocking(to: str, subject: str, body: str) -> str:
+    resend.api_key = settings.RESEND_API_KEY
+    params: resend.Emails.SendParams = {
+        "from": settings.EMAIL_FROM,
+        "to": [to],
+        "subject": subject,
+        "text": body,
+    }
+    result = resend.Emails.send(params)
+    return result["id"]
 
 
 async def send_email(to: str | None, subject: str, body: str) -> bool:
-    """Send one plain-text email. Returns whether it was handed to the server."""
+    """Send one plain-text email. Returns whether Resend accepted it."""
     if not to:
         return False
-    if not settings.ENABLE_EMAIL or not settings.SMTP_HOST:
+    if not settings.ENABLE_EMAIL or not settings.RESEND_API_KEY:
         logger.info("email.skipped to=%s subject=%s (email disabled)", to, subject)
         return False
     try:
-        await asyncio.to_thread(_send_blocking, to, subject, body)
-        logger.info("email.sent to=%s subject=%s", to, subject)
+        email_id = await asyncio.to_thread(_send_blocking, to, subject, body)
+        logger.info("email.sent to=%s subject=%s id=%s", to, subject, email_id)
         return True
-    except (smtplib.SMTPException, OSError) as exc:
+    except resend.exceptions.ResendError as exc:
+        logger.warning(
+            "email.failed to=%s subject=%s code=%s error=%s",
+            to, subject, getattr(exc, "code", "unknown"), exc,
+        )
+        return False
+    except Exception as exc:  # network errors, timeouts, etc. — never break the caller
         logger.warning("email.failed to=%s subject=%s error=%s", to, subject, exc)
         return False
 
@@ -186,7 +189,7 @@ async def send_verification_code(to: str, *, code: str) -> bool:
         "Verify your AdsKinz account",
         "Thanks for signing up. Enter the code below in the verification screen to activate your account.",
         {"Verification code": code},
-        "This code expires in 30 minutes. If you did not create an account, you can safely ignore this email.",
+        "This code expires in 3 hours. If you did not create an account, you can safely ignore this email.",
     )
     return await send_email(to, "AdsKinz — verify your email", body)
 

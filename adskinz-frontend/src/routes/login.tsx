@@ -63,7 +63,12 @@ function LoginPage() {
       const nextRole = await login(email.trim(), password, accountRole);
       await navigate({ to: HOME_FOR_ROLE[nextRole], replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      if (err instanceof ApiError && err.code === "email_not_verified") {
+        setStep("verify");
+        setError(null);
+      } else {
+        setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      }
     } finally {
       setBusy(false);
     }
