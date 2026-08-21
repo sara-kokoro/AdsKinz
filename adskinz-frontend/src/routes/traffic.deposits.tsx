@@ -60,7 +60,7 @@ function Deposits() {
               {t("adv.balance")}
             </p>
             <p className="num mt-1 flex items-center gap-2 text-3xl font-extrabold text-bounty">
-              <UsdtMark size={26} />
+              <UsdtMark size={40} />
               {fmtMoney(balance)}
             </p>
             <p className="mt-2 text-xs text-paper-dim">{t("adv.deposits.noMinimum")}</p>
@@ -80,11 +80,11 @@ function Deposits() {
                   onClick={() => setNet(n.id)}
                   aria-pressed={net === n.id}
                   className={cn(
-                    "flex min-h-11 items-center gap-2 rounded-xl border px-4 text-sm font-semibold",
+                    "flex min-h-14 items-center gap-2.5 rounded-xl border px-4 py-2 text-sm font-semibold",
                     net === n.id ? "border-signal bg-signal-soft text-signal" : "border-seam text-paper-dim",
                   )}
                 >
-                  <NetworkUsdtMark network={n.id} size={18} />
+                  <NetworkUsdtMark network={n.id} size={32} />
                   {t(n.key)}
                 </button>
               ))}
