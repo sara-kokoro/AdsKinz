@@ -88,13 +88,18 @@ function messageFromBody(body: unknown, status: number): string {
     // Custom backend shape: { "detail": { "message": "...", "fields": [...] } }
     if (detail && typeof detail === "object") {
       const d = detail as Record<string, unknown>;
-      if (typeof d["message"] === "string") return d["message"];
       const fields = d["fields"];
-      if (Array.isArray(fields)) {
+      if (Array.isArray(fields) && fields.length > 0) {
         const firstField = fields[0] as Record<string, unknown> | undefined;
+        const fieldName = firstField?.["field"];
         const fieldMsg = firstField?.["message"];
-        if (typeof fieldMsg === "string") return fieldMsg;
+        if (typeof fieldMsg === "string") {
+          return typeof fieldName === "string" && fieldName
+            ? `${fieldName}: ${fieldMsg}`
+            : fieldMsg;
+        }
       }
+      if (typeof d["message"] === "string") return d["message"];
     }
   }
   if (status === 401) return "Your session expired. Please sign in again.";
