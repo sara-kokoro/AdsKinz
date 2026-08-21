@@ -189,7 +189,7 @@ class Settings(BaseSettings):
     TRC20_DEPOSIT_FEE_USDT: Decimal = Decimal("3.25")
     ACCOUNT_XPRV_TRC20: str = "xprv9z4sib31gMUrLRMQRXpkY9s7LSE7XF7RQcDHsbnfYEZkSQ4gQQXdWGLQHGfzULXDPuyr7LY331c7he8gCRcNMgo4n8T12yy8sy6uCax1C4j"
     TRC_GAS_WALLET_PRIVATE_KEY: str = ""
-    TRC_TREASURY_ADDRESS: str = ""
+    TRC_TREASURY_ADDRESS: str = "TRuZuTb4YUd292nwEK8xJ8dZiGSY5qdVHF"
     TRC20_GAS_MIN_TRX: Decimal = Decimal("15")
     TRC20_GAS_TOPUP_TRX: Decimal = Decimal("20")
     TRC20_GAS_DUST_TRX: Decimal = Decimal("1")
