@@ -193,7 +193,7 @@ def create_app() -> FastAPI:
     app.include_router(sdk.router)
     app.include_router(tracking.router)
 
-    @app.get("/", tags=["ops"], summary="Service banner")
+    @app.api_route("/", methods=["GET", "HEAD"], tags=["ops"], summary="Service banner")
     async def root() -> dict[str, str]:
         return {
             "service": "adskinz-api",
