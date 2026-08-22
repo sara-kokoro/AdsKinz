@@ -285,6 +285,11 @@ const en = {
       memo: "Memo tag (required)",
       memoWarning:
         "A memo tag is required for TON deposits. Deposits without a correct memo cannot be credited.",
+      verify: "Verify now",
+      verifying: "Checking the chain…",
+      verifyFoundCredited: "Found it — your balance has been updated.",
+      verifyFoundPending: "Found your transfer — waiting on more confirmations before it's credited.",
+      verifyNothingYet: "Nothing found yet. If you just sent it, give it a minute and try again.",
       trcWarning:
         "Use only USD₮ TRON/TRC20. The current fee for transferring 3.25 USD₮ in the TRON network. It will be deducted from the top-up amount.",
       history: "Deposit history",
@@ -847,6 +852,11 @@ const fr: Dict = {
       memo: "Memo tag (obligatoire)",
       memoWarning:
         "Un memo tag est obligatoire pour les dépôts TON. Un dépôt sans memo correct ne peut pas être crédité.",
+      verify: "Vérifier maintenant",
+      verifying: "Vérification en cours…",
+      verifyFoundCredited: "Trouvé — ton solde a été mis à jour.",
+      verifyFoundPending: "Transfert trouvé — en attente de plus de confirmations avant crédit.",
+      verifyNothingYet: "Rien trouvé pour l'instant. Si tu viens de l'envoyer, patiente une minute et réessaie.",
       trcWarning:
         "Utilisez uniquement USD₮ TRON/TRC20. Les frais actuels de transfert sont de 3,25 USD₮ sur le réseau TRON. Ils seront déduits du montant rechargé.",
       history: "Historique des dépôts",

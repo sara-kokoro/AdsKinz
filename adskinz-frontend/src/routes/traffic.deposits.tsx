@@ -1,181 +1,396 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { AdvShell } from "@/components/workspaces";
-import { Btn, EmptyState, ErrorBanner, Panel, RowSkeleton, SectionTitle, StatusPill, fmtMoney } from "@/components/kit";
-import { IconAlert, IconCopy, IconList, IconWallet, IconShield } from "@/components/icons";
-import { NetworkUsdtMark, UsdtMark } from "@/components/usdt";
-import { useDepositAddress, useDeposits } from "@/lib/queries";
-import { num } from "@/lib/api";
-import { cn } from "@/lib/utils";
-import { useAuthGuard } from "@/lib/auth";
+/** TanStack Query wiring for every AdsKinz API surface used by the dashboards. */
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "./api";
+import type {
+  AdminOverview,
+  AdvertiserStats,
+  Anomaly,
+  AuditEntry,
+  Balance,
+  BotStatus,
+  Campaign,
+  CampaignTranslations,
+  Channel,
+  Deposit,
+  DepositAddress,
+  DepositList,
+  Finances,
+  LedgerItem,
+  MiniApp,
+  MiniAppKey,
+  Paged,
+  PublisherStats,
+  Queue,
+  UserProfile,
+  Withdrawal,
+  WithdrawalList,
+} from "./types";
 
-export const Route = createFileRoute("/traffic/deposits")({
-  head: () => ({
-    meta: [
-      { title: "Deposits — AdsKinz traffic" },
-      { name: "description", content: "Top up your AdsKinz balance in USDT on TON, TRC20 or BNB. No minimum deposit." },
-      { property: "og:title", content: "Deposits — AdsKinz traffic" },
-      { property: "og:description", content: "Crypto-only top-ups with on-chain confirmation status." },
-    ],
-  }),
-  component: Deposits,
-});
+const list = <T,>(v: Paged<T> | undefined): T[] => v?.items ?? [];
 
-const NETWORKS = [
-  { id: "ton", key: "adv.deposits.ton" },
-  { id: "trc20", key: "adv.deposits.trc" },
-  { id: "bnb", key: "adv.deposits.bnb" },
-];
+/* ---------------------------------- account --------------------------------- */
 
-function Deposits() {
-  useAuthGuard("advertiser");
-  const { t } = useTranslation();
-  const [net, setNet] = useState("ton");
-  const deposits = useDeposits();
-  const addr = useDepositAddress(net);
-  const [copied, setCopied] = useState(false);
+export function useMe(enabled = true) {
+  return useQuery({
+    queryKey: ["me"],
+    queryFn: () => apiFetch<UserProfile>("/auth/me"),
+    enabled,
+    retry: false,
+  });
+}
 
-  const items = deposits.data?.items ?? [];
-  const balance = num(deposits.data?.balance);
+export function useUpdateProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      display_name?: string | undefined;
+      telegram_username?: string | undefined;
+      country?: string | undefined;
+    }) => apiFetch<UserProfile>("/auth/me", { method: "PATCH", body }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["me"] }),
+  });
+}
 
-  const copy = async () => {
-    if (!addr.data?.address) return;
-    try {
-      await navigator.clipboard.writeText(addr.data.address);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard unavailable */
-    }
-  };
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (body: { current_password: string; new_password: string }) =>
+      apiFetch<{ message: string }>("/auth/password", { method: "POST", body }),
+  });
+}
 
-  return (
-    <AdvShell title={t("adv.deposits.title")}>
-      <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr]">
-        <div className="space-y-5">
-          <Panel>
-            <p className="flex items-center gap-2 text-xs font-semibold text-paper-dim">
-              <IconWallet width={14} height={14} />
-              {t("adv.balance")}
-            </p>
-            <p className="num mt-1 flex items-center gap-2 text-3xl font-extrabold text-bounty">
-              <UsdtMark size={40} />
-              {fmtMoney(balance)}
-            </p>
-            <p className="mt-2 text-xs text-paper-dim">{t("adv.deposits.noMinimum")}</p>
-          </Panel>
+/* -------------------------------- advertiser -------------------------------- */
 
-          <Panel>
-            <SectionTitle>
-              <span className="inline-flex items-center gap-2">
-                <IconShield width={16} height={16} />
-                {t("adv.deposits.method")}
-              </span>
-            </SectionTitle>
-            <div className="flex flex-wrap gap-2">
-              {NETWORKS.map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => setNet(n.id)}
-                  aria-pressed={net === n.id}
-                  className={cn(
-                    "flex min-h-14 items-center gap-2.5 rounded-xl border px-4 py-2 text-sm font-semibold",
-                    net === n.id ? "border-signal bg-signal-soft text-signal" : "border-seam text-paper-dim",
-                  )}
-                >
-                  <NetworkUsdtMark network={n.id} size={32} />
-                  {t(n.key)}
-                </button>
-              ))}
-            </div>
+export function useAdvertiserStats() {
+  return useQuery({
+    queryKey: ["advertiser", "stats"],
+    queryFn: () => apiFetch<AdvertiserStats>("/advertiser/stats"),
+  });
+}
 
-            {addr.isError && <div className="mt-4"><ErrorBanner onRetry={() => addr.refetch()} /></div>}
+export function useCampaigns(status?: string) {
+  return useQuery({
+    queryKey: ["advertiser", "campaigns", status ?? "all"],
+    queryFn: () =>
+      apiFetch<Paged<Campaign>>(
+        "/advertiser/campaigns",
+        status && status !== "all" ? { query: { status } } : {},
+      ),
+    select: list<Campaign>,
+  });
+}
 
-            {addr.data?.warning && (
-              <p className="mt-4 rounded-xl border border-seam bg-bounty-soft p-3 text-xs font-semibold text-bounty">
-                {addr.data.warning}
-              </p>
-            )}
+export function useCampaign(id: string) {
+  return useQuery({
+    queryKey: ["advertiser", "campaign", id],
+    queryFn: () => apiFetch<Campaign>(`/advertiser/campaigns/${id}`),
+    enabled: Boolean(id),
+  });
+}
 
-            <div className="mt-5">
-              <p className="text-xs font-semibold text-paper-dim">{t("adv.deposits.address")}</p>
-              <div className="mt-2 flex items-center gap-2 rounded-xl border border-seam p-3">
-                <span className="num flex-1 text-xs break-all">
-                  {addr.isPending ? "…" : (addr.data?.address ?? "—")}
-                </span>
-                <button aria-label="Copy address" onClick={copy} className="text-paper-dim hover:text-paper">
-                  <IconCopy width={16} height={16} />
-                </button>
-              </div>
-              {copied && <p className="mt-1.5 text-xs font-semibold text-bounty">{t("common.copied", "Copied")}</p>}
-            </div>
+export function useCampaignTranslations(id: string, enabled = true) {
+  return useQuery({
+    queryKey: ["advertiser", "campaign", id, "translations"],
+    queryFn: () => apiFetch<CampaignTranslations>(`/advertiser/campaigns/${id}/translations`),
+    enabled: Boolean(id) && enabled,
+  });
+}
 
-            {addr.data?.memo && (
-              <div className="mt-4 rounded-xl border border-bounty/60 bg-bounty-soft p-3">
-                <p className="text-xs font-bold text-bounty">{t("adv.deposits.memo")}</p>
-                <p className="num mt-1.5 text-sm font-bold">{addr.data.memo}</p>
-                {addr.data.memo_required && (
-                  <p className="mt-2 flex gap-2 text-xs text-bounty">
-                    <IconAlert width={14} height={14} />
-                    {t("adv.deposits.memoWarning")}
-                  </p>
-                )}
-              </div>
-            )}
+export type CampaignCreateBody = {
+  name: string;
+  format: string;
+  copy: string;
+  button_label: string;
+  destinationUrl: string;
+  language: string;
+  budget: number;
+  dailyBudget?: number | null | undefined;
+  cpm: number;
+  imageUrl?: string | null | undefined;
+  ai_generated?: boolean | undefined;
+};
 
-            {addr.data && (
-              <p className="mt-4 text-xs text-paper-dim">
-                {addr.data.confirmations_required} confirmations · fee {fmtMoney(num(addr.data.fee_usdt))}
-                {addr.data.fee_note ? ` — ${addr.data.fee_note}` : ""}
-              </p>
-            )}
-          </Panel>
-        </div>
+export function useCreateCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CampaignCreateBody) =>
+      apiFetch<Campaign>("/advertiser/campaigns", { method: "POST", body }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["advertiser"] }),
+  });
+}
 
-        <Panel className="p-0">
-          <div className="border-b border-seam px-5 py-4">
-            <h2 className="flex items-center gap-2 font-display text-base font-bold">
-              <IconList width={16} height={16} />
-              {t("adv.deposits.history")}
-            </h2>
-          </div>
-          {deposits.isPending ? (
-            <div className="p-5"><RowSkeleton /></div>
-          ) : deposits.isError ? (
-            <div className="p-5"><ErrorBanner onRetry={() => deposits.refetch()} /></div>
-          ) : items.length === 0 ? (
-            <EmptyState title={t("adv.deposits.emptyTitle")} sub={t("adv.deposits.emptySub")} />
-          ) : (
-            <ul className="divide-y divide-seam">
-              {items.map((d) => (
-                <li key={d.id} className="flex flex-wrap items-center gap-3 px-5 py-4">
-                  <div>
-                    <p className="num font-bold text-bounty">{fmtMoney(num(d.amount))}</p>
-                    <p className="text-xs text-paper-dim">
-                      {d.networkLabel || d.network} · {d.createdAt?.slice(0, 10) ?? "—"}
-                    </p>
-                  </div>
-                  <div className="ml-auto flex items-center gap-3">
-                    <span className="num max-w-[10rem] truncate text-xs text-paper-dim">{d.txHash ?? ""}</span>
-                    <StatusPill status={d.status} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="border-t border-seam px-5 py-4">
-            <p className="text-xs text-paper-dim">
-              {t("adv.deposits.newBalance")}: <span className="num font-bold text-bounty">{fmtMoney(balance)}</span>
-            </p>
-          </div>
-        </Panel>
-      </div>
-      <div className="mt-5">
-        <Btn variant="secondary" onClick={() => { void deposits.refetch(); void addr.refetch(); }}>
-          {t("common.retry")}
-        </Btn>
-      </div>
-    </AdvShell>
-  );
+export function useUpdateCampaign(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiFetch<Campaign>(`/advertiser/campaigns/${id}`, { method: "PATCH", body }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["advertiser"] }),
+  });
+}
+
+export function useGenerateCopy() {
+  return useMutation({
+    mutationFn: (body: { brief: string; language: string; tone: string }) =>
+      apiFetch<{ copy: string; model: string }>("/advertiser/creatives/generate", {
+        method: "POST",
+        body,
+      }),
+  });
+}
+
+export function useAdLanguages() {
+  return useQuery({
+    queryKey: ["advertiser", "languages"],
+    queryFn: () => apiFetch<unknown>("/advertiser/languages"),
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+/* ---------------------------------- billing --------------------------------- */
+
+export function useBalance() {
+  return useQuery({ queryKey: ["billing", "balance"], queryFn: () => apiFetch<Balance>("/billing/balance") });
+}
+
+export function useDeposits() {
+  return useQuery({ queryKey: ["billing", "deposits"], queryFn: () => apiFetch<DepositList>("/billing/deposits") });
+}
+
+export function useDepositAddress(network: string, enabled = true) {
+  return useQuery({
+    queryKey: ["billing", "deposit-address", network],
+    queryFn: () => apiFetch<DepositAddress>("/billing/deposit-address", { query: { network } }),
+    enabled: Boolean(network) && enabled,
+  });
+}
+
+export function useVerifyDeposit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (network: string) =>
+      apiFetch<{ transfers_seen: number; deposits_created: number; deposits_confirmed: number; deposits_credited: number }>(
+        "/billing/deposit-address/verify",
+        { method: "POST", query: { network } },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["billing", "deposits"] });
+      void qc.invalidateQueries({ queryKey: ["billing", "balance"] });
+    },
+  });
+}
+
+export function useLedger() {
+  return useQuery({
+    queryKey: ["billing", "ledger"],
+    queryFn: () => apiFetch<Paged<LedgerItem>>("/billing/ledger"),
+    select: list<LedgerItem>,
+  });
+}
+
+export type { Deposit };
+
+/* --------------------------------- publisher -------------------------------- */
+
+export function usePublisherStats() {
+  return useQuery({ queryKey: ["publisher", "stats"], queryFn: () => apiFetch<PublisherStats>("/publisher/stats") });
+}
+
+export function useChannels() {
+  return useQuery({
+    queryKey: ["publisher", "channels"],
+    queryFn: () => apiFetch<Paged<Channel>>("/publisher/channels"),
+    select: list<Channel>,
+  });
+}
+
+export function useBotStatus(enabled = true) {
+  return useQuery({
+    queryKey: ["publisher", "bot-status"],
+    queryFn: () => apiFetch<BotStatus>("/publisher/channels/bot-status"),
+    enabled,
+  });
+}
+
+export type ChannelCreateBody = {
+  name: string;
+  publicLink: string;
+  privateLink: string;
+  adminUsername: string;
+  language: string;
+  subscribers: number;
+  maxAdsPerDay: number;
+  preferredHours?: number[] | null | undefined;
+  description?: string | null | undefined;
+};
+
+export function useCreateChannel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ChannelCreateBody) =>
+      apiFetch<Channel>("/publisher/channels", { method: "POST", body }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
+  });
+}
+
+export function useStartChannel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<Channel>(`/publisher/channels/${id}/start`, { method: "POST" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
+  });
+}
+
+export function useUpdateChannel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & Record<string, unknown>) =>
+      apiFetch<Channel>(`/publisher/channels/${id}`, { method: "PATCH", body }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
+  });
+}
+
+export function useMiniApps() {
+  return useQuery({
+    queryKey: ["publisher", "mini-apps"],
+    queryFn: () => apiFetch<Paged<MiniApp>>("/publisher/mini-apps"),
+    select: list<MiniApp>,
+  });
+}
+
+export function useCreateMiniApp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      name: string;
+      url: string;
+      formats: string[];
+      category?: string | null | undefined;
+      description?: string | null | undefined;
+    }) => apiFetch<MiniApp>("/publisher/mini-apps", { method: "POST", body }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
+  });
+}
+
+export function useMiniAppKey(id: string | null) {
+  return useQuery({
+    queryKey: ["publisher", "mini-app-key", id],
+    queryFn: () => apiFetch<MiniAppKey>(`/publisher/mini-apps/${id}/key`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useWithdrawals() {
+  return useQuery({
+    queryKey: ["publisher", "withdrawals"],
+    queryFn: () => apiFetch<WithdrawalList>("/publisher/withdrawals"),
+  });
+}
+
+export function useCreateWithdrawal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { amount: number; address: string; memo?: string | null }) =>
+      apiFetch<Withdrawal>("/publisher/withdrawals", { method: "POST", body }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
+  });
+}
+
+/* ----------------------------------- admin ---------------------------------- */
+
+export function useAdminOverview() {
+  return useQuery({ queryKey: ["admin", "overview"], queryFn: () => apiFetch<AdminOverview>("/admin/overview") });
+}
+
+export function useAdminQueue<T = Record<string, unknown>>(
+  kind: "campaigns" | "channels" | "mini-apps" | "withdrawals",
+) {
+  return useQuery({
+    queryKey: ["admin", "queue", kind],
+    queryFn: () => apiFetch<Queue<T>>(`/admin/queue/${kind}`),
+  });
+}
+
+export function useModerate(kind: "campaigns" | "channels" | "mini-apps" | "withdrawals") {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      action,
+      note,
+      reason,
+      txHash,
+    }: {
+      id: string;
+      action: "approve" | "reject" | "mark-paid";
+      note?: string | undefined;
+      reason?: string | undefined;
+      txHash?: string | undefined;
+    }) => {
+      const body =
+        action === "approve"
+          ? { note: note ?? null }
+          : action === "reject"
+            ? { reason: reason ?? "" }
+            : { txHash: txHash ?? null };
+      return apiFetch<{ id: string; status: string; message: string }>(
+        `/admin/queue/${kind}/${id}/${action}`,
+        { method: "POST", body },
+      );
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin"] }),
+  });
+}
+
+export function useAdminFinances(period = "30d") {
+  return useQuery({
+    queryKey: ["admin", "finances", period],
+    queryFn: () => apiFetch<Finances>("/admin/finances", { query: { period } }),
+  });
+}
+
+export function useAnomalies() {
+  return useQuery({
+    queryKey: ["admin", "anomalies"],
+    queryFn: () => apiFetch<Paged<Anomaly>>("/admin/anomalies"),
+    select: list<Anomaly>,
+  });
+}
+
+export function useResolveAnomaly() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ message: string }>(`/admin/anomalies/${id}/resolve`, { method: "POST" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin"] }),
+  });
+}
+
+export function useAudit() {
+  return useQuery({
+    queryKey: ["admin", "audit"],
+    queryFn: () => apiFetch<Paged<AuditEntry>>("/admin/audit"),
+    select: list<AuditEntry>,
+  });
+}
+
+export function useBlockAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      role,
+      id,
+      blocked,
+      reason,
+    }: {
+      role: "advertiser" | "publisher";
+      id: string;
+      blocked: boolean;
+      reason: string;
+    }) =>
+      apiFetch<{ message: string }>(`/admin/accounts/${role}/${id}/block`, {
+        method: "POST",
+        body: { blocked, reason },
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin"] }),
+  });
 }

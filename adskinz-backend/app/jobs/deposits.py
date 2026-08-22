@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
@@ -13,6 +15,7 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.core.enums import DepositStatus
+from app.core.errors import NotFoundError, ValidationError
 from app.database import session_scope
 from app.models.accounts import Advertiser
 from app.models.finance import Deposit, WalletAddress
@@ -115,15 +118,17 @@ async def _trc20_transfers(client: httpx.AsyncClient, address: str) -> list[Chai
     return transfers
 
 
-async def _bnb_transfers(client: httpx.AsyncClient, address: str) -> list[ChainTransfer]:
+async def _bnb_latest_block(client: httpx.AsyncClient) -> int:
     latest_response = await client.get(
         settings.BSCSCAN_BASE_URL,
         params={"module": "proxy", "action": "eth_blockNumber", "apikey": settings.BSCSCAN_API_KEY},
     )
     latest_response.raise_for_status()
     latest_raw = latest_response.json().get("result")
-    latest_block = int(str(latest_raw), 16) if isinstance(latest_raw, str) else 0
+    return int(str(latest_raw), 16) if isinstance(latest_raw, str) else 0
 
+
+async def _bnb_transfers(client: httpx.AsyncClient, address: str, latest_block: int) -> list[ChainTransfer]:
     response = await client.get(
         settings.BSCSCAN_BASE_URL,
         params={
@@ -240,8 +245,16 @@ async def _network_transfers(
         for address in unique_addresses:
             transfers.extend(await _trc20_transfers(client, address))
     elif network == "bnb":
-        for address in unique_addresses:
-            transfers.extend(await _bnb_transfers(client, address))
+        latest_block = await _bnb_latest_block(client)
+        for i, address in enumerate(unique_addresses):
+            if i > 0:
+                await asyncio.sleep(0.25)  # stay under BscScan's free-tier rate limit
+            try:
+                transfers.extend(await _bnb_transfers(client, address, latest_block))
+            except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+                # One noisy/rate-limited address must not blind the scan to
+                # every other advertiser's deposits in this run.
+                logger.warning("deposits.bnb_address_poll_failed address=%s error=%s", address, exc)
     return transfers
 
 
@@ -251,6 +264,99 @@ def _required_confirmations(network: str) -> int:
         "trc20": settings.DEPOSIT_MIN_CONFIRMATIONS_TRC20,
         "bnb": settings.DEPOSIT_MIN_CONFIRMATIONS_BEP20,
     }[network]
+
+
+async def _process_transfers(
+    session: Any,
+    discovered: list[ChainTransfer],
+    address_index: dict[tuple[str, str, str], WalletAddress],
+    now: datetime,
+    summary: dict[str, int],
+    notifications: list[tuple[str, Decimal, str, Decimal]],
+) -> None:
+    """Persist discovered transfers, credit confirmed ones, and trigger sweeps.
+
+    Shared by the scheduled batch watcher and the on-demand single-address
+    verify endpoint — the two must never diverge in how a deposit is
+    validated and credited.
+    """
+    for transfer in discovered:
+        memo_key = (transfer.memo or "").strip().lower() if transfer.network == "ton" else ""
+        wallet = address_index.get(
+            (transfer.network, _normalise_address(transfer.address), memo_key)
+        )
+        if wallet is None:
+            continue
+        summary["transfers_seen"] += 1
+
+        deposit = (
+            await session.execute(select(Deposit).where(Deposit.tx_hash == transfer.tx_hash))
+        ).scalar_one_or_none()
+        if deposit is None:
+            net_amount, fee = wallet_service.net_credited_amount(
+                transfer.network, transfer.gross_amount
+            )
+            deposit = Deposit(
+                advertiser_id=wallet.advertiser_id,
+                network=transfer.network,
+                derived_address=wallet.address,
+                memo=wallet.memo if transfer.network == "ton" else None,
+                gross_amount_usd=transfer.gross_amount,
+                fee_usd=fee,
+                amount_usd=net_amount,
+                tx_hash=transfer.tx_hash,
+                block_number=transfer.block_number,
+                confirmations=transfer.confirmations,
+            )
+            session.add(deposit)
+            await session.flush()
+            summary["deposits_created"] += 1
+        else:
+            deposit.confirmations = max(deposit.confirmations, transfer.confirmations)
+            if transfer.block_number is not None:
+                deposit.block_number = transfer.block_number
+
+        if (
+            deposit.confirmations < _required_confirmations(deposit.network)
+            or deposit.credited
+        ):
+            continue
+
+        advertiser = await session.get(Advertiser, deposit.advertiser_id, with_for_update=True)
+        if advertiser is None:
+            logger.error("deposits.advertiser_missing deposit=%s", deposit.id)
+            continue
+        credited = await billing_service.credit_deposit(
+            session,
+            advertiser=advertiser,
+            net_amount=Decimal(deposit.amount_usd or 0),
+            reference_id=deposit.id,
+            network=deposit.network,
+        )
+        deposit.status = DepositStatus.CONFIRMED.value
+        deposit.confirmed_at = now
+        deposit.credited = True
+        summary["deposits_confirmed"] += 1
+        if credited > 0:
+            summary["deposits_credited"] += 1
+
+        # Automatic BEP20 sweep: send USDT from the derived address to treasury.
+        if deposit.network == "bnb" and wallet.derivation_index is not None:
+            try:
+                await bep20_sweep_service.sweep_bep20_deposit(session, deposit, wallet)
+            except Exception as exc:
+                logger.warning("deposits.bep20_sweep_failed deposit=%s error=%s", deposit.id, exc)
+
+        # Automatic TRC20 sweep: send USDT from the derived address to treasury.
+        if deposit.network == "trc20" and wallet.derivation_index is not None:
+            try:
+                await trc20_sweep_service.sweep_trc20_deposit(session, deposit, wallet)
+            except Exception as exc:
+                logger.warning("deposits.trc20_sweep_failed deposit=%s error=%s", deposit.id, exc)
+
+        notifications.append(
+            (advertiser.email, Decimal(deposit.amount_usd or 0), deposit.network, deposit.fee_usd)
+        )
 
 
 async def deposit_watcher() -> dict:
@@ -292,97 +398,44 @@ async def deposit_watcher() -> dict:
             (row.network, _normalise_address(row.address), (row.memo or "").lower()): row
             for row in addresses
         }
-        for transfer in discovered:
-            memo_key = (transfer.memo or "").strip().lower() if transfer.network == "ton" else ""
-            wallet = address_index.get(
-                (transfer.network, _normalise_address(transfer.address), memo_key)
-            )
-            if wallet is None:
-                continue
-            summary["transfers_seen"] += 1
-
-            deposit = (
-                await session.execute(select(Deposit).where(Deposit.tx_hash == transfer.tx_hash))
-            ).scalar_one_or_none()
-            if deposit is None:
-                net_amount, fee = wallet_service.net_credited_amount(
-                    transfer.network, transfer.gross_amount
-                )
-                deposit = Deposit(
-                    advertiser_id=wallet.advertiser_id,
-                    network=transfer.network,
-                    derived_address=wallet.address,
-                    memo=wallet.memo if transfer.network == "ton" else None,
-                    gross_amount_usd=transfer.gross_amount,
-                    fee_usd=fee,
-                    amount_usd=net_amount,
-                    tx_hash=transfer.tx_hash,
-                    block_number=transfer.block_number,
-                    confirmations=transfer.confirmations,
-                )
-                session.add(deposit)
-                await session.flush()
-                summary["deposits_created"] += 1
-            else:
-                deposit.confirmations = max(deposit.confirmations, transfer.confirmations)
-                if transfer.block_number is not None:
-                    deposit.block_number = transfer.block_number
-
-            if (
-                deposit.confirmations < _required_confirmations(deposit.network)
-                or deposit.credited
-            ):
-                continue
-
-            advertiser = await session.get(Advertiser, deposit.advertiser_id, with_for_update=True)
-            if advertiser is None:
-                logger.error("deposits.advertiser_missing deposit=%s", deposit.id)
-                continue
-            credited = await billing_service.credit_deposit(
-                session,
-                advertiser=advertiser,
-                net_amount=Decimal(deposit.amount_usd or 0),
-                reference_id=deposit.id,
-                network=deposit.network,
-            )
-            deposit.status = DepositStatus.CONFIRMED.value
-            deposit.confirmed_at = now
-            deposit.credited = True
-            summary["deposits_confirmed"] += 1
-            if credited > 0:
-                summary["deposits_credited"] += 1
-
-            # Automatic BEP20 sweep: send USDT from the derived address to treasury.
-            if deposit.network == "bnb" and wallet.derivation_index is not None:
-                try:
-                    await bep20_sweep_service.sweep_bep20_deposit(session, deposit, wallet)
-                except Exception as exc:
-                    logger.warning(
-                        "deposits.bep20_sweep_failed deposit=%s error=%s",
-                        deposit.id,
-                        exc,
-                    )
-
-            # Automatic TRC20 sweep: send USDT from the derived address to treasury.
-            if deposit.network == "trc20" and wallet.derivation_index is not None:
-                try:
-                    await trc20_sweep_service.sweep_trc20_deposit(session, deposit, wallet)
-                except Exception as exc:
-                    logger.warning(
-                        "deposits.trc20_sweep_failed deposit=%s error=%s",
-                        deposit.id,
-                        exc,
-                    )
-
-            notifications.append(
-                (
-                    advertiser.email,
-                    Decimal(deposit.amount_usd or 0),
-                    deposit.network,
-                    deposit.fee_usd,
-                )
-            )
+        await _process_transfers(session, discovered, address_index, now, summary, notifications)
 
     for email, amount, network, fee in notifications:
         await email_service.send_deposit_confirmed(email, amount=amount, network=network, fee=fee)
+    return summary
+
+
+async def verify_deposit_address(advertiser_id: uuid.UUID, network: str) -> dict:
+    """On-demand check for one advertiser's own deposit address, right now —
+    instead of waiting up to one scheduler cycle. Same credit/sweep path as
+    the batch watcher, scoped to a single wallet so it stays fast and cheap
+    enough to call directly from a "Verify" button."""
+    if network not in ("ton", "trc20", "bnb"):
+        raise ValidationError(f"Unknown network '{network}'.")
+
+    summary = {"transfers_seen": 0, "deposits_created": 0, "deposits_confirmed": 0, "deposits_credited": 0}
+    notifications: list[tuple[str, Decimal, str, Decimal]] = []
+    now = datetime.now(UTC)
+
+    async with session_scope() as session:
+        wallet = (
+            await session.execute(
+                select(WalletAddress).where(
+                    WalletAddress.advertiser_id == advertiser_id,
+                    WalletAddress.network == network,
+                )
+            )
+        ).scalar_one_or_none()
+        if wallet is None:
+            raise NotFoundError(f"No {network} deposit address on file for this account.")
+
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
+            discovered = await _network_transfers(client, network, [wallet])
+
+        wallet.last_scanned_at = now
+        address_index = {(network, _normalise_address(wallet.address), (wallet.memo or "").lower()): wallet}
+        await _process_transfers(session, discovered, address_index, now, summary, notifications)
+
+    for email, amount, net, fee in notifications:
+        await email_service.send_deposit_confirmed(email, amount=amount, network=net, fee=fee)
     return summary

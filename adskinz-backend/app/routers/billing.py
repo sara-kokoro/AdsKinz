@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 
-from app.core.deps import CurrentAdvertiserDep, PaginationDep, SessionDep
+from app.core.deps import CurrentAdvertiserDep, PaginationDep, SessionDep, verify_deposit_rate_limit
 from app.models.accounts import LedgerEntry
 from app.models.finance import Deposit
 from app.schemas.billing import (
@@ -24,6 +24,7 @@ from app.schemas.billing import (
     LedgerResponse,
 )
 from app.services import billing_service, wallet_service
+from app.jobs.deposits import verify_deposit_address
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -49,6 +50,23 @@ async def deposit_address(
     return await wallet_service.build_deposit_address_response(
         session, advertiser, network
     )
+
+
+@router.post(
+    "/deposit-address/verify",
+    dependencies=[Depends(verify_deposit_rate_limit)],
+    summary="Check the chain right now for a deposit on this network",
+)
+async def deposit_address_verify(
+    advertiser: CurrentAdvertiserDep,
+    network: Literal["ton", "trc20", "bnb"] = Query(
+        ..., description="Blockchain network to check"
+    ),
+) -> dict:
+    """On-demand check, for the "Verify" button on the deposit page — scans
+    only this advertiser's own address instead of waiting for the next
+    scheduled cycle (up to two minutes away)."""
+    return await verify_deposit_address(advertiser.id, network)
 
 
 @router.get(

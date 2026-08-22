@@ -230,6 +230,7 @@ serve_rate_limit = RateLimiter(
 generate_rate_limit = RateLimiter(
     "generate", settings.RATE_LIMIT_GENERATE, settings.RATE_LIMIT_GENERATE_WINDOW
 )
+verify_deposit_rate_limit = RateLimiter("verify_deposit", 1, 20)
 
 
 # --------------------------------------------------------------------------- #
