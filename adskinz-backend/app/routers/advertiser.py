@@ -44,9 +44,10 @@ from app.schemas.advertiser import (
     CampaignUpdateRequest,
     GenerateCopyRequest,
     GenerateCopyResponse,
+    ImageUploadRequest,
     TranslationItem,
 )
-from app.services import billing_service, groq_service
+from app.services import billing_service, groq_service, upload_service
 
 router = APIRouter(prefix="/advertiser", tags=["advertiser"])
 
@@ -377,6 +378,22 @@ async def generate_creative(
         payload.brief, language=payload.language, tone=payload.tone
     )
     return GenerateCopyResponse(copy=text, model=model, tokens_used=tokens)
+
+
+@router.post(
+    "/creatives/upload-url",
+    summary="Get a presigned URL to upload a creative image",
+)
+async def creative_upload_url(
+    payload: ImageUploadRequest,
+    advertiser: CurrentAdvertiserDep,
+) -> dict[str, str]:
+    """Return a short-lived signed URL. The browser uploads the file
+    directly to R2 with a PUT request — the bytes never pass through
+    this API."""
+    return upload_service.create_upload_url(
+        content_type=payload.content_type, advertiser_id=advertiser.id
+    )
 
 
 @router.get(

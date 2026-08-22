@@ -3,12 +3,12 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdvShell } from "@/components/workspaces";
 import {
-  BudgetBar, Btn, ErrorBanner, Field, FieldError, Modal, Panel, Quote, SectionTitle,
+  BudgetBar, Btn, ErrorBanner, Field, FieldError, ImageUpload, Modal, Panel, Quote, SectionTitle,
   StatusPill, fmtInt, fmtMoney, inputCls,
 } from "@/components/kit";
 import { UsdtMark } from "@/components/usdt";
 import { ArtFunnel } from "@/components/illustrations";
-import { AD_LANGUAGES } from "@/lib/constants";
+import { AD_LANGUAGES, BUTTON_LABELS } from "@/lib/constants";
 import { ApiError, num, trackingUrl } from "@/lib/api";
 import { useCampaign, useCampaignTranslations, useUpdateCampaign } from "@/lib/queries";
 import { useAuthGuard } from "@/lib/auth";
@@ -40,6 +40,10 @@ function CampaignDetail() {
   const [cpm, setCpm] = useState("");
   const [budget, setBudget] = useState("");
   const [language, setLanguage] = useState("");
+  const [copy, setCopy] = useState("");
+  const [buttonLabel, setButtonLabel] = useState("");
+  const [destinationUrl, setDestinationUrl] = useState("");
+  const [image, setImage] = useState<{ url: string; name: string } | null>(null);
   const [topUp, setTopUp] = useState(false);
   const [amount, setAmount] = useState("100");
   const [notice, setNotice] = useState<string | null>(null);
@@ -53,6 +57,10 @@ function CampaignDetail() {
     setCpm(c.cpm);
     setBudget(c.budget);
     setLanguage(c.language);
+    setCopy(c.copy ?? "");
+    setButtonLabel(c.buttonLabel ?? "");
+    setDestinationUrl(c.destinationUrl ?? "");
+    setImage(c.imageUrl ? { url: c.imageUrl, name: "current-image" } : null);
     setEditing(true);
   };
 
@@ -93,7 +101,16 @@ function CampaignDetail() {
     }
     setErr(null);
     update.mutate(
-      { name, cpm: Number(cpm), budget: Number(budget), language },
+      {
+        name,
+        cpm: Number(cpm),
+        budget: Number(budget),
+        language,
+        copy,
+        buttonLabel,
+        destinationUrl,
+        imageUrl: image?.url ?? null,
+      },
       {
         onSuccess: () => { setEditing(false); setNotice(t("adv.detail.saved")); },
         onError: (e) => setErr(e instanceof ApiError ? e.message : t("common.loadError")),
@@ -136,7 +153,7 @@ function CampaignDetail() {
         </div>
       }
     >
-      <div className="space-y-5">
+      <div className="space-y-5 overflow-x-hidden">
         <Link to="/traffic/campaigns" className="inline-block text-sm font-semibold text-signal hover:underline">
           ← {t("adv.detail.back")}
         </Link>
@@ -144,7 +161,7 @@ function CampaignDetail() {
         {notice && <Quote tone="bounty" label={t("adv.nav.campaigns")}>{notice}</Quote>}
 
         <Panel className="flex flex-wrap items-center gap-5">
-          <div className="min-w-52">
+          <div className="w-full sm:w-auto sm:min-w-52">
             <p className="text-xs font-semibold text-paper-dim">{t("adv.detail.remaining")}</p>
             <p className="num mt-1 flex items-center gap-2 font-display text-3xl font-extrabold text-bounty">
               <UsdtMark size={26} />
@@ -153,9 +170,9 @@ function CampaignDetail() {
             <p className="num mt-1 text-xs text-paper-dim">
               {fmtMoney(spent)} / {fmtMoney(budgetTotal, 0)}
             </p>
-            <div className="mt-3 w-56"><BudgetBar used={spent} total={budgetTotal || 1} /></div>
+            <div className="mt-3 w-full max-w-56"><BudgetBar used={spent} total={budgetTotal || 1} /></div>
           </div>
-          <div className="min-w-44 flex-1"><ArtFunnel /></div>
+          <div className="hidden min-w-44 flex-1 sm:block"><ArtFunnel /></div>
           <StatusPill status={c.status} />
         </Panel>
 
@@ -210,6 +227,46 @@ function CampaignDetail() {
                   ))}
                 </select>
               </Field>
+              <Field label={t("adv.wizard.copy")} htmlFor="ccopy">
+                <textarea
+                  id="ccopy"
+                  disabled={!editing}
+                  value={editing ? copy : (c.copy ?? "")}
+                  onChange={(e) => setCopy(e.target.value)}
+                  rows={3}
+                  className={inputCls()}
+                />
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label={t("adv.wizard.buttonLabel")} htmlFor="cbtn">
+                  <select
+                    id="cbtn"
+                    disabled={!editing}
+                    value={editing ? buttonLabel : (c.buttonLabel ?? "")}
+                    onChange={(e) => setButtonLabel(e.target.value)}
+                    className={inputCls()}
+                  >
+                    {BUTTON_LABELS.map((l) => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label={t("adv.wizard.destinationUrl")} htmlFor="curl">
+                  <input
+                    id="curl"
+                    disabled={!editing}
+                    value={editing ? destinationUrl : (c.destinationUrl ?? "")}
+                    onChange={(e) => setDestinationUrl(e.target.value)}
+                    placeholder="https://t.me/..."
+                    className={inputCls()}
+                  />
+                </Field>
+              </div>
+              {editing && (
+                <Field label={t("adv.wizard.image")} htmlFor="cimg">
+                  <ImageUpload value={image} onChange={setImage} />
+                </Field>
+              )}
               {err && <FieldError>{err}</FieldError>}
               {editing && (
                 <div className="flex flex-wrap gap-2">

@@ -186,6 +186,22 @@ function enqueueRefresh(): Promise<string | null> {
   return new Promise((resolve) => refreshQueue.push(resolve));
 }
 
+export async function uploadCreativeImage(file: File): Promise<{ url: string; name: string }> {
+  const { upload_url, public_url } = await apiFetch<{ upload_url: string; public_url: string }>(
+    "/advertiser/creatives/upload-url",
+    { method: "POST", body: { contentType: file.type } },
+  );
+  const put = await fetch(upload_url, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!put.ok) {
+    throw new ApiError("Image upload failed — please try again.", put.status, "UPLOAD_FAILED");
+  }
+  return { url: public_url, name: file.name };
+}
+
 export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, query, auth = true, signal } = opts;
 

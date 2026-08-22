@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { uploadCreativeImage } from "@/lib/api";
 import { IconAlert, IconEmptyBox, IconImage, IconX } from "@/components/icons";
 
 /* ---------- status system: single source of truth for colour + label ---------- */
@@ -385,7 +386,8 @@ export const inputCls = (invalid = false) =>
     invalid ? "border-danger bg-danger-soft text-danger focus:border-danger" : "border-seam",
   );
 
-/** Drag-and-drop image picker with local preview — no external upload service. */
+/** Drag-and-drop image picker. Uploads directly to object storage via a
+ * presigned URL — the value it returns is a real, permanent public URL. */
 export function ImageUpload({
   value,
   onChange,
@@ -397,13 +399,22 @@ export function ImageUpload({
   const inputRef = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const take = (file?: File) => {
+  const take = async (file?: File) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) return setErr(t("adv.wizard.imageWrongType"));
     if (file.size > 5 * 1024 * 1024) return setErr(t("adv.wizard.imageTooLarge"));
     setErr("");
-    onChange({ url: URL.createObjectURL(file), name: file.name });
+    setBusy(true);
+    try {
+      const uploaded = await uploadCreativeImage(file);
+      onChange(uploaded);
+    } catch {
+      setErr(t("adv.wizard.imageUploadFailed"));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -414,9 +425,14 @@ export function ImageUpload({
         accept="image/*"
         className="sr-only"
         aria-label={t("adv.wizard.image")}
-        onChange={(e) => take(e.target.files?.[0])}
+        onChange={(e) => void take(e.target.files?.[0])}
       />
-      {value ? (
+      {busy ? (
+        <div className="flex w-full flex-col items-center gap-1.5 rounded-xl border border-dashed border-seam px-6 py-10 text-center">
+          <div className="size-6 animate-spin rounded-full border-2 border-signal border-t-transparent" />
+          <span className="text-sm font-semibold">{t("adv.wizard.imageUploading")}</span>
+        </div>
+      ) : value ? (
         <div className="overflow-hidden rounded-xl border border-seam">
           <img src={value.url} alt={value.name} className="aspect-[16/9] w-full object-cover" />
           <div className="flex items-center gap-3 border-t border-seam p-3">
@@ -443,7 +459,7 @@ export function ImageUpload({
           onDrop={(e) => {
             e.preventDefault();
             setDrag(false);
-            take(e.dataTransfer.files?.[0]);
+            void take(e.dataTransfer.files?.[0]);
           }}
           className={cn(
             "flex w-full flex-col items-center gap-1.5 rounded-xl border border-dashed px-6 py-10 text-center transition-colors",

@@ -159,7 +159,8 @@ function Landing() {
               {t("common.launchCampaign")}
             </Link>
             <Link
-              to="/partner/channels"
+              to="/login"
+              search={{ intent: "addAccount", role: "publisher" }}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-seam px-6 text-sm font-semibold transition-colors hover:bg-panel sm:w-auto"
             >
               {t("common.becomePublisher")}
@@ -261,7 +262,8 @@ function Landing() {
                 ))}
               </ul>
               <Link
-                to="/partner/channels"
+                to="/login"
+                search={{ intent: "addAccount", role: "publisher" }}
                 className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-seam text-sm font-bold"
               >
                 {t("common.becomePublisher")}
@@ -306,7 +308,6 @@ function Landing() {
             <Link to="/docs">docs</Link>
             <Link to="/traffic">traffic</Link>
             <Link to="/partner">partner</Link>
-            <Link to="/kingcey">kingcey</Link>
           </div>
         </div>
       </footer>

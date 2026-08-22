@@ -18,6 +18,7 @@ bip-utils==2.9.*
 apscheduler==3.11.*
 httpx==0.28.*
 resend==2.*
+boto3==1.*
 redis==8.1.*
 python-dotenv==1.2.*
 python-multipart==0.0.*

@@ -7,6 +7,10 @@ import { useAuth, HOME_FOR_ROLE } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    intent: search.intent === "addAccount" ? ("addAccount" as const) : undefined,
+    role: search.role === "publisher" || search.role === "advertiser" ? search.role : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Sign in — AdsKinz" },
@@ -29,9 +33,11 @@ type Step = "login" | "register" | "verify";
 function LoginPage() {
   const { login, register, verifyEmail, resendVerification, token, role, ready } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<Mode>("login");
+  const search = Route.useSearch();
+  const addingAccount = search.intent === "addAccount";
+  const [mode, setMode] = useState<Mode>(addingAccount ? "register" : "login");
   const [step, setStep] = useState<Step>("login");
-  const [accountRole, setAccountRole] = useState<"advertiser" | "publisher">("advertiser");
+  const [accountRole, setAccountRole] = useState<"advertiser" | "publisher">(search.role ?? "advertiser");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -44,8 +50,13 @@ function LoginPage() {
   const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
+    // Skip the auto-redirect when the person is deliberately here to register
+    // a second account (e.g. an advertiser adding a publisher account) —
+    // otherwise the existing session for the other role bounces them away
+    // before they ever see the sign-up form.
+    if (addingAccount) return;
     if (ready && token && role) void navigate({ to: HOME_FOR_ROLE[role], replace: true });
-  }, [ready, token, role, navigate]);
+  }, [ready, token, role, navigate, addingAccount]);
 
   useEffect(() => {
     if (countdown <= 0) return;

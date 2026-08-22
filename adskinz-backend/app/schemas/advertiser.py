@@ -161,6 +161,10 @@ class GenerateCopyRequest(RequestModel):
     tone: Literal["neutral", "punchy", "premium", "playful"] = "punchy"
 
 
+class ImageUploadRequest(RequestModel):
+    content_type: str = Field(alias="contentType", max_length=64)
+
+
 # --------------------------------------------------------------------------- #
 # Responses
 # --------------------------------------------------------------------------- #
