@@ -125,6 +125,8 @@ async def _bnb_latest_block(client: httpx.AsyncClient) -> int:
     )
     latest_response.raise_for_status()
     latest_raw = latest_response.json().get("result")
+    if isinstance(latest_raw, int):
+        return latest_raw
     return int(str(latest_raw), 16) if isinstance(latest_raw, str) else 0
 
 
@@ -429,8 +431,15 @@ async def verify_deposit_address(advertiser_id: uuid.UUID, network: str) -> dict
         if wallet is None:
             raise NotFoundError(f"No {network} deposit address on file for this account.")
 
-        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
-            discovered = await _network_transfers(client, network, [wallet])
+        try:
+            async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
+                discovered = await _network_transfers(client, network, [wallet])
+        except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+            logger.warning(
+                "deposits.verify_poll_failed advertiser=%s network=%s error=%s",
+                advertiser_id, network, exc,
+            )
+            discovered = []
 
         wallet.last_scanned_at = now
         address_index = {(network, _normalise_address(wallet.address), (wallet.memo or "").lower()): wallet}
