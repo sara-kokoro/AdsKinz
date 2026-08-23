@@ -121,7 +121,12 @@ async def _trc20_transfers(client: httpx.AsyncClient, address: str) -> list[Chai
 async def _bnb_latest_block(client: httpx.AsyncClient) -> int:
     latest_response = await client.get(
         settings.BSCSCAN_BASE_URL,
-        params={"module": "proxy", "action": "eth_blockNumber", "apikey": settings.BSCSCAN_API_KEY},
+        params={
+            "chainid": settings.BSC_CHAIN_ID,
+            "module": "proxy",
+            "action": "eth_blockNumber",
+            "apikey": settings.BSCSCAN_API_KEY,
+        },
     )
     latest_response.raise_for_status()
     latest_raw = latest_response.json().get("result")
@@ -134,6 +139,7 @@ async def _bnb_transfers(client: httpx.AsyncClient, address: str, latest_block: 
     response = await client.get(
         settings.BSCSCAN_BASE_URL,
         params={
+            "chainid": settings.BSC_CHAIN_ID,
             "module": "account",
             "action": "tokentx",
             "contractaddress": settings.USDT_BEP20_CONTRACT,
@@ -182,41 +188,63 @@ async def _bnb_transfers(client: httpx.AsyncClient, address: str, latest_block: 
 
 
 async def _ton_transfers(client: httpx.AsyncClient, address: str) -> list[ChainTransfer]:
-    """Read decoded inbound USDT jetton notifications from Toncenter.
+    """Read decoded inbound USDT jetton transfers from Toncenter's v3 API.
 
-    Toncenter versions expose decoded fields under slightly different names, so
-    this accepts the documented v2 message shape as well as common decoded
-    variants. Transfers without both a USDT master and the advertiser memo are
-    deliberately ignored rather than risking a credit for native TON.
+    v3's dedicated jetton/transfers endpoint returns fully decoded transfer
+    events (source, destination, amount, jetton master, comment). The v2
+    getTransactions endpoint only returns opaque BOC-encoded message bodies —
+    it never actually carried the decoded fields this used to look for, so no
+    TON deposit could ever be matched. Field names are extracted defensively
+    since different Toncenter-compatible providers wrap this data slightly
+    differently (flat vs. nested under jetton/from/to/transaction objects).
     """
     headers = {"X-API-Key": settings.TONCENTER_API_KEY} if settings.TONCENTER_API_KEY else {}
+    base = settings.TONCENTER_BASE_URL.rstrip("/")
+    v3_base = base.replace("/api/v2", "/api/v3") if "/api/v2" in base else f"{base}/v3"
     response = await client.get(
-        f"{settings.TONCENTER_BASE_URL.rstrip('/')}/getTransactions",
-        params={"address": address, "limit": 200, "archival": "true"},
+        f"{v3_base}/jetton/transfers",
+        params={"owner_address": address, "direction": "in", "limit": 200},
         headers=headers,
     )
     response.raise_for_status()
     payload = response.json()
     if not payload.get("ok", True):
         raise RuntimeError(str(payload.get("error") or "Toncenter rejected the request."))
+    items = payload.get("jetton_transfers") or payload.get("transfers") or []
 
     transfers: list[ChainTransfer] = []
-    for transaction in payload.get("result", []):
-        masters = _extract_strings(
-            transaction,
-            {"jetton_master", "jetton_master_address", "master_address"},
-        )
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+
+        master_values = _extract_strings(item, {"jetton_master"})
+        if not master_values:
+            jetton_obj = item.get("jetton")
+            if isinstance(jetton_obj, dict):
+                master_values = _extract_strings(jetton_obj, {"address"})
         if not any(
-            _normalise_address(value) == _normalise_address(settings.USDT_TON_JETTON_MASTER)
-            for value in masters
+            _normalise_address(v) == _normalise_address(settings.USDT_TON_JETTON_MASTER)
+            for v in master_values
         ):
             continue
-        operation_names = _extract_strings(transaction, {"decoded_op_name", "operation", "op_name"})
-        if operation_names and not any("jetton" in value.lower() for value in operation_names):
+
+        dest_values = _extract_strings(item, {"destination"})
+        if not dest_values:
+            to_obj = item.get("to")
+            if isinstance(to_obj, dict):
+                dest_values = _extract_strings(to_obj, {"address"})
+        if not any(_normalise_address(v) == _normalise_address(address) for v in dest_values):
             continue
-        amount_values = _extract_strings(transaction, {"amount", "jetton_amount"})
-        memo_values = _extract_strings(transaction, {"comment", "memo", "text"})
-        hash_values = _extract_strings(transaction, {"hash"})
+
+        hash_values = _extract_strings(item, {"transaction_hash", "hash"})
+        if not hash_values:
+            tx_obj = item.get("transaction")
+            if isinstance(tx_obj, dict):
+                hash_values = _extract_strings(tx_obj, {"hash"})
+
+        amount_values = _extract_strings(item, {"amount"})
+        memo_values = _extract_strings(item, {"comment", "forward_comment", "text"})
+
         amount = _decimal_amount(amount_values[0], 6) if amount_values else None
         tx_hash = hash_values[0] if hash_values else ""
         memo = next((value for value in memo_values if value.strip()), None)

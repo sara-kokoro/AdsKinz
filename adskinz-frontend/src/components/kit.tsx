@@ -232,8 +232,8 @@ export function Btn({
       className={cn(
         "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition-all duration-200 disabled:pointer-events-none disabled:opacity-45",
         variant === "primary" && `${toneBg} hover:brightness-110`,
-        variant === "secondary" && "border border-seam bg-transparent hover:bg-panel-2",
-        variant === "ghost" && "hover:bg-panel-2",
+        variant === "secondary" && "border border-seam bg-transparent text-paper hover:bg-panel-2",
+        variant === "ghost" && "text-paper hover:bg-panel-2",
         className,
       )}
       {...rest}

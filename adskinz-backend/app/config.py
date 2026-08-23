@@ -143,7 +143,8 @@ class Settings(BaseSettings):
     TRONGRID_API_KEY: str = "b94228c9-c234-4399-8c39-ccaf46d13b97"
     TRONGRID_BASE_URL: str = "https://api.trongrid.io"
     BSCSCAN_API_KEY: str = "RAYN37HRFNVPYJYNEWMUJJ6RVBZFY4M2ZH"
-    BSCSCAN_BASE_URL: str = "https://api.bscscan.com/api"
+    BSCSCAN_BASE_URL: str = "https://api.etherscan.io/v2/api"
+    BSC_CHAIN_ID: int = 56
     TONCENTER_API_KEY: str = "f355c8138b5f1d7158541863828cdd9693470c25621006e54615bfdee49785ad"
     TONCENTER_BASE_URL: str = "https://toncenter.com/api/v2"
     
@@ -199,13 +200,13 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Object storage (Cloudflare R2) — campaign creative images.
     # ------------------------------------------------------------------ #
-    R2_ACCOUNT_ID: str = "1e68858e21eacf86a2e5ca58ac17efab"
-    R2_ACCESS_KEY_ID: str = "8cba4fac7e6625ad898ed72426cc28ca"
-    R2_SECRET_ACCESS_KEY: str = "3aafc0e11e50af874313e2da7f3ba12b51ad9a52e417735c4b04fdac820e5831"
+    R2_ACCOUNT_ID: str = ""
+    R2_ACCESS_KEY_ID: str = ""
+    R2_SECRET_ACCESS_KEY: str = ""
     R2_BUCKET: str = "adskinz-creatives"
     # Public base URL for the bucket (R2 public bucket URL, or a custom
     # domain fronting it). Files are served from here, never through the API.
-    R2_PUBLIC_BASE_URL: str = "https://pub-1620d70927624116a96afc158072fde9.r2.dev"
+    R2_PUBLIC_BASE_URL: str = ""
     R2_UPLOAD_URL_EXPIRY_SECONDS: int = 300
     R2_MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024
     LOW_BALANCE_ALERT_RATIO: Decimal = Decimal("0.10")
