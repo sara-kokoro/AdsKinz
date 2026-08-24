@@ -147,6 +147,17 @@ class Settings(BaseSettings):
     BSC_CHAIN_ID: int = 56
     TONCENTER_API_KEY: str = "f355c8138b5f1d7158541863828cdd9693470c25621006e54615bfdee49785ad"
     TONCENTER_BASE_URL: str = "https://toncenter.com/api/v2"
+    TONAPI_API_KEY: str = "AGJFFJJM2XZ56RYAAAAC3OULCTZUEX4XIAKURHDBPKOM5LUMAKMXMBWTMXTIGV66GMCVQ2A"
+    TONAPI_BASE_URL: str = "https://tonapi.io"
+    TONAPI_WEBHOOK_RT_URL: str = "https://rt.tonapi.io"
+    # Populated once by scripts/setup_ton_webhook.py — identifies which
+    # webhook the TON hot wallet is subscribed under, so re-running the
+    # setup script is a no-op instead of creating duplicates.
+    TON_WEBHOOK_ID: str = ""
+    # Shared secret appended as ?token=... on our own webhook URL. TonAPI
+    # does not sign its webhook calls, so this is our only way to reject
+    # requests that don't actually come from TonAPI.
+    TON_WEBHOOK_TOKEN: str = "x7Kp9UkakaUu181mQ2vL4wR8tN5yZ141hquUjtUuZvX"
     
     TON_DEPOSIT_ADDRESS: str = "UQCTEfgy5MouZG3gcLzTFvi8JoPDWCVfU4HTx4Lukoo8Lcou"
 

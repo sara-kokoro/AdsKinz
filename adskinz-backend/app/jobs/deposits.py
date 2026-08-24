@@ -188,78 +188,70 @@ async def _bnb_transfers(client: httpx.AsyncClient, address: str, latest_block: 
 
 
 async def _ton_transfers(client: httpx.AsyncClient, address: str) -> list[ChainTransfer]:
-    """Read decoded inbound USDT jetton transfers from Toncenter's v3 API.
+    """Read inbound USDT jetton transfers for one account from TonAPI.
 
-    v3's dedicated jetton/transfers endpoint returns fully decoded transfer
-    events (source, destination, amount, jetton master, comment). The v2
-    getTransactions endpoint only returns opaque BOC-encoded message bodies —
-    it never actually carried the decoded fields this used to look for, so no
-    TON deposit could ever be matched. Field names are extracted defensively
-    since different Toncenter-compatible providers wrap this data slightly
-    differently (flat vs. nested under jetton/from/to/transaction objects).
+    Uses GET /v2/accounts/{account_id}/events, the only TonAPI endpoint that
+    exposes a decoded ``comment`` field for jetton transfers (confirmed
+    against TonAPI's own OpenAPI spec — the jettons/history endpoint only
+    has a free-form, unstructured ``payload`` and cannot be used to match a
+    memo reliably). Each event's actions are scanned for a JettonTransfer
+    whose jetton is our USDT master and whose recipient is this address.
     """
-    headers = {"X-API-Key": settings.TONCENTER_API_KEY} if settings.TONCENTER_API_KEY else {}
-    base = settings.TONCENTER_BASE_URL.rstrip("/")
-    v3_base = base.replace("/api/v2", "/api/v3") if "/api/v2" in base else f"{base}/v3"
+    headers = {"Authorization": f"Bearer {settings.TONAPI_API_KEY}"} if settings.TONAPI_API_KEY else {}
     response = await client.get(
-        f"{v3_base}/jetton/transfers",
-        params={"owner_address": address, "direction": "in", "limit": 200},
+        f"{settings.TONAPI_BASE_URL.rstrip('/')}/v2/accounts/{address}/events",
+        params={"limit": 100, "subject_only": "true"},
         headers=headers,
     )
     response.raise_for_status()
     payload = response.json()
-    if not payload.get("ok", True):
-        raise RuntimeError(str(payload.get("error") or "Toncenter rejected the request."))
-    items = payload.get("jetton_transfers") or payload.get("transfers") or []
+    if isinstance(payload, dict) and payload.get("error"):
+        raise RuntimeError(str(payload["error"]))
+
+    events = payload.get("events") if isinstance(payload, dict) else None
+    if not isinstance(events, list):
+        events = []
 
     transfers: list[ChainTransfer] = []
-    for item in items:
-        if not isinstance(item, dict):
+    for event in events:
+        if not isinstance(event, dict):
             continue
+        event_id = event.get("event_id")
+        for action in event.get("actions") or []:
+            if not isinstance(action, dict) or action.get("type") != "JettonTransfer":
+                continue
+            details = action.get("JettonTransfer")
+            if not isinstance(details, dict):
+                continue
 
-        master_values = _extract_strings(item, {"jetton_master"})
-        if not master_values:
-            jetton_obj = item.get("jetton")
-            if isinstance(jetton_obj, dict):
-                master_values = _extract_strings(jetton_obj, {"address"})
-        if not any(
-            _normalise_address(v) == _normalise_address(settings.USDT_TON_JETTON_MASTER)
-            for v in master_values
-        ):
-            continue
+            jetton = details.get("jetton") or {}
+            jetton_master = jetton.get("address") if isinstance(jetton, dict) else None
+            if _normalise_address(jetton_master) != _normalise_address(settings.USDT_TON_JETTON_MASTER):
+                continue
 
-        dest_values = _extract_strings(item, {"destination"})
-        if not dest_values:
-            to_obj = item.get("to")
-            if isinstance(to_obj, dict):
-                dest_values = _extract_strings(to_obj, {"address"})
-        if not any(_normalise_address(v) == _normalise_address(address) for v in dest_values):
-            continue
+            recipient = details.get("recipient") or {}
+            recipient_address = recipient.get("address") if isinstance(recipient, dict) else None
+            if _normalise_address(recipient_address) != _normalise_address(address):
+                continue
 
-        hash_values = _extract_strings(item, {"transaction_hash", "hash"})
-        if not hash_values:
-            tx_obj = item.get("transaction")
-            if isinstance(tx_obj, dict):
-                hash_values = _extract_strings(tx_obj, {"hash"})
+            amount = _decimal_amount(details.get("amount"), (jetton or {}).get("decimals", 6))
+            comment = details.get("comment")
+            memo = comment.strip() if isinstance(comment, str) and comment.strip() else None
+            base_tx = action.get("base_transactions") or []
+            tx_hash = str(base_tx[0]) if base_tx else str(event_id or "")
 
-        amount_values = _extract_strings(item, {"amount"})
-        memo_values = _extract_strings(item, {"comment", "forward_comment", "text"})
-
-        amount = _decimal_amount(amount_values[0], 6) if amount_values else None
-        tx_hash = hash_values[0] if hash_values else ""
-        memo = next((value for value in memo_values if value.strip()), None)
-        if amount is None or amount <= 0 or not tx_hash or not memo:
-            continue
-        transfers.append(
-            ChainTransfer(
-                network="ton",
-                tx_hash=tx_hash,
-                address=address,
-                memo=memo,
-                gross_amount=amount,
-                confirmations=settings.DEPOSIT_MIN_CONFIRMATIONS_TON,
+            if amount is None or amount <= 0 or not tx_hash or not memo:
+                continue
+            transfers.append(
+                ChainTransfer(
+                    network="ton",
+                    tx_hash=tx_hash,
+                    address=address,
+                    memo=memo,
+                    gross_amount=amount,
+                    confirmations=settings.DEPOSIT_MIN_CONFIRMATIONS_TON,
+                )
             )
-        )
     return transfers
 
 
@@ -387,6 +379,43 @@ async def _process_transfers(
         notifications.append(
             (advertiser.email, Decimal(deposit.amount_usd or 0), deposit.network, deposit.fee_usd)
         )
+
+
+async def ton_webhook_trigger() -> dict:
+    """Scan only TON wallets — called when TonAPI's webhook notifies us that
+    something happened on the hot wallet, instead of waiting for the next
+    scheduled cycle. Scoped to TON only so a burst of TON notifications never
+    burns TronGrid/BscScan rate limit budget."""
+    summary = {"transfers_seen": 0, "deposits_created": 0, "deposits_confirmed": 0, "deposits_credited": 0}
+    notifications: list[tuple[str, Decimal, str, Decimal]] = []
+    now = datetime.now(UTC)
+
+    async with session_scope() as session:
+        addresses = (
+            (await session.execute(select(WalletAddress).where(WalletAddress.network == "ton")))
+            .scalars()
+            .all()
+        )
+        if not addresses:
+            return summary
+
+        try:
+            async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
+                discovered = await _network_transfers(client, "ton", addresses)
+        except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+            logger.warning("deposits.ton_webhook_poll_failed error=%s", exc)
+            return summary
+
+        for row in addresses:
+            row.last_scanned_at = now
+        address_index = {
+            ("ton", _normalise_address(row.address), (row.memo or "").lower()): row for row in addresses
+        }
+        await _process_transfers(session, discovered, address_index, now, summary, notifications)
+
+    for email, amount, net, fee in notifications:
+        await email_service.send_deposit_confirmed(email, amount=amount, network=net, fee=fee)
+    return summary
 
 
 async def deposit_watcher() -> dict:

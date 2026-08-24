@@ -8,10 +8,12 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 
+from app.config import settings
 from app.core.deps import CurrentAdvertiserDep, PaginationDep, SessionDep, verify_deposit_rate_limit
+from app.core.errors import AuthenticationError
 from app.models.accounts import LedgerEntry
 from app.models.finance import Deposit
 from app.schemas.billing import (
@@ -24,7 +26,7 @@ from app.schemas.billing import (
     LedgerResponse,
 )
 from app.services import billing_service, wallet_service
-from app.jobs.deposits import verify_deposit_address
+from app.jobs.deposits import ton_webhook_trigger, verify_deposit_address
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -67,6 +69,28 @@ async def deposit_address_verify(
     only this advertiser's own address instead of waiting for the next
     scheduled cycle (up to two minutes away)."""
     return await verify_deposit_address(advertiser.id, network)
+
+
+@router.post(
+    "/ton-webhook",
+    summary="TonAPI webhook receiver — internal use only",
+    include_in_schema=False,
+)
+async def ton_webhook(request: Request, token: str = Query(default="")) -> dict:
+    """TonAPI POSTs here whenever the TON hot wallet has a new transaction
+    (see scripts/setup_ton_webhook.py for the one-time subscription setup).
+
+    TonAPI does not sign these requests, so the only protection is the
+    ``token`` query parameter baked into the URL we gave TonAPI when
+    creating the webhook. This just re-triggers the same TON scan the
+    scheduler and the Verify button already use — it never trusts the
+    webhook body itself for transfer details.
+    """
+    if not settings.TON_WEBHOOK_TOKEN or token != settings.TON_WEBHOOK_TOKEN:
+        raise AuthenticationError("Invalid webhook token.")
+    await request.body()  # drain the body; we don't parse it, see docstring
+    summary = await ton_webhook_trigger()
+    return {"ok": True, **summary}
 
 
 @router.get(
