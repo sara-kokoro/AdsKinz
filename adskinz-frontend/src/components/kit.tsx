@@ -79,6 +79,21 @@ export const fmtInt = (n: number) => n.toLocaleString("en-US");
 export const fmtMoney = (n: number, d = 2) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d })}`;
 
+/**
+ * Formats a date as YYYY-MM-DD, accepting whatever shape actually shows up
+ * at runtime: an ISO string (the normal case), a real Date instance (can
+ * happen after SSR/hydration serialisation turns date-looking strings back
+ * into Date objects), a unix timestamp, or null/undefined. Never throws —
+ * unlike a bare `.slice(0, 10)` call, which assumes the value is always a
+ * string and crashes the whole render if it isn't.
+ */
+export const fmtDate = (value: string | number | Date | null | undefined): string => {
+  if (!value) return "—";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toISOString().slice(0, 10);
+};
+
 /** Count-up used only on the two hero metrics. */
 export function CountUp({ value, money = false }: { value: number; money?: boolean }) {
   const [n, setN] = useState(0);

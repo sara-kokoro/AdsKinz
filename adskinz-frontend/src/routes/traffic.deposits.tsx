@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdvShell } from "@/components/workspaces";
-import { Btn, EmptyState, ErrorBanner, Panel, RowSkeleton, SectionTitle, StatusPill, fmtMoney } from "@/components/kit";
+import { Btn, EmptyState, ErrorBanner, Panel, RowSkeleton, SectionTitle, StatusPill, fmtDate, fmtMoney } from "@/components/kit";
 import { IconAlert, IconCopy, IconList, IconWallet, IconShield } from "@/components/icons";
 import { NetworkUsdtMark, UsdtMark } from "@/components/usdt";
 import { useDepositAddress, useDeposits, useVerifyDeposit } from "@/lib/queries";
@@ -184,7 +184,7 @@ function Deposits() {
                   <div>
                     <p className="num font-bold text-bounty">{fmtMoney(num(d.amount))}</p>
                     <p className="text-xs text-paper-dim">
-                      {d.networkLabel || d.network} · {d.createdAt?.slice(0, 10) ?? "—"}
+                      {d.networkLabel || d.network} · {fmtDate(d.createdAt)}
                     </p>
                   </div>
                   <div className="ml-auto flex items-center gap-3">
