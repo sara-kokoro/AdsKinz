@@ -50,6 +50,29 @@ def _normalise_address(value: Any) -> str:
     return str(value or "").strip().lower()
 
 
+def _normalise_ton_address(value: Any) -> str:
+    """Canonicalise a TON address to raw ``wc:hex`` form for comparison.
+
+    TonAPI's ``/v2/accounts/{id}/events`` returns jetton sender/recipient
+    and jetton-master addresses in raw form (e.g. ``0:9311f832e4ca...``),
+    while our own config and derived wallet addresses are stored in
+    user-friendly form (e.g. ``UQCT...``). A plain string compare between
+    the two never matches, which was silently dropping every TON deposit
+    regardless of memo/amount. Route both sides through this first.
+    """
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        from pytoniq_core import Address  # local import: only needed for TON
+
+        return Address(text).to_str(is_user_friendly=False).lower()
+    except Exception:
+        # Fall back to a plain compare rather than crash the poller if the
+        # address is malformed or the library can't parse it.
+        return text.lower()
+
+
 def _extract_strings(value: Any, names: set[str]) -> list[str]:
     """Collect named scalar values from inconsistent explorer payload shapes."""
     found: list[str] = []
@@ -226,12 +249,14 @@ async def _ton_transfers(client: httpx.AsyncClient, address: str) -> list[ChainT
 
             jetton = details.get("jetton") or {}
             jetton_master = jetton.get("address") if isinstance(jetton, dict) else None
-            if _normalise_address(jetton_master) != _normalise_address(settings.USDT_TON_JETTON_MASTER):
+            if _normalise_ton_address(jetton_master) != _normalise_ton_address(
+                settings.USDT_TON_JETTON_MASTER
+            ):
                 continue
 
             recipient = details.get("recipient") or {}
             recipient_address = recipient.get("address") if isinstance(recipient, dict) else None
-            if _normalise_address(recipient_address) != _normalise_address(address):
+            if _normalise_ton_address(recipient_address) != _normalise_ton_address(address):
                 continue
 
             amount = _decimal_amount(details.get("amount"), (jetton or {}).get("decimals", 6))
