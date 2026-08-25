@@ -48,6 +48,10 @@ function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [passwordConfirmError, setPasswordConfirmError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
+  // Populated only when the backend is not running in production — see
+  // RegisterResponse.verification_code in auth_service.py. Lets us test the
+  // verify flow while email delivery is limited to Resend's sandbox domain.
+  const [devCode, setDevCode] = useState<string | null>(null);
 
   useEffect(() => {
     // Skip the auto-redirect when the person is deliberately here to register
@@ -95,7 +99,7 @@ function LoginPage() {
     }
     setBusy(true);
     try {
-      await register({
+      const res = await register({
         email: email.trim(),
         password,
         password_confirm: passwordConfirm,
@@ -103,6 +107,7 @@ function LoginPage() {
         ...(displayName.trim() ? { display_name: displayName.trim() } : {}),
         ...(telegram.trim() ? { telegram_username: telegram.trim() } : {}),
       });
+      setDevCode(res.verification_code ?? null);
       setStep("verify");
       startCountdown();
     } catch (err) {
@@ -131,7 +136,8 @@ function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      await resendVerification(email.trim());
+      const res = await resendVerification(email.trim());
+      setDevCode(res.verification_code ?? null);
       startCountdown();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not resend code.");
@@ -200,6 +206,11 @@ function LoginPage() {
               <p className="text-sm text-paper-dim">
                 We sent a 6-digit code to <span className="font-semibold break-all text-paper">{email}</span>. Enter it below to activate your account.
               </p>
+              {devCode && (
+                <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-400">
+                  Dev mode — code: <span className="font-mono text-sm">{devCode}</span>
+                </p>
+              )}
               <Field label="Verification code">
                 <input
                   type="text"
