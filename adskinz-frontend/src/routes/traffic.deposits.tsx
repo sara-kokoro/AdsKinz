@@ -28,11 +28,14 @@ const NETWORKS = [
   { id: "bnb", key: "adv.deposits.bnb" },
 ];
 
+const PAGE_SIZE = 10;
+
 function Deposits() {
   useAuthGuard("advertiser");
   const { t } = useTranslation();
   const [net, setNet] = useState("ton");
-  const deposits = useDeposits();
+  const [page, setPage] = useState(1);
+  const deposits = useDeposits(page, PAGE_SIZE);
   const addr = useDepositAddress(net);
   const [copied, setCopied] = useState(false);
   const verify = useVerifyDeposit();
@@ -57,6 +60,8 @@ function Deposits() {
   };
 
   const items = deposits.data?.items ?? [];
+  const total = deposits.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const balance = num(deposits.data?.balance);
 
   const copy = async () => {
@@ -152,7 +157,8 @@ function Deposits() {
             )}
 
             <Btn
-              variant="secondary"
+              variant="primary"
+              tone="ink"
               className="mt-4 w-full"
               onClick={runVerify}
               disabled={verify.isPending || !addr.data?.address}
@@ -200,6 +206,29 @@ function Deposits() {
               {t("adv.deposits.newBalance")}: <span className="num font-bold text-bounty">{fmtMoney(balance)}</span>
             </p>
           </div>
+          {total > PAGE_SIZE && (
+            <div className="flex items-center justify-between border-t border-seam px-5 py-3">
+              <Btn
+                variant="secondary"
+                className="min-h-9 px-3 text-xs"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1 || deposits.isFetching}
+              >
+                {t("common.previous")}
+              </Btn>
+              <p className="text-xs text-paper-dim">
+                {t("common.pageOf", { page, total: totalPages })}
+              </p>
+              <Btn
+                variant="secondary"
+                className="min-h-9 px-3 text-xs"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages || deposits.isFetching}
+              >
+                {t("common.next")}
+              </Btn>
+            </div>
+          )}
         </Panel>
       </div>
       <div className="mt-5">

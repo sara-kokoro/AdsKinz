@@ -151,8 +151,13 @@ export function useBalance() {
   return useQuery({ queryKey: ["billing", "balance"], queryFn: () => apiFetch<Balance>("/billing/balance") });
 }
 
-export function useDeposits() {
-  return useQuery({ queryKey: ["billing", "deposits"], queryFn: () => apiFetch<DepositList>("/billing/deposits") });
+export function useDeposits(page = 1, pageSize = 10) {
+  return useQuery({
+    queryKey: ["billing", "deposits", page, pageSize],
+    queryFn: () =>
+      apiFetch<DepositList>("/billing/deposits", { query: { page, page_size: pageSize } }),
+    placeholderData: (prev) => prev,
+  });
 }
 
 export function useDepositAddress(network: string, enabled = true) {

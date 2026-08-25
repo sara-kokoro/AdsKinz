@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.config import settings
 from app.core.deps import CurrentAdvertiserDep, PaginationDep, SessionDep, verify_deposit_rate_limit
@@ -117,6 +117,13 @@ async def list_deposits(
         .unique()
         .all()
     )
+    total = (
+        await session.execute(
+            select(func.count())
+            .select_from(Deposit)
+            .where(Deposit.advertiser_id == advertiser.id)
+        )
+    ).scalar_one()
 
     items = [
         DepositItem(
@@ -136,7 +143,7 @@ async def list_deposits(
         for row in rows
     ]
     return DepositListResponse(
-        items=items, total=len(items), balance=advertiser.balance_usd
+        items=items, total=total, balance=advertiser.balance_usd
     )
 
 

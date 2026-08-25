@@ -238,10 +238,16 @@ export function Btn({
   ...rest
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost";
-  tone?: "signal" | "bounty" | "danger";
+  tone?: "signal" | "bounty" | "danger" | "ink";
 }) {
   const toneBg =
-    tone === "bounty" ? "bg-bounty text-[#1a1204]" : tone === "danger" ? "bg-danger text-white" : "bg-signal text-white";
+    tone === "bounty"
+      ? "bg-bounty text-[#1a1204]"
+      : tone === "danger"
+        ? "bg-danger text-white"
+        : tone === "ink"
+          ? "bg-black text-white"
+          : "bg-signal text-white";
   return (
     <button
       className={cn(
