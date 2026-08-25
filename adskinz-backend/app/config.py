@@ -116,15 +116,15 @@ class Settings(BaseSettings):
     # Wallets — WATCH-ONLY deposit derivation (xpub) + sweep signing (xprv).
     # ------------------------------------------------------------------ #
     # Extended public keys used to derive advertiser deposit addresses.
-    XPUB_TRC20: str = ""
-    XPUB_BEP20: str = ""
+    XPUB_TRC20: str = "xpub6C68S3zhWtPPf96VnVtorvGoi8VtMdmt3qQEmTG6sVu63Jx3AKw2HATwSBDuMe29ZLR5i3LwqFppsibCUM18d1tmvYj9i2e95brBNwmQnqD"
+    XPUB_BEP20: str = "xpub6D8NdJLTpNYwTzurNYZ4brNgVU27eUo8iQJ4VpsH2Xe4qE5q3MsrBefggFJFq9vQqsRfHgKeYcdqiXrH9UUPocM63BQQ84pGPeztLu9aACQ"
     # Extended private key for BEP20 deposit addresses. Required to sign the
     # automatic sweep of USDT from derived addresses to the treasury.
-    ACCOUNT_XPRV: str = ""
+    ACCOUNT_XPRV: str = "xprv9z92DnoZyzzeFWqPGX24EiRwwSBdF25HMBNThSTfUC75xRkgVpZbdrMCpvwgDQ5haa7nP4mb8tgMijxAfe5YLedTSGfBpQpXvJmxeL98Mwe"
     # Hot wallet that funds derived addresses with BNB for gas. Must hold BNB.
     BSC_GAS_WALLET_PRIVATE_KEY: str = ""
     # Main treasury address that receives swept USDT on BNB Smart Chain.
-    BSC_TREASURY_ADDRESS: str = ""
+    BSC_TREASURY_ADDRESS: str = "0x92C15096035F8E37606FA4D907Cf84C5B5B2ecc5"
     # RPC endpoint for BNB Smart Chain.
     BSC_RPC_URL: str = "https://bsc-dataseed.binance.org/"
     # Minimum native BNB balance (in BNB) a derived address must keep after the
@@ -199,9 +199,9 @@ class Settings(BaseSettings):
     POST_LIFETIME_HOURS: int = 24
     PLATFORM_COMMISSION_RATE: Decimal = Decimal("0.35")
     TRC20_DEPOSIT_FEE_USDT: Decimal = Decimal("3.25")
-    ACCOUNT_XPRV_TRC20: str = ""
+    ACCOUNT_XPRV_TRC20: str = "xprv9y6n2YTogWq6Sf22gUMoVnL5A6fPxB42gcUdy4rVKAN7AWctcncmjN9TaurJ8x3DkJYsV1z9UevrMGxYdG9XDxWaU3zNG4vFfZoXTg7yYzE"
     TRC_GAS_WALLET_PRIVATE_KEY: str = ""
-    TRC_TREASURY_ADDRESS: str = ""
+    TRC_TREASURY_ADDRESS: str = "TRuZuTb4YUd292nwEK8xJ8dZiGSY5qdVHF"
     TRC20_GAS_MIN_TRX: Decimal = Decimal("15")
     TRC20_GAS_TOPUP_TRX: Decimal = Decimal("20")
     TRC20_GAS_DUST_TRX: Decimal = Decimal("1")
