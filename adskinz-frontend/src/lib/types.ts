@@ -68,6 +68,8 @@ export type Campaign = {
   dailyBudget: string | null;
   destinationUrl: string | null;
   buttonLabel: string | null;
+  title: string | null;
+  brandName: string | null;
   copy: string | null;
   imageUrl: string | null;
   trackingId: string | null;

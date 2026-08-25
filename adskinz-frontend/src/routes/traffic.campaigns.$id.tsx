@@ -8,6 +8,8 @@ import {
 } from "@/components/kit";
 import { UsdtMark } from "@/components/usdt";
 import { ArtFunnel } from "@/components/illustrations";
+import { IconPencil } from "@/components/icons";
+import { TelegramPostPreview } from "@/components/telegram-preview";
 import { AD_LANGUAGES, BUTTON_LABELS } from "@/lib/constants";
 import { ApiError, num, trackingUrl } from "@/lib/api";
 import { useCampaign, useCampaignTranslations, useUpdateCampaign } from "@/lib/queries";
@@ -37,6 +39,8 @@ function CampaignDetail() {
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
+  const [title, setTitle] = useState("");
+  const [brandName, setBrandName] = useState("");
   const [cpm, setCpm] = useState("");
   const [budget, setBudget] = useState("");
   const [language, setLanguage] = useState("");
@@ -54,6 +58,8 @@ function CampaignDetail() {
   const startEdit = () => {
     if (!c) return;
     setName(c.name);
+    setTitle(c.title ?? "");
+    setBrandName(c.brandName ?? "");
     setCpm(c.cpm);
     setBudget(c.budget);
     setLanguage(c.language);
@@ -61,6 +67,7 @@ function CampaignDetail() {
     setButtonLabel(c.buttonLabel ?? "");
     setDestinationUrl(c.destinationUrl ?? "");
     setImage(c.imageUrl ? { url: c.imageUrl, name: "current-image" } : null);
+    setErr(null);
     setEditing(true);
   };
 
@@ -103,6 +110,8 @@ function CampaignDetail() {
     update.mutate(
       {
         name,
+        title: title || null,
+        brandName: brandName || null,
         cpm: Number(cpm),
         budget: Number(budget),
         language,
@@ -149,7 +158,9 @@ function CampaignDetail() {
               {c.status === "active" ? t("adv.detail.pause") : t("adv.detail.relaunch")}
             </Btn>
           )}
-          <Btn variant="secondary" onClick={() => (editing ? setEditing(false) : startEdit())}>{t("adv.detail.edit")}</Btn>
+          <Btn variant="secondary" aria-label={t("adv.detail.edit")} title={t("adv.detail.edit")} className="w-11 px-0" onClick={startEdit}>
+            <IconPencil className="size-4" />
+          </Btn>
         </div>
       }
     >
@@ -208,75 +219,101 @@ function CampaignDetail() {
 
           <Panel>
             <SectionTitle>{t("adv.detail.settings")}</SectionTitle>
+            <dl className="text-sm">
+              {[
+                [t("adv.wizard.bannerTitle"), c.title || "—"],
+                [t("adv.wizard.brandName"), c.brandName || "—"],
+                [t("adv.wizard.buttonLabel"), c.buttonLabel || "—"],
+                [t("adv.wizard.destination"), c.destinationUrl || "—"],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-3 border-b border-seam py-2 last:border-0">
+                  <dt className="text-paper-dim">{k}</dt>
+                  <dd className="max-w-[60%] truncate text-right font-semibold">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap text-paper-dim">{c.copy}</p>
+          </Panel>
+        </div>
+
+        <Modal
+          open={editing}
+          onClose={() => { setEditing(false); setErr(null); }}
+          title={t("adv.detail.edit")}
+          sub={t("adv.detail.editSub")}
+          footer={
+            <>
+              <Btn onClick={saveEdit} disabled={update.isPending}>{t("adv.detail.save")}</Btn>
+              <Btn variant="secondary" onClick={() => { setEditing(false); setErr(null); }}>{t("common.cancel")}</Btn>
+            </>
+          }
+        >
+          <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
             <div className="space-y-4">
               <Field label={t("adv.colCampaign")} htmlFor="cname">
-                <input id="cname" disabled={!editing} value={editing ? name : c.name} onChange={(e) => setName(e.target.value)} className={inputCls()} />
+                <input id="cname" value={name} onChange={(e) => setName(e.target.value)} className={inputCls()} />
               </Field>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label={t("adv.colCpm")} htmlFor="ccpm">
-                  <input id="ccpm" type="number" step="0.1" disabled={!editing} value={editing ? cpm : c.cpm} onChange={(e) => setCpm(e.target.value)} className={`num ${inputCls()}`} />
+                <Field label={t("adv.wizard.bannerTitle")} htmlFor="ctitle">
+                  <input id="ctitle" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={56} className={inputCls()} />
                 </Field>
-                <Field label={t("adv.budget")} error={editing && Number(budget) < MIN_BUDGET ? t("adv.wizard.budgetMin") : undefined} htmlFor="cbud">
-                  <input id="cbud" type="number" disabled={!editing} value={editing ? budget : c.budget} onChange={(e) => setBudget(e.target.value)} className={`num ${inputCls(editing && Number(budget) < MIN_BUDGET)}`} />
+                <Field label={t("adv.wizard.brandName")} htmlFor="cbrand">
+                  <input id="cbrand" value={brandName} onChange={(e) => setBrandName(e.target.value)} maxLength={40} className={inputCls()} />
+                </Field>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label={t("adv.colCpm")} htmlFor="ccpm">
+                  <input id="ccpm" type="number" step="0.1" value={cpm} onChange={(e) => setCpm(e.target.value)} className={`num ${inputCls()}`} />
+                </Field>
+                <Field label={t("adv.budget")} error={Number(budget) < MIN_BUDGET ? t("adv.wizard.budgetMin") : undefined} htmlFor="cbud">
+                  <input id="cbud" type="number" value={budget} onChange={(e) => setBudget(e.target.value)} className={`num ${inputCls(Number(budget) < MIN_BUDGET)}`} />
                 </Field>
               </div>
               <Field label={t("adv.targeting")} htmlFor="clang">
-                <select id="clang" disabled={!editing} value={editing ? language : c.language} onChange={(e) => setLanguage(e.target.value)} className={inputCls()}>
+                <select id="clang" value={language} onChange={(e) => setLanguage(e.target.value)} className={inputCls()}>
                   {AD_LANGUAGES.map((l) => (
                     <option key={l.code} value={l.code}>{l.label}</option>
                   ))}
                 </select>
               </Field>
               <Field label={t("adv.wizard.copy")} htmlFor="ccopy">
-                <textarea
-                  id="ccopy"
-                  disabled={!editing}
-                  value={editing ? copy : (c.copy ?? "")}
-                  onChange={(e) => setCopy(e.target.value)}
-                  rows={3}
-                  className={inputCls()}
-                />
+                <textarea id="ccopy" value={copy} onChange={(e) => setCopy(e.target.value)} rows={3} className={inputCls()} />
               </Field>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={t("adv.wizard.buttonLabel")} htmlFor="cbtn">
-                  <select
-                    id="cbtn"
-                    disabled={!editing}
-                    value={editing ? buttonLabel : (c.buttonLabel ?? "")}
-                    onChange={(e) => setButtonLabel(e.target.value)}
-                    className={inputCls()}
-                  >
+                  <select id="cbtn" value={buttonLabel} onChange={(e) => setButtonLabel(e.target.value)} className={inputCls()}>
                     {BUTTON_LABELS.map((l) => (
                       <option key={l} value={l}>{l}</option>
                     ))}
                   </select>
                 </Field>
-                <Field label={t("adv.wizard.destinationUrl")} htmlFor="curl">
+                <Field label={t("adv.wizard.destination")} htmlFor="curl">
                   <input
                     id="curl"
-                    disabled={!editing}
-                    value={editing ? destinationUrl : (c.destinationUrl ?? "")}
+                    value={destinationUrl}
                     onChange={(e) => setDestinationUrl(e.target.value)}
                     placeholder="https://t.me/..."
                     className={inputCls()}
                   />
                 </Field>
               </div>
-              {editing && (
-                <Field label={t("adv.wizard.image")} htmlFor="cimg">
-                  <ImageUpload value={image} onChange={setImage} />
-                </Field>
-              )}
+              <Field label={t("adv.wizard.image")} htmlFor="cimg">
+                <ImageUpload value={image} onChange={setImage} />
+              </Field>
               {err && <FieldError>{err}</FieldError>}
-              {editing && (
-                <div className="flex flex-wrap gap-2">
-                  <Btn onClick={saveEdit} disabled={update.isPending}>{t("adv.detail.save")}</Btn>
-                  <Btn variant="secondary" onClick={() => { setEditing(false); setErr(null); }}>{t("common.cancel")}</Btn>
-                </div>
-              )}
             </div>
-          </Panel>
-        </div>
+            <div className="hidden lg:block">
+              <p className="mb-2 text-xs font-semibold text-paper-dim">{t("adv.wizard.preview")}</p>
+              <TelegramPostPreview
+                title={title}
+                brandName={brandName}
+                copy={copy || "…"}
+                buttonLabel={buttonLabel || "Go"}
+                imageUrl={image?.url ?? null}
+              />
+            </div>
+          </div>
+        </Modal>
 
         <Panel>
           <SectionTitle>{t("nav.docs")} — Translations</SectionTitle>

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AdvShell } from "@/components/workspaces";
 import { Btn, FieldError, ImageUpload, Panel, Quote, SectionTitle, fmtMoney, inputCls } from "@/components/kit";
 import { TelegramPostPreview } from "@/components/telegram-preview";
-import { IconCheck, IconSparkle } from "@/components/icons";
+import { IconCheck, IconSparkle, IconChannel, IconApp, IconImage, IconGlobe, IconWallet, IconEye, IconTag } from "@/components/icons";
 import { AD_LANGUAGES, BUTTON_LABELS } from "@/lib/constants";
 import { ApiError } from "@/lib/api";
 import { useCreateCampaign, useGenerateCopy } from "@/lib/queries";
@@ -24,6 +24,7 @@ export const Route = createFileRoute("/traffic/campaigns/new")({
 });
 
 const STEPS = ["step1", "step2", "step3", "step4", "step5"] as const;
+const STEP_ICONS = [IconChannel, IconImage, IconGlobe, IconWallet, IconEye] as const;
 
 function Wizard() {
   useAuthGuard("advertiser");
@@ -33,6 +34,8 @@ function Wizard() {
 
   const [format, setFormat] = useState<"channel" | "interstitial" | "pop">("channel");
   const [image, setImage] = useState<{ url: string; name: string } | null>(null);
+  const [bannerTitle, setBannerTitle] = useState("");
+  const [brandName, setBrandName] = useState("");
   const [copy, setCopy] = useState("");
   const [brief, setBrief] = useState("");
   const [briefOpen, setBriefOpen] = useState(false);
@@ -61,6 +64,7 @@ function Wizard() {
   const validate = () => {
     const e: Record<string, string> = {};
     if (step === 1) {
+      if (!bannerTitle.trim()) e["bannerTitle"] = t("adv.wizard.errTitle");
       if (!copy.trim()) e["copy"] = t("adv.wizard.errCopy");
       if (!/^https:\/\/.+\..+/.test(url)) e["url"] = t("adv.wizard.errUrl");
     }
@@ -88,6 +92,8 @@ function Wizard() {
       {
         name: `${format} campaign — ${new Date().toISOString().slice(0, 10)}`,
         format,
+        title: bannerTitle,
+        brandName: brandName || null,
         copy,
         button_label: label,
         destinationUrl: url,
@@ -110,18 +116,38 @@ function Wizard() {
   return (
     <AdvShell title={t("adv.wizard.title")}>
       <div className="mx-auto max-w-3xl space-y-5">
-        <ol className="flex flex-wrap gap-2">
-          {STEPS.map((s, i) => (
-            <li
-              key={s}
-              className={cn(
-                "num rounded-lg border border-seam px-3 py-1.5 text-xs font-semibold",
-                i === step ? "bg-signal-soft text-signal" : i < step ? "text-paper" : "text-paper-dim",
-              )}
-            >
-              {i + 1}. {t(`adv.wizard.${s}`)}
-            </li>
-          ))}
+        <ol className="flex items-center gap-1.5 sm:gap-2">
+          {STEPS.map((s, i) => {
+            const StepIcon = STEP_ICONS[i];
+            const state = i === step ? "current" : i < step ? "done" : "upcoming";
+            return (
+              <li key={s} className="flex flex-1 items-center gap-1.5 sm:gap-2">
+                <div
+                  className={cn(
+                    "flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                    state === "current" && "border-signal bg-signal-soft text-signal",
+                    state === "done" && "border-seam bg-panel-2 text-paper",
+                    state === "upcoming" && "border-seam text-paper-dim",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-5 shrink-0 items-center justify-center rounded-full",
+                      state === "current" && "bg-signal text-white",
+                      state === "done" && "bg-signal text-white",
+                      state === "upcoming" && "bg-panel text-paper-dim",
+                    )}
+                  >
+                    {state === "done" ? <IconCheck width={12} height={12} /> : <StepIcon width={12} height={12} />}
+                  </span>
+                  <span className="hidden sm:inline">{t(`adv.wizard.${s}`)}</span>
+                </div>
+                {i < STEPS.length - 1 && (
+                  <div className={cn("h-px flex-1", i < step ? "bg-signal" : "bg-seam")} />
+                )}
+              </li>
+            );
+          })}
         </ol>
 
         <Panel>
@@ -129,27 +155,38 @@ function Wizard() {
             <div className="space-y-3">
               <SectionTitle>{t("adv.wizard.step1")}</SectionTitle>
               {[
-                { v: "channel" as const, title: t("adv.wizard.formatChannel"), d: t("adv.wizard.formatChannelDesc") },
-                { v: "interstitial" as const, title: `${t("adv.wizard.formatMini")} — ${t("adv.wizard.subInterstitial")}`, d: t("adv.wizard.formatMiniDesc") },
-                { v: "pop" as const, title: `${t("adv.wizard.formatMini")} — ${t("adv.wizard.subPop")}`, d: t("adv.wizard.formatMiniDesc") },
+                { v: "channel" as const, icon: IconChannel, title: t("adv.wizard.formatChannel"), d: t("adv.wizard.formatChannelDesc") },
+                { v: "interstitial" as const, icon: IconApp, title: `${t("adv.wizard.formatMini")} — ${t("adv.wizard.subInterstitial")}`, d: t("adv.wizard.formatMiniDesc") },
+                { v: "pop" as const, icon: IconApp, title: `${t("adv.wizard.formatMini")} — ${t("adv.wizard.subPop")}`, d: t("adv.wizard.formatMiniDesc") },
               ].map((o) => (
                 <button
                   key={o.v}
                   onClick={() => setFormat(o.v)}
                   aria-pressed={format === o.v}
                   className={cn(
-                    "block w-full rounded-xl border p-4 text-left transition-colors",
+                    "flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors",
                     format === o.v ? "border-signal bg-signal-soft" : "border-seam hover:bg-panel-2",
                   )}
                 >
-                  <p className="font-bold">{o.title}</p>
-                  <p className="mt-1 text-sm text-paper-dim">{o.d}</p>
+                  <span
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center rounded-lg",
+                      format === o.v ? "bg-signal text-white" : "bg-panel-2 text-paper-dim",
+                    )}
+                  >
+                    <o.icon width={18} height={18} />
+                  </span>
+                  <span>
+                    <p className="font-bold">{o.title}</p>
+                    <p className="mt-1 text-sm text-paper-dim">{o.d}</p>
+                  </span>
                 </button>
               ))}
             </div>
           )}
 
           {step === 1 && (
+            <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
             <div className="space-y-5">
               <SectionTitle sub={t("adv.wizard.copyHint")}>{t("adv.wizard.step2")}</SectionTitle>
 
@@ -159,6 +196,33 @@ function Wizard() {
                 <p className="text-sm font-semibold">{t("adv.wizard.image")}</p>
                 <div className="mt-2">
                   <ImageUpload value={image} onChange={setImage} />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm font-semibold" htmlFor="bannerTitle">{t("adv.wizard.bannerTitle")}</label>
+                  <input
+                    id="bannerTitle"
+                    value={bannerTitle}
+                    onChange={(e) => setBannerTitle(e.target.value)}
+                    maxLength={56}
+                    className="mt-2 w-full rounded-xl border border-seam bg-transparent p-3 text-sm"
+                  />
+                  <FieldError>{errors["bannerTitle"]}</FieldError>
+                </div>
+                <div>
+                  <label className="flex items-center gap-1.5 text-sm font-semibold" htmlFor="brandName">
+                    <IconTag width={14} height={14} className="text-paper-dim" />
+                    {t("adv.wizard.brandName")}
+                  </label>
+                  <input
+                    id="brandName"
+                    value={brandName}
+                    onChange={(e) => setBrandName(e.target.value)}
+                    maxLength={40}
+                    className="mt-2 w-full rounded-xl border border-seam bg-transparent p-3 text-sm"
+                  />
                 </div>
               </div>
 
@@ -224,6 +288,20 @@ function Wizard() {
                 />
                 <FieldError>{errors["url"]}</FieldError>
               </div>
+            </div>
+            <div className="hidden lg:block">
+              <p className="mb-2 text-xs font-semibold text-paper-dim">{t("adv.wizard.preview")}</p>
+              <div className="sticky top-4">
+                <TelegramPostPreview
+                  title={bannerTitle}
+                  brandName={brandName}
+                  copy={copy || "…"}
+                  buttonLabel={label}
+                  imageUrl={image?.url ?? null}
+                  imageAlt={image?.name}
+                />
+              </div>
+            </div>
             </div>
           )}
 
@@ -296,7 +374,7 @@ function Wizard() {
           {step === 4 && (
             <div className="space-y-5">
               <SectionTitle sub={t("adv.wizard.previewTitle")}>{t("adv.wizard.step5")}</SectionTitle>
-              <TelegramPostPreview copy={copy} buttonLabel={label} imageUrl={image?.url ?? null} imageAlt={image?.name} />
+              <TelegramPostPreview title={bannerTitle} brandName={brandName} copy={copy} buttonLabel={label} imageUrl={image?.url ?? null} imageAlt={image?.name} />
               <Quote tone="signal" label={t("adv.wizard.step5")}>{t("adv.quotes.review")}</Quote>
               <dl className="grid gap-3 border-t border-seam pt-4 text-sm sm:grid-cols-2">
                 {[

@@ -4,6 +4,8 @@ import { trackingUrl } from "@/lib/api";
 /** Faithful preview of how a native post renders inside Telegram. */
 export function TelegramPostPreview({
   channel = "Crypto Signals Daily",
+  title,
+  brandName,
   copy,
   buttonLabel,
   imageAlt,
@@ -13,6 +15,8 @@ export function TelegramPostPreview({
   className,
 }: {
   channel?: string;
+  title?: string | null;
+  brandName?: string | null;
   copy: string;
   buttonLabel: string;
   imageAlt?: string | undefined;
@@ -45,6 +49,12 @@ export function TelegramPostPreview({
         </div>
       )}
       <div className="space-y-3 p-4">
+        {(title || brandName) && (
+          <div className="flex items-baseline justify-between gap-3">
+            {title && <p className="text-base leading-snug font-bold">{title}</p>}
+            {brandName && <p className="shrink-0 text-xs font-semibold text-paper-dim">{brandName}</p>}
+          </div>
+        )}
         <p className="text-sm leading-relaxed whitespace-pre-wrap">{copy}</p>
         <div className="rounded-xl bg-signal py-2.5 text-center text-sm font-bold text-white">{buttonLabel}</div>
         {trackingId && (

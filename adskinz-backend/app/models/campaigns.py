@@ -70,6 +70,8 @@ class Campaign(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
 
     # Creative
     image_url: Mapped[str | None] = mapped_column(Text)
+    title: Mapped[str | None] = mapped_column(String(56))
+    brand_name: Mapped[str | None] = mapped_column(String(40))
     ad_text: Mapped[str] = mapped_column(Text, nullable=False)
     ai_generated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     button_label: Mapped[str] = mapped_column(String(40), nullable=False)

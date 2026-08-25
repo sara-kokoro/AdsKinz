@@ -98,6 +98,8 @@ export function useCampaignTranslations(id: string, enabled = true) {
 export type CampaignCreateBody = {
   name: string;
   format: string;
+  title?: string | null | undefined;
+  brandName?: string | null | undefined;
   copy: string;
   button_label: string;
   destinationUrl: string;

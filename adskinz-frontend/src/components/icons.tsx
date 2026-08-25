@@ -83,6 +83,12 @@ export const IconCopy = (p: SVGProps<SVGSVGElement>) => (
 export const IconImage = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><rect x="3" y="4.5" width="18" height="15" rx="2.5" /><circle cx="8.5" cy="10" r="1.5" /><path d="m4 17 5-4.5 4.5 4 2.5-2 4 3.5" /></svg>
 );
+export const IconPencil = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+);
+export const IconTag = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M20.5 12.5 12.9 20a1.5 1.5 0 0 1-2.1 0L3.5 12.7a1.5 1.5 0 0 1-.4-1V5.5A2 2 0 0 1 5 3.5h6.2a1.5 1.5 0 0 1 1.1.4l8.2 8.2a1.5 1.5 0 0 1 0 2.1Z" /><circle cx="8" cy="8" r="1.4" /></svg>
+);
 export const IconTrend = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M3 17.5 9 11l4 4 8-8" /><path d="M15 7h6v6" /></svg>
 );

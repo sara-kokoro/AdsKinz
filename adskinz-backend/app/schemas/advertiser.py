@@ -44,6 +44,8 @@ def _validate_destination(value: str) -> str:
 class CampaignCreateRequest(RequestModel):
     name: str = Field(min_length=3, max_length=160)
     format: FrontendFormat = "channel"
+    title: str | None = Field(default=None, min_length=3, max_length=56)
+    brand_name: str | None = Field(default=None, max_length=40, alias="brandName")
     ad_text: str = Field(min_length=10, max_length=1024, alias="copy")
     button_label: str = Field(max_length=40)
     destination_url: str = Field(alias="destinationUrl")
@@ -115,6 +117,8 @@ class CampaignUpdateRequest(RequestModel):
     """Partial update. Any change on an active campaign forces re-moderation."""
 
     name: str | None = Field(default=None, min_length=3, max_length=160)
+    title: str | None = Field(default=None, min_length=3, max_length=56)
+    brand_name: str | None = Field(default=None, max_length=40, alias="brandName")
     ad_text: str | None = Field(default=None, min_length=10, max_length=1024, alias="copy")
     button_label: str | None = Field(default=None, max_length=40)
     destination_url: str | None = Field(default=None, alias="destinationUrl")
@@ -187,6 +191,8 @@ class CampaignResponse(APIModel):
     dailyBudget: Decimal | None = None
     destinationUrl: str | None = None
     buttonLabel: str | None = None
+    title: str | None = None
+    brandName: str | None = None
     ad_copy: str | None = Field(default=None, alias="copy", serialization_alias="copy")
     imageUrl: str | None = None
     trackingId: str | None = None

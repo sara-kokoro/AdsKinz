@@ -69,6 +69,8 @@ def _to_response(campaign: Campaign) -> CampaignResponse:
         dailyBudget=campaign.daily_budget,
         destinationUrl=campaign.destination_url,
         buttonLabel=campaign.button_label,
+        title=campaign.title,
+        brandName=campaign.brand_name,
         copy=campaign.ad_text,
         imageUrl=campaign.image_url,
         createdAt=campaign.created_at,
@@ -141,6 +143,8 @@ async def create_campaign(
         status=CampaignStatus.PENDING_REVIEW.value,
         target_language=payload.target_language,
         image_url=payload.image_url,
+        title=payload.title,
+        brand_name=payload.brand_name,
         ad_text=payload.ad_text,
         ai_generated=payload.ai_generated,
         button_label=payload.button_label,
@@ -194,6 +198,8 @@ async def update_campaign(
     content_changed = False
     for field, attribute in (
         ("name", "name"),
+        ("title", "title"),
+        ("brand_name", "brand_name"),
         ("ad_text", "ad_text"),
         ("button_label", "button_label"),
         ("destination_url", "destination_url"),
