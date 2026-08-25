@@ -81,6 +81,16 @@ function LoginPage() {
       if (err instanceof ApiError && err.code === "email_not_verified") {
         setStep("verify");
         setError(null);
+        // The account exists but was never verified — the code from
+        // registration has likely expired or was lost (e.g. testing without
+        // Resend delivery). Request a fresh one so devCode gets populated.
+        try {
+          const res = await resendVerification(email.trim());
+          setDevCode(res.verification_code ?? null);
+          startCountdown();
+        } catch {
+          // Non-fatal — the person can still press "Resend code" manually.
+        }
       } else {
         setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
       }
