@@ -214,7 +214,7 @@ class Settings(BaseSettings):
     R2_ACCOUNT_ID: str = "1e68858e21eacf86a2e5ca58ac17efab"
     R2_ACCESS_KEY_ID: str = "8cba4fac7e6625ad898ed72426cc28ca"
     R2_SECRET_ACCESS_KEY: str = "ad2b6c2686350bc5469ba328a89252f79fc0ae189ebb420b1d70fe514cbc39d6"
-    R2_BUCKET: str = "adskinz-creatives"
+    R2_BUCKET: str = "adskinz"
     # Public base URL for the bucket (R2 public bucket URL, or a custom
     # domain fronting it). Files are served from here, never through the API.
     R2_PUBLIC_BASE_URL: str = "https://pub-1620d70927624116a96afc158072fde9.r2.dev"
