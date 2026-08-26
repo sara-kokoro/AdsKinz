@@ -210,8 +210,8 @@ function CampaignDetail() {
                 [t("admin.detail.trackedUrl"), c.trackingId ? trackingUrl(c.trackingId) : "—"],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3 border-b border-seam py-2 last:border-0">
-                  <dt className="text-paper-dim">{k}</dt>
-                  <dd className="num max-w-[60%] truncate text-right font-semibold">{v}</dd>
+                  <dt className="shrink-0 text-paper-dim">{k}</dt>
+                  <dd className="num min-w-0 flex-1 truncate text-right font-semibold">{v}</dd>
                 </div>
               ))}
             </dl>
@@ -227,8 +227,8 @@ function CampaignDetail() {
                 [t("adv.wizard.destination"), c.destinationUrl || "—"],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3 border-b border-seam py-2 last:border-0">
-                  <dt className="text-paper-dim">{k}</dt>
-                  <dd className="max-w-[60%] truncate text-right font-semibold">{v}</dd>
+                  <dt className="shrink-0 text-paper-dim">{k}</dt>
+                  <dd className="min-w-0 flex-1 truncate text-right font-semibold">{v}</dd>
                 </div>
               ))}
             </dl>
