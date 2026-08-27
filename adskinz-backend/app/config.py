@@ -107,7 +107,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Groq (ad copy generation + translations)
     # ------------------------------------------------------------------ #
-    GROQ_API_KEY: str = "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"
+    GROQ_API_KEY: str = "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"
     GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
     GROQ_MODEL: str = "openai/gpt-oss-120b"
     GROQ_TIMEOUT_SECONDS: float = 30.0
