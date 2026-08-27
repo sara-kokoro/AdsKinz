@@ -53,7 +53,7 @@ function Wizard() {
 
   const generate = () => {
     generateCopy.mutate(
-      { brief: brief || format, language: lang === "all" ? "en" : lang, tone: "confident" },
+      { brief: brief || format, language: lang === "all" ? "en" : lang, tone: "punchy" },
       {
         onSuccess: (res) => setCopy(res.copy),
         onError: (err) => setErrors((e) => ({ ...e, copy: err instanceof ApiError ? err.message : t("common.loadError") })),

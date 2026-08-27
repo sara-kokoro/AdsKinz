@@ -109,7 +109,7 @@ function CampaignDetail() {
 
   const generate = () => {
     generateCopy.mutate(
-      { brief: brief || title || name, language: language === "all" ? "en" : language || "en", tone: "confident" },
+      { brief: brief || title || name, language: language === "all" ? "en" : language || "en", tone: "punchy" },
       {
         onSuccess: (res) => setCopy(res.copy),
         onError: (e) => setErr(e instanceof ApiError ? e.message : t("common.loadError")),
@@ -225,9 +225,9 @@ function CampaignDetail() {
                 [t("pub.ctr"), `${ctr}%`],
                 [t("admin.detail.trackedUrl"), c.trackingId ? trackingUrl(c.trackingId) : "—"],
               ].map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-3 border-b border-seam py-2 last:border-0">
-                  <dt className="shrink-0 text-paper-dim">{k}</dt>
-                  <dd className="num min-w-0 flex-1 truncate text-right font-semibold">{v}</dd>
+                <div key={k} className="border-b border-seam py-2 last:border-0">
+                  <dt className="text-xs text-paper-dim">{k}</dt>
+                  <dd className="num mt-0.5 break-all font-semibold">{v}</dd>
                 </div>
               ))}
             </dl>
@@ -242,9 +242,9 @@ function CampaignDetail() {
                 [t("adv.wizard.buttonLabel"), c.buttonLabel || "—"],
                 [t("adv.wizard.destination"), c.destinationUrl || "—"],
               ].map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-3 border-b border-seam py-2 last:border-0">
-                  <dt className="shrink-0 text-paper-dim">{k}</dt>
-                  <dd className="min-w-0 flex-1 truncate text-right font-semibold">{v}</dd>
+                <div key={k} className="border-b border-seam py-2 last:border-0">
+                  <dt className="text-xs text-paper-dim">{k}</dt>
+                  <dd className="mt-0.5 break-all font-semibold">{v}</dd>
                 </div>
               ))}
             </dl>
