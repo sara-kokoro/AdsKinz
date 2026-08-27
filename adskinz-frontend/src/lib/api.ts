@@ -191,12 +191,28 @@ export async function uploadCreativeImage(file: File): Promise<{ url: string; na
     "/advertiser/creatives/upload-url",
     { method: "POST", body: { contentType: file.type } },
   );
-  const put = await fetch(upload_url, {
-    method: "PUT",
-    headers: { "Content-Type": file.type },
-    body: file,
-  });
+  let put: Response;
+  try {
+    put = await fetch(upload_url, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+  } catch (networkErr) {
+    // fetch() rejects (instead of resolving with a non-ok status) when the
+    // request never reaches R2 — almost always a CORS policy missing on the
+    // bucket for this origin. Logged so it's visible in devtools instead of
+    // silently collapsing into the generic "upload failed" toast.
+    console.error("R2 upload network/CORS error:", networkErr);
+    throw new ApiError(
+      "Image upload failed — please try again.",
+      0,
+      "UPLOAD_NETWORK_ERROR",
+    );
+  }
   if (!put.ok) {
+    const body = await put.text().catch(() => "");
+    console.error("R2 upload rejected:", put.status, body);
     throw new ApiError("Image upload failed — please try again.", put.status, "UPLOAD_FAILED");
   }
   return { url: public_url, name: file.name };

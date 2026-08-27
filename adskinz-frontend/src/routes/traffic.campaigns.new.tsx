@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdvShell } from "@/components/workspaces";
-import { Btn, FieldError, ImageUpload, Panel, Quote, SectionTitle, fmtMoney, inputCls } from "@/components/kit";
+import { AutoTextarea, Btn, FieldError, ImageUpload, Panel, Quote, SectionTitle, fmtMoney, inputCls } from "@/components/kit";
 import { TelegramPostPreview } from "@/components/telegram-preview";
 import { IconCheck, IconSparkle, IconChannel, IconApp, IconImage, IconGlobe, IconWallet, IconEye, IconTag } from "@/components/icons";
 import { AD_LANGUAGES, BUTTON_LABELS } from "@/lib/constants";
@@ -248,12 +248,13 @@ function Wizard() {
                     className="mt-2 w-full rounded-xl border border-seam bg-transparent p-3 text-sm"
                   />
                 )}
-                <textarea
+                <AutoTextarea
                   id="copy"
-                  rows={4}
+                  minRows={4}
                   value={copy}
-                  onChange={(e) => setCopy(e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-seam bg-transparent p-3 text-sm"
+                  onChange={setCopy}
+                  invalid={!!errors["copy"]}
+                  className="mt-2"
                 />
                 <FieldError>{errors["copy"]}</FieldError>
               </div>

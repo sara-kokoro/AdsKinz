@@ -3,17 +3,18 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdvShell } from "@/components/workspaces";
 import {
-  BudgetBar, Btn, ErrorBanner, Field, FieldError, ImageUpload, Modal, Panel, Quote, SectionTitle,
+  AutoTextarea, BudgetBar, Btn, ErrorBanner, Field, FieldError, ImageUpload, Modal, Panel, Quote, SectionTitle,
   StatusPill, fmtInt, fmtMoney, inputCls,
 } from "@/components/kit";
 import { UsdtMark } from "@/components/usdt";
 import { ArtFunnel } from "@/components/illustrations";
-import { IconPencil } from "@/components/icons";
+import { IconPencil, IconSparkle } from "@/components/icons";
 import { TelegramPostPreview } from "@/components/telegram-preview";
 import { AD_LANGUAGES, BUTTON_LABELS } from "@/lib/constants";
 import { ApiError, num, trackingUrl } from "@/lib/api";
-import { useCampaign, useCampaignTranslations, useUpdateCampaign } from "@/lib/queries";
+import { useCampaign, useCampaignTranslations, useGenerateCopy, useUpdateCampaign } from "@/lib/queries";
 import { useAuthGuard } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/traffic/campaigns/$id")({
   head: () => ({
@@ -36,6 +37,7 @@ function CampaignDetail() {
   const campaignQ = useCampaign(id);
   const translationsQ = useCampaignTranslations(id);
   const update = useUpdateCampaign(id);
+  const generateCopy = useGenerateCopy();
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
@@ -45,6 +47,8 @@ function CampaignDetail() {
   const [budget, setBudget] = useState("");
   const [language, setLanguage] = useState("");
   const [copy, setCopy] = useState("");
+  const [brief, setBrief] = useState("");
+  const [briefOpen, setBriefOpen] = useState(false);
   const [buttonLabel, setButtonLabel] = useState("");
   const [destinationUrl, setDestinationUrl] = useState("");
   const [image, setImage] = useState<{ url: string; name: string } | null>(null);
@@ -64,6 +68,8 @@ function CampaignDetail() {
     setBudget(c.budget);
     setLanguage(c.language);
     setCopy(c.copy ?? "");
+    setBrief("");
+    setBriefOpen(false);
     setButtonLabel(c.buttonLabel ?? "");
     setDestinationUrl(c.destinationUrl ?? "");
     setImage(c.imageUrl ? { url: c.imageUrl, name: "current-image" } : null);
@@ -100,6 +106,16 @@ function CampaignDetail() {
   const budgetTotal = num(c.budget);
   const remaining = Math.max(0, budgetTotal - spent);
   const ctr = c.impressions ? ((c.clicks / c.impressions) * 100).toFixed(2) : c.ctr.toFixed(2);
+
+  const generate = () => {
+    generateCopy.mutate(
+      { brief: brief || title || name, language: language === "all" ? "en" : language || "en", tone: "confident" },
+      {
+        onSuccess: (res) => setCopy(res.copy),
+        onError: (e) => setErr(e instanceof ApiError ? e.message : t("common.loadError")),
+      },
+    );
+  };
 
   const saveEdit = () => {
     if (Number(budget) < MIN_BUDGET) {
@@ -276,9 +292,30 @@ function CampaignDetail() {
                   ))}
                 </select>
               </Field>
-              <Field label={t("adv.wizard.copy")} htmlFor="ccopy">
-                <textarea id="ccopy" value={copy} onChange={(e) => setCopy(e.target.value)} rows={3} className={inputCls()} />
-              </Field>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="text-sm font-semibold" htmlFor="ccopy">{t("adv.wizard.copy")}</label>
+                  <Btn
+                    variant="secondary"
+                    className="ml-auto min-h-9 px-3 text-xs"
+                    onClick={() => (briefOpen ? generate() : setBriefOpen(true))}
+                    disabled={generateCopy.isPending}
+                  >
+                    <IconSparkle width={14} height={14} />
+                    {copy && briefOpen ? t("adv.wizard.regenerate") : t("adv.wizard.generateAi")}
+                  </Btn>
+                </div>
+                {briefOpen && (
+                  <input
+                    value={brief}
+                    onChange={(e) => setBrief(e.target.value)}
+                    placeholder={t("adv.wizard.briefPlaceholder")}
+                    aria-label={t("adv.wizard.brief")}
+                    className={cn("mt-2", inputCls())}
+                  />
+                )}
+                <AutoTextarea id="ccopy" minRows={3} value={copy} onChange={setCopy} className="mt-2" />
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={t("adv.wizard.buttonLabel")} htmlFor="cbtn">
                   <select id="cbtn" value={buttonLabel} onChange={(e) => setButtonLabel(e.target.value)} className={inputCls()}>

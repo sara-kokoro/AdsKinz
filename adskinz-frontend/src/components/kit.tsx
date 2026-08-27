@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { uploadCreativeImage } from "@/lib/api";
@@ -407,6 +407,53 @@ export const inputCls = (invalid = false) =>
     invalid ? "border-danger bg-danger-soft text-danger focus:border-danger" : "border-seam",
   );
 
+/** Textarea that grows with its content instead of clipping it inside a
+ * fixed-height box (the old `rows={3}` boxes needed an internal scroll to
+ * read a full ad copy, which isn't reachable by drag-resize on mobile).
+ * Keeps a sensible max-height with its own scrollbar past that point. */
+export function AutoTextarea({
+  value,
+  onChange,
+  minRows = 3,
+  maxHeight = 320,
+  invalid,
+  className,
+  ...rest
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  minRows?: number;
+  maxHeight?: number;
+  invalid?: boolean;
+  className?: string;
+} & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange" | "className">) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  const resize = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+  };
+
+  useEffect(resize, [value]);
+
+  return (
+    <textarea
+      {...rest}
+      ref={ref}
+      rows={minRows}
+      value={value}
+      onChange={(e) => {
+        onChange(e.target.value);
+        resize();
+      }}
+      className={cn(inputCls(invalid), "resize-y overflow-y-auto leading-relaxed", className)}
+      style={{ maxHeight }}
+    />
+  );
+}
+
 /** Drag-and-drop image picker. Uploads directly to object storage via a
  * presigned URL — the value it returns is a real, permanent public URL. */
 export function ImageUpload({
@@ -431,7 +478,8 @@ export function ImageUpload({
     try {
       const uploaded = await uploadCreativeImage(file);
       onChange(uploaded);
-    } catch {
+    } catch (e) {
+      console.error("Image upload failed:", e);
       setErr(t("adv.wizard.imageUploadFailed"));
     } finally {
       setBusy(false);
