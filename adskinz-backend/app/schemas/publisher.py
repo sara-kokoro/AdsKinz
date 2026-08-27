@@ -34,7 +34,6 @@ class ChannelCreateRequest(RequestModel):
     private_invite_link: str = Field(default="", alias="privateLink")
     admin_username: str = Field(default="", alias="adminUsername", max_length=64)
     declared_language: str = Field(alias="language")
-    subscriber_count: int = Field(alias="subscribers")
     max_ads_per_day: int = Field(default=1, alias="maxAdsPerDay")
     preferred_hours_utc: list[int] | None = Field(default=None, alias="preferredHours")
     description: str | None = Field(default=None, max_length=600)
@@ -67,15 +66,6 @@ class ChannelCreateRequest(RequestModel):
         value = (value or "").strip().lower()
         if value not in AD_LANGUAGES or value == "all":
             raise ValueError("Declared language must be one specific supported language.")
-        return value
-
-    @field_validator("subscriber_count")
-    @classmethod
-    def _subscribers(cls, value: int) -> int:
-        if value < settings.MIN_CHANNEL_SUBSCRIBERS:
-            raise ValueError(
-                f"Channel must have at least {settings.MIN_CHANNEL_SUBSCRIBERS} subscribers."
-            )
         return value
 
     @field_validator("max_ads_per_day")

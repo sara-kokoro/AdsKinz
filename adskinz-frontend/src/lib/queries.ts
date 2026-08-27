@@ -223,7 +223,6 @@ export type ChannelCreateBody = {
   privateLink: string;
   adminUsername: string;
   language: string;
-  subscribers: number;
   maxAdsPerDay: number;
   preferredHours?: number[] | null | undefined;
   description?: string | null | undefined;
@@ -243,6 +242,15 @@ export function useStartChannel() {
   return useMutation({
     mutationFn: (id: string) =>
       apiFetch<Channel>(`/publisher/channels/${id}/start`, { method: "POST" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
+  });
+}
+
+export function useVerifyChannelBot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<Channel>(`/publisher/channels/${id}/verify-bot`, { method: "POST" }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
   });
 }

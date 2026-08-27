@@ -22,12 +22,14 @@ import { IconAlert, IconCheck, IconClock, IconShield } from "@/components/icons"
 import { Avatar } from "@/components/cards";
 import { ArtChannelPayout, ArtTrustPeriod } from "@/components/illustrations";
 import { ApiError, num } from "@/lib/api";
+import { AD_LANGUAGES } from "@/lib/constants";
 import {
   useBotStatus,
   useChannels,
   useCreateChannel,
   useStartChannel,
   useUpdateChannel,
+  useVerifyChannelBot,
   type ChannelCreateBody,
 } from "@/lib/queries";
 import type { Channel } from "@/lib/types";
@@ -133,17 +135,20 @@ function ChannelsPage() {
   const createChannel = useCreateChannel();
   const startChannel = useStartChannel();
   const updateChannel = useUpdateChannel();
+  const verifyBot = useVerifyChannelBot();
+
+  const CHANNEL_LANGUAGES = AD_LANGUAGES.filter((l) => l.code !== "all");
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Channel | null>(null);
   const [name, setName] = useState("");
   const [link, setLink] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
-  const [language, setLanguage] = useState("English");
-  const [subscribers, setSubscribers] = useState("500");
+  const [language, setLanguage] = useState(CHANNEL_LANGUAGES[0]?.code ?? "en");
   const [frequency, setFrequency] = useState("2");
   const [err, setErr] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [createdBotNotice, setCreatedBotNotice] = useState<string | null>(null);
 
   const [editFreq, setEditFreq] = useState("2");
   const [editHours, setEditHours] = useState("");
@@ -155,8 +160,7 @@ function ChannelsPage() {
     setName("");
     setLink("");
     setAdminUsername("");
-    setLanguage("English");
-    setSubscribers("500");
+    setLanguage(CHANNEL_LANGUAGES[0]?.code ?? "en");
     setFrequency("2");
     setErr({});
     setFormError(null);
@@ -176,14 +180,19 @@ function ChannelsPage() {
       privateLink: link.trim(),
       adminUsername: adminUsername.trim(),
       language,
-      subscribers: Number(subscribers) || 0,
-      maxAdsPerDay: Number(frequency) || 0,
+      maxAdsPerDay: Number(frequency) || 1,
     };
     setFormError(null);
     createChannel.mutate(body, {
-      onSuccess: () => {
+      onSuccess: (created) => {
         setOpen(false);
         resetForm();
+        if (!created.botAdminVerified) {
+          setCreatedBotNotice(
+            `Le bot @${botStatus?.botUsername ?? "AdsKinzBot"} n'est pas encore administrateur de « ${created.name} ». ` +
+              "Ça n'empêche pas la modération : ajoutez-le comme admin quand vous voulez, puis revenez dans les réglages du canal pour vérifier.",
+          );
+        }
       },
       onError: (err) => setFormError(err instanceof ApiError ? err.message : "Something went wrong."),
     });
@@ -191,7 +200,7 @@ function ChannelsPage() {
 
   const openEdit = (c: Channel) => {
     setEditing(c);
-    setEditFreq(String(c.maxAdsPerDay));
+    setEditFreq(String(c.maxAdsPerDay || 1));
     setEditHours((c.preferredHours ?? []).join(", "));
     setEditError(null);
   };
@@ -206,7 +215,7 @@ function ChannelsPage() {
       .filter((n) => Number.isFinite(n) && n >= 0 && n <= 23);
     setEditError(null);
     updateChannel.mutate(
-      { id: editing.id, maxAdsPerDay: Number(editFreq) || 0, preferredHours: hours.length ? hours : null },
+      { id: editing.id, maxAdsPerDay: Number(editFreq) || 1, preferredHours: hours.length ? hours : null },
       {
         onSuccess: () => setEditing(null),
         onError: (err) => setEditError(err instanceof ApiError ? err.message : "Something went wrong."),
@@ -218,6 +227,20 @@ function ChannelsPage() {
     <PubShell title={t("pub.nav.channels")} action={<Btn tone="bounty" onClick={() => setOpen(true)}>{t("pub.addChannel")}</Btn>}>
       <div className="space-y-5">
         <Quote tone="signal" label={t("pub.form.frequency")}>{t("pub.quotes.frequency")}</Quote>
+
+        {createdBotNotice && (
+          <div className="flex flex-wrap items-start gap-2 rounded-xl border border-seam bg-panel-2 px-4 py-3 text-sm text-paper-dim">
+            <IconAlert width={16} height={16} className="mt-0.5 shrink-0 text-signal" />
+            <span className="flex-1">{createdBotNotice}</span>
+            <button
+              type="button"
+              onClick={() => setCreatedBotNotice(null)}
+              className="shrink-0 text-xs font-semibold text-paper-dim underline"
+            >
+              Compris
+            </button>
+          </div>
+        )}
 
         {botStatus && !botStatus.allVerified && (
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-seam bg-danger-soft px-4 py-3 text-sm text-danger">
@@ -284,23 +307,20 @@ function ChannelsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("pub.form.lang")} hint={t("pub.form.langHint")} htmlFor="cg">
               <select id="cg" value={language} onChange={(e) => setLanguage(e.target.value)} className={inputCls()}>
-                <option>English</option><option>French</option><option>Russian</option><option>Chinese (Simplified)</option>
+                {CHANNEL_LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
               </select>
             </Field>
             <Field label={t("pub.form.adminUsername")} error={err["adminUsername"]} htmlFor="cu">
               <input id="cu" value={adminUsername} onChange={(e) => setAdminUsername(e.target.value)} placeholder="@username" className={inputCls(!!err["adminUsername"])} />
             </Field>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={t("pub.form.frequency")} htmlFor="cf">
-              <select id="cf" value={frequency} onChange={(e) => setFrequency(e.target.value)} className={`num ${inputCls()}`}>
-                <option>0</option><option>1</option><option>2</option><option>3</option>
-              </select>
-            </Field>
-            <Field label="Subscribers" htmlFor="csub">
-              <input id="csub" inputMode="numeric" value={subscribers} onChange={(e) => setSubscribers(e.target.value)} className={`num ${inputCls()}`} />
-            </Field>
-          </div>
+          <Field label={t("pub.form.frequency")} hint="Combien de publicités le canal recevra chaque jour." htmlFor="cf">
+            <select id="cf" value={frequency} onChange={(e) => setFrequency(e.target.value)} className={`num ${inputCls()}`}>
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+            </select>
+          </Field>
           <Quote tone="neutral" label={t("pub.form.botStep")}>{t("pub.form.botMissing")}</Quote>
         </div>
       </Modal>
@@ -324,7 +344,7 @@ function ChannelsPage() {
             {editError && <FieldError>{editError}</FieldError>}
             <Field label={t("pub.form.frequency")} htmlFor="ef">
               <select id="ef" value={editFreq} onChange={(e) => setEditFreq(e.target.value)} className={`num ${inputCls()}`}>
-                <option>0</option><option>1</option><option>2</option><option>3</option>
+                <option value="1">1</option><option value="2">2</option><option value="3">3</option>
               </select>
             </Field>
             <Field label={t("pub.form.slots")} hint="Comma-separated UTC hours, e.g. 9, 18" htmlFor="eh">
@@ -334,7 +354,29 @@ function ChannelsPage() {
               <p className="flex items-center gap-1.5 font-semibold text-paper">
                 <IconClock width={12} height={12} /> {t("pub.detail.botStatus")}
               </p>
-              <div className="mt-2"><BotBadge ok={editing.botAdminVerified} /></div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <BotBadge
+                  ok={
+                    verifyBot.isSuccess && verifyBot.variables === editing.id
+                      ? verifyBot.data.botAdminVerified
+                      : editing.botAdminVerified
+                  }
+                />
+                <Btn
+                  variant="secondary"
+                  className="min-h-8 px-3 text-xs"
+                  onClick={() => verifyBot.mutate(editing.id)}
+                  disabled={verifyBot.isPending && verifyBot.variables === editing.id}
+                >
+                  {verifyBot.isPending && verifyBot.variables === editing.id ? "…" : "Vérifier maintenant"}
+                </Btn>
+              </div>
+              {!editing.botAdminVerified && (
+                <p className="mt-2 text-paper-dim">
+                  Ajoutez @{botStatus?.botUsername ?? "AdsKinzBot"} comme administrateur du canal, puis cliquez sur
+                  « Vérifier maintenant ». Ça n'empêche ni la modération ni la diffusion une fois approuvé.
+                </p>
+              )}
             </div>
           </div>
         )}

@@ -3,6 +3,7 @@
     GET/POST /publisher/channels
     GET      /publisher/channels/bot-status
     POST     /publisher/channels/{channel_id}/start
+    POST     /publisher/channels/{channel_id}/verify-bot
     GET/POST /publisher/mini-apps
     GET      /publisher/mini-apps/{mini_app_id}/key
     GET/POST /publisher/withdrawals
@@ -158,8 +159,11 @@ async def create_channel(
 ) -> ChannelResponse:
     """Register a channel. It starts in ``pending_moderation``.
 
-    The declared subscriber count is verified by an admin, and delivery also
-    requires @AdsKinzBot to be an administrator of the channel.
+    The subscriber count is read live from Telegram — publishers never
+    self-declare it. Whether @AdsKinzBot is already an admin of the channel
+    is checked and stored, but a missing admin right never blocks
+    submission: the publisher can add the bot at any time afterwards and
+    re-check from the channel's settings.
     """
     duplicate = (
         await session.execute(
@@ -169,6 +173,34 @@ async def create_channel(
     if duplicate is not None:
         raise ConflictError("This channel has already been submitted.")
 
+    from app.bot.aiogram_bot import resolve_chat, verify_bot_is_admin
+
+    telegram_chat_id: int | None = None
+    telegram_username: str | None = None
+    subscriber_count = settings.MIN_CHANNEL_SUBSCRIBERS
+    bot_admin_verified = False
+    bot_checked_at: datetime | None = None
+
+    try:
+        chat_id, username, members, _ = await resolve_chat(payload.public_link)
+        if chat_id is not None:
+            telegram_chat_id = chat_id
+            telegram_username = username
+            if members is not None:
+                if members < settings.MIN_CHANNEL_SUBSCRIBERS:
+                    raise BusinessRuleError(
+                        f"This channel has {members} subscribers on Telegram — "
+                        f"AdsKinz requires at least {settings.MIN_CHANNEL_SUBSCRIBERS}."
+                    )
+                subscriber_count = members
+            is_admin, can_post, can_delete, _ = await verify_bot_is_admin(chat_id)
+            bot_admin_verified = bool(is_admin and can_post and can_delete)
+            bot_checked_at = datetime.now(UTC)
+    except BusinessRuleError:
+        raise
+    except Exception:  # noqa: BLE001 - Telegram being unreachable must not block submission
+        pass
+
     channel = Channel(
         publisher_id=publisher.id,
         name=payload.name,
@@ -177,25 +209,15 @@ async def create_channel(
         admin_username=payload.admin_username,
         description=payload.description,
         declared_language=payload.declared_language,
-        subscriber_count=payload.subscriber_count,
+        subscriber_count=subscriber_count,
         max_ads_per_day=payload.max_ads_per_day,
         preferred_hours_utc=payload.preferred_hours_utc,
         submitted_ip_hash=ip_hash,
+        telegram_chat_id=telegram_chat_id,
+        telegram_username=telegram_username,
+        bot_admin_verified=bot_admin_verified,
+        bot_admin_last_checked_at=bot_checked_at,
     )
-
-    # Best-effort resolution so the admin sees the real numbers during review.
-    try:
-        from app.bot.aiogram_bot import resolve_chat, verify_bot_is_admin
-
-        chat_id, username, members, _ = await resolve_chat(payload.public_link)
-        if chat_id is not None:
-            channel.telegram_chat_id = chat_id
-            channel.telegram_username = username
-            is_admin, can_post, can_delete, _ = await verify_bot_is_admin(chat_id)
-            channel.bot_admin_verified = bool(is_admin and can_post and can_delete)
-            channel.bot_admin_last_checked_at = datetime.now(UTC)
-    except Exception:  # noqa: BLE001 - Telegram being unreachable must not block submission
-        pass
 
     session.add(channel)
     await session.commit()
@@ -256,6 +278,41 @@ async def bot_status(
     return BotStatusResponse(
         botUsername=settings.BOT_USERNAME, items=items, allVerified=all_ok and bool(items)
     )
+
+
+@router.post(
+    "/channels/{channel_id}/verify-bot",
+    response_model=ChannelResponse,
+    summary="Re-check @AdsKinzBot admin rights on one channel",
+)
+async def verify_channel_bot(
+    channel_id: uuid.UUID,
+    publisher: CurrentPublisherDep,
+    session: SessionDep,
+) -> ChannelResponse:
+    """Manual re-check triggered from the channel's settings ('Verify now').
+
+    A negative result never changes the channel's moderation/delivery
+    status — it only refreshes the badge so the publisher knows whether
+    @AdsKinzBot still needs to be (re-)added as admin.
+    """
+    channel = await session.get(Channel, channel_id)
+    if channel is None or channel.publisher_id != publisher.id:
+        raise NotFoundError("Channel not found.")
+
+    from app.bot.aiogram_bot import verify_bot_is_admin
+
+    target = channel.telegram_chat_id or channel.public_link
+    try:
+        is_admin, can_post, can_delete, _ = await verify_bot_is_admin(target)
+    except Exception:  # noqa: BLE001 - Telegram being unreachable must not break the check
+        is_admin = can_post = can_delete = False
+
+    channel.bot_admin_verified = bool(is_admin and can_post and can_delete)
+    channel.bot_admin_last_checked_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(channel)
+    return await _channel_response(session, channel)
 
 
 @router.post(
