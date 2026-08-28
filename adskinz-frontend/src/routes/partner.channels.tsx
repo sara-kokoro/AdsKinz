@@ -8,6 +8,7 @@ import {
   ErrorBanner,
   Field,
   FieldError,
+  LogoUpload,
   Modal,
   Panel,
   Quote,
@@ -21,7 +22,7 @@ import {
 import { IconAlert, IconCheck, IconClock, IconShield } from "@/components/icons";
 import { Avatar } from "@/components/cards";
 import { ArtChannelPayout, ArtTrustPeriod } from "@/components/illustrations";
-import { ApiError, num } from "@/lib/api";
+import { ApiError, num, uploadChannelLogo } from "@/lib/api";
 import { AD_LANGUAGES } from "@/lib/constants";
 import {
   useBotStatus,
@@ -79,7 +80,7 @@ function ChannelCard({
   return (
     <Panel className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Avatar name={channel.name} size={44} />
+        <Avatar name={channel.name} size={44} src={channel.logoUrl} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-base font-bold">{channel.name}</p>
           <p className="num truncate text-xs text-paper-dim">
@@ -144,6 +145,7 @@ function ChannelsPage() {
   const [name, setName] = useState("");
   const [link, setLink] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [language, setLanguage] = useState(CHANNEL_LANGUAGES[0]?.code ?? "en");
   const [frequency, setFrequency] = useState("2");
   const [err, setErr] = useState<Record<string, string>>({});
@@ -152,6 +154,7 @@ function ChannelsPage() {
 
   const [editFreq, setEditFreq] = useState("2");
   const [editHours, setEditHours] = useState("");
+  const [editLogoUrl, setEditLogoUrl] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
 
   const botOkFor = (id: string) => botStatus?.items.find((i) => i.channelId === id)?.isAdmin ?? true;
@@ -160,6 +163,7 @@ function ChannelsPage() {
     setName("");
     setLink("");
     setAdminUsername("");
+    setLogoUrl(null);
     setLanguage(CHANNEL_LANGUAGES[0]?.code ?? "en");
     setFrequency("2");
     setErr({});
@@ -179,6 +183,7 @@ function ChannelsPage() {
       publicLink: link.trim(),
       privateLink: link.trim(),
       adminUsername: adminUsername.trim(),
+      logoUrl,
       language,
       maxAdsPerDay: Number(frequency) || 1,
     };
@@ -202,6 +207,7 @@ function ChannelsPage() {
     setEditing(c);
     setEditFreq(String(c.maxAdsPerDay || 1));
     setEditHours((c.preferredHours ?? []).join(", "));
+    setEditLogoUrl(c.logoUrl);
     setEditError(null);
   };
 
@@ -215,7 +221,12 @@ function ChannelsPage() {
       .filter((n) => Number.isFinite(n) && n >= 0 && n <= 23);
     setEditError(null);
     updateChannel.mutate(
-      { id: editing.id, maxAdsPerDay: Number(editFreq) || 1, preferredHours: hours.length ? hours : null },
+      {
+        id: editing.id,
+        maxAdsPerDay: Number(editFreq) || 1,
+        preferredHours: hours.length ? hours : null,
+        logoUrl: editLogoUrl,
+      },
       {
         onSuccess: () => setEditing(null),
         onError: (err) => setEditError(err instanceof ApiError ? err.message : "Something went wrong."),
@@ -298,6 +309,14 @@ function ChannelsPage() {
       >
         <div className="space-y-4">
           {formError && <FieldError>{formError}</FieldError>}
+          <Field label={t("pub.form.logo")} htmlFor="clogo">
+            <LogoUpload
+              value={logoUrl}
+              onChange={setLogoUrl}
+              uploader={uploadChannelLogo}
+              fallbackLabel={name || "?"}
+            />
+          </Field>
           <Field label={t("pub.form.channelName")} hint={t("pub.form.channelNameHint")} error={err["name"]} htmlFor="cn">
             <input id="cn" value={name} onChange={(e) => setName(e.target.value)} className={inputCls(!!err["name"])} />
           </Field>
@@ -342,6 +361,14 @@ function ChannelsPage() {
         {editing && (
           <div className="space-y-4">
             {editError && <FieldError>{editError}</FieldError>}
+            <Field label={t("pub.form.logo")} htmlFor="elogo">
+              <LogoUpload
+                value={editLogoUrl}
+                onChange={setEditLogoUrl}
+                uploader={uploadChannelLogo}
+                fallbackLabel={editing.name}
+              />
+            </Field>
             <Field label={t("pub.form.frequency")} htmlFor="ef">
               <select id="ef" value={editFreq} onChange={(e) => setEditFreq(e.target.value)} className={`num ${inputCls()}`}>
                 <option value="1">1</option><option value="2">2</option><option value="3">3</option>

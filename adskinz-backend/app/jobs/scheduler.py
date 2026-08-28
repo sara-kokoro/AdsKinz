@@ -17,10 +17,10 @@ from app.config import settings
 from app.redis_client import distributed_lock
 
 from .budget import budget_allocation_check, low_balance_alert, spend_flush
-from .channels import bot_admin_check, channel_trust_expiry
+from .channels import bot_admin_check, channel_trust_expiry, refresh_channel_subscribers
 from .deposits import deposit_watcher
 from .fraud import fraud_scan
-from .posts import auto_delete_posts, post_dispatch
+from .posts import auto_delete_posts, expire_posts_for_inactive_campaigns, post_dispatch
 from .views import views_polling
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,10 @@ def _register_jobs(scheduler: AsyncIOScheduler) -> None:
         return
 
     _add_interval_job(scheduler, "auto_delete_posts", auto_delete_posts, 5)
+    _add_interval_job(
+        scheduler, "expire_posts_for_inactive_campaigns", expire_posts_for_inactive_campaigns, 1
+    )
+    _add_interval_job(scheduler, "refresh_channel_subscribers", refresh_channel_subscribers, 1)
     _add_interval_job(scheduler, "views_polling", views_polling, 15)
     _add_interval_job(scheduler, "deposit_watcher", deposit_watcher, 2)
     _add_interval_job(scheduler, "channel_trust_expiry", channel_trust_expiry, 60)

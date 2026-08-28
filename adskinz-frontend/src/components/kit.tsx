@@ -544,3 +544,82 @@ export function ImageUpload({
     </div>
   );
 }
+
+/** Compact circular logo picker (channel/mini-app avatars) — uploads straight
+ * to R2 via the given uploader and hands back only the public URL. */
+export function LogoUpload({
+  value,
+  onChange,
+  uploader,
+  fallbackLabel,
+  size = 64,
+}: {
+  value: string | null;
+  onChange: (url: string | null) => void;
+  uploader: (file: File) => Promise<{ url: string; name: string }>;
+  fallbackLabel: string;
+  size?: number;
+}) {
+  const { t } = useTranslation();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const take = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return setErr(t("adv.wizard.imageWrongType"));
+    if (file.size > 5 * 1024 * 1024) return setErr(t("adv.wizard.imageTooLarge"));
+    setErr("");
+    setBusy(true);
+    try {
+      const uploaded = await uploader(file);
+      onChange(uploaded.url);
+    } catch (e) {
+      console.error("Logo upload failed:", e);
+      setErr(t("adv.wizard.imageUploadFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={(e) => void take(e.target.files?.[0])}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-dashed border-seam bg-panel-2 transition-colors hover:bg-panel"
+        style={{ width: size, height: size }}
+      >
+        {busy ? (
+          <div className="size-5 animate-spin rounded-full border-2 border-signal border-t-transparent" />
+        ) : value ? (
+          <img src={value} alt="" className="size-full object-cover" />
+        ) : (
+          <span className="grad-avatar num flex size-full items-center justify-center font-bold" style={{ fontSize: size * 0.36 }}>
+            {fallbackLabel.trim().slice(0, 1).toUpperCase() || "?"}
+          </span>
+        )}
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap gap-2">
+          <Btn variant="secondary" className="min-h-8 px-3 text-xs" onClick={() => inputRef.current?.click()} disabled={busy}>
+            {value ? t("adv.wizard.imageReplace") : t("adv.wizard.imageDrop")}
+          </Btn>
+          {value && (
+            <Btn variant="ghost" className="min-h-8 px-3 text-xs text-danger" onClick={() => onChange(null)} disabled={busy}>
+              {t("adv.wizard.imageRemove")}
+            </Btn>
+          )}
+        </div>
+        <FieldError>{err}</FieldError>
+      </div>
+    </div>
+  );
+}

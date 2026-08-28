@@ -122,6 +122,24 @@ def _normalise_public_chat(value: str) -> str:
     return f"@{candidate.lstrip('@')}" if candidate else ""
 
 
+async def get_member_count(chat_id_or_username: int | str) -> tuple[int | None, str | None]:
+    """Lightweight subscriber-count read for an already-known chat.
+
+    Unlike :func:`resolve_chat`, this skips ``get_chat`` and only asks for
+    the member count — used by the periodic refresh job so it stays cheap
+    even when it runs across every live channel.
+    """
+    try:
+        bot = get_bot()
+        count = await bot.get_chat_member_count(chat_id_or_username)
+    except (TelegramForbiddenError, TelegramBadRequest) as exc:
+        return None, str(exc)
+    except Exception as exc:  # noqa: BLE001 - Telegram/network failures must be reported gracefully
+        logger.warning("bot.member_count_failed chat=%s error=%s", chat_id_or_username, exc)
+        return None, str(exc)
+    return count, None
+
+
 async def resolve_chat(public_link_or_username: str) -> tuple[int | None, str | None, int | None, str | None]:
     """Resolve a public Telegram link or username and return its chat metadata."""
     chat_ref = _normalise_public_chat(public_link_or_username)

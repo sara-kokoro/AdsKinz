@@ -186,9 +186,12 @@ function enqueueRefresh(): Promise<string | null> {
   return new Promise((resolve) => refreshQueue.push(resolve));
 }
 
-export async function uploadCreativeImage(file: File): Promise<{ url: string; name: string }> {
+async function uploadImageTo(
+  endpoint: string,
+  file: File,
+): Promise<{ url: string; name: string }> {
   const { upload_url, public_url } = await apiFetch<{ upload_url: string; public_url: string }>(
-    "/advertiser/creatives/upload-url",
+    endpoint,
     { method: "POST", body: { contentType: file.type } },
   );
   let put: Response;
@@ -216,6 +219,14 @@ export async function uploadCreativeImage(file: File): Promise<{ url: string; na
     throw new ApiError("Image upload failed — please try again.", put.status, "UPLOAD_FAILED");
   }
   return { url: public_url, name: file.name };
+}
+
+export async function uploadCreativeImage(file: File): Promise<{ url: string; name: string }> {
+  return uploadImageTo("/advertiser/creatives/upload-url", file);
+}
+
+export async function uploadChannelLogo(file: File): Promise<{ url: string; name: string }> {
+  return uploadImageTo("/publisher/channels/logo-upload-url", file);
 }
 
 export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Promise<T> {

@@ -4,6 +4,7 @@
     GET      /publisher/channels/bot-status
     POST     /publisher/channels/{channel_id}/start
     POST     /publisher/channels/{channel_id}/verify-bot
+    POST     /publisher/channels/logo-upload-url
     GET/POST /publisher/mini-apps
     GET      /publisher/mini-apps/{mini_app_id}/key
     GET/POST /publisher/withdrawals
@@ -38,6 +39,7 @@ from app.schemas.publisher import (
     ChannelCreateRequest,
     ChannelListResponse,
     ChannelResponse,
+    LogoUploadRequest,
     MiniAppCreateRequest,
     MiniAppKeyResponse,
     MiniAppListResponse,
@@ -47,7 +49,7 @@ from app.schemas.publisher import (
     WithdrawalListResponse,
     WithdrawalResponse,
 )
-from app.services import ad_selection_service, billing_service, moderation_service
+from app.services import ad_selection_service, billing_service, moderation_service, upload_service
 
 router = APIRouter(prefix="/publisher", tags=["publisher"])
 
@@ -67,6 +69,7 @@ async def _channel_response(session: SessionDep, channel: Channel) -> ChannelRes
         publicLink=channel.public_link,
         privateLink=channel.private_invite_link or None,
         adminUsername=channel.admin_username or None,
+        logoUrl=channel.logo_url or None,
         maxAdsPerDay=channel.max_ads_per_day,
         effectiveMaxAdsPerDay=channel.effective_max_ads_per_day(now),
         preferredHours=channel.preferred_hours_utc,
@@ -207,6 +210,7 @@ async def create_channel(
         public_link=payload.public_link,
         private_invite_link=payload.private_invite_link,
         admin_username=payload.admin_username,
+        logo_url=payload.logo_url,
         description=payload.description,
         declared_language=payload.declared_language,
         subscriber_count=subscriber_count,
@@ -333,6 +337,21 @@ async def start_channel(
     return await _channel_response(session, channel)
 
 
+@router.post(
+    "/channels/logo-upload-url",
+    summary="Get a presigned URL to upload a channel logo",
+)
+async def channel_logo_upload_url(
+    payload: LogoUploadRequest,
+    publisher: CurrentPublisherDep,
+) -> dict[str, str]:
+    """Same mechanism as the advertiser creative upload: the browser PUTs
+    the file directly to R2, only the resulting public URL comes back here."""
+    return upload_service.create_channel_logo_upload_url(
+        content_type=payload.content_type, publisher_id=publisher.id
+    )
+
+
 @router.patch(
     "/channels/{channel_id}",
     response_model=ChannelResponse,
@@ -361,6 +380,12 @@ async def update_channel(
         if hours and any(int(h) < 0 or int(h) > 23 for h in hours):
             raise BusinessRuleError("Preferred hours must be UTC hours between 0 and 23.")
         channel.preferred_hours_utc = sorted({int(h) for h in hours}) if hours else None
+
+    if "logoUrl" in payload:
+        logo_url = (payload["logoUrl"] or "").strip() or None
+        if logo_url and not logo_url.startswith("https://"):
+            raise BusinessRuleError("Logo URL must be a valid https:// address.")
+        channel.logo_url = logo_url
 
     await session.commit()
     await session.refresh(channel)

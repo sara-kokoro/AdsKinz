@@ -33,10 +33,19 @@ class ChannelCreateRequest(RequestModel):
     public_link: str = Field(alias="publicLink")
     private_invite_link: str = Field(default="", alias="privateLink")
     admin_username: str = Field(default="", alias="adminUsername", max_length=64)
+    logo_url: str | None = Field(default=None, alias="logoUrl")
     declared_language: str = Field(alias="language")
     max_ads_per_day: int = Field(default=1, alias="maxAdsPerDay")
     preferred_hours_utc: list[int] | None = Field(default=None, alias="preferredHours")
     description: str | None = Field(default=None, max_length=600)
+
+    @field_validator("logo_url")
+    @classmethod
+    def _logo(cls, value: str | None) -> str | None:
+        value = (value or "").strip() or None
+        if value and not value.startswith("https://"):
+            raise ValueError("Logo URL must be a valid https:// address.")
+        return value
 
     @field_validator("public_link", "private_invite_link")
     @classmethod
@@ -94,6 +103,7 @@ class ChannelResponse(APIModel):
     publicLink: str | None = None
     privateLink: str | None = None
     adminUsername: str | None = None
+    logoUrl: str | None = None
     maxAdsPerDay: int = 1
     effectiveMaxAdsPerDay: int = 1
     preferredHours: list[int] | None = None
@@ -128,6 +138,10 @@ class BotStatusResponse(APIModel):
     botUsername: str
     items: list[BotStatusItem]
     allVerified: bool
+
+
+class LogoUploadRequest(RequestModel):
+    content_type: str = Field(alias="contentType", max_length=64)
 
 
 class ChannelStartRequest(RequestModel):

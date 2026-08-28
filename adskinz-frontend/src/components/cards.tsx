@@ -3,7 +3,19 @@ import { BudgetBar, StatusPill, fmtInt, fmtMoney } from "@/components/kit";
 import { cn } from "@/lib/utils";
 
 /** Gradient monogram avatar used in every placement / user list. */
-export function Avatar({ name, size = 44 }: { name: string; size?: number }) {
+export function Avatar({ name, size = 44, src }: { name: string; size?: number; src?: string | null }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        className="shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   return (
     <div
       className="grad-avatar num flex shrink-0 items-center justify-center rounded-full font-bold"

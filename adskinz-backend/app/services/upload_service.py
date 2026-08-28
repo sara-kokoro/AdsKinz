@@ -47,6 +47,15 @@ def create_upload_url(*, content_type: str, advertiser_id: uuid.UUID) -> dict[st
     The object key is namespaced by advertiser and a random id so uploads
     can never collide or be overwritten by another advertiser.
     """
+    return _presigned_url(content_type=content_type, key_prefix=f"creatives/{advertiser_id}")
+
+
+def create_channel_logo_upload_url(*, content_type: str, publisher_id: uuid.UUID) -> dict[str, str]:
+    """Same mechanism as :func:`create_upload_url`, namespaced for channel logos."""
+    return _presigned_url(content_type=content_type, key_prefix=f"channel-logos/{publisher_id}")
+
+
+def _presigned_url(*, content_type: str, key_prefix: str) -> dict[str, str]:
     _assert_configured()
     ext = ALLOWED_CONTENT_TYPES.get(content_type)
     if ext is None:
@@ -54,7 +63,7 @@ def create_upload_url(*, content_type: str, advertiser_id: uuid.UUID) -> dict[st
             f"Unsupported image type '{content_type}'. Allowed: {', '.join(ALLOWED_CONTENT_TYPES)}."
         )
 
-    key = f"creatives/{advertiser_id}/{uuid.uuid4().hex}.{ext}"
+    key = f"{key_prefix}/{uuid.uuid4().hex}.{ext}"
     client = _r2_client()
     upload_url = client.generate_presigned_url(
         "put_object",

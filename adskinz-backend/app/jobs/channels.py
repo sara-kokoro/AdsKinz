@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
-from app.bot.aiogram_bot import verify_bot_is_admin
+from app.bot.aiogram_bot import get_member_count, verify_bot_is_admin
 from app.config import settings
 from app.core.enums import ChannelStatus
 from app.database import session_scope
@@ -44,6 +44,53 @@ async def _increment_admin_failures(channel_id: str) -> int:
 
     _local_failure_counts[channel_id] = _local_failure_counts.get(channel_id, 0) + 1
     return _local_failure_counts[channel_id]
+
+
+async def refresh_channel_subscribers() -> dict:
+    """Re-read the live subscriber count from Telegram for every deliverable
+    channel — the count is never left to the publisher's own declaration.
+
+    Runs every minute; each channel is still only worth one Telegram call
+    per run, so this stays well inside normal bot API limits even with a
+    few hundred channels.
+    """
+    now = datetime.now(UTC)
+    summary = {"channels_checked": 0, "updated": 0, "failed": 0}
+
+    async with session_scope() as session:
+        channels = (
+            (
+                await session.execute(
+                    select(Channel).where(
+                        Channel.status.in_(
+                            [
+                                ChannelStatus.APPROVED_NOT_STARTED.value,
+                                ChannelStatus.ACTIVE_BUILDING_TRUST.value,
+                                ChannelStatus.ACTIVE.value,
+                            ]
+                        ),
+                        Channel.telegram_chat_id.is_not(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        summary["channels_checked"] = len(channels)
+
+        for channel in channels:
+            count, error = await get_member_count(channel.telegram_chat_id)
+            if count is None:
+                summary["failed"] += 1
+                logger.warning(
+                    "channels.subscriber_refresh_failed channel=%s error=%s", channel.id, error
+                )
+                continue
+            channel.subscriber_count = count
+            channel.subscriber_count_updated_at = now
+            summary["updated"] += 1
+
+    return summary
 
 
 async def channel_trust_expiry() -> dict:

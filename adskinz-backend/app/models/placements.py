@@ -58,6 +58,8 @@ class Channel(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
 
     declared_language: Mapped[str] = mapped_column(String(8), nullable=False)
     subscriber_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    subscriber_count_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    logo_url: Mapped[str | None] = mapped_column(Text)
     max_ads_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     preferred_hours_utc: Mapped[list[int] | None] = mapped_column(ARRAY(Integer))
 

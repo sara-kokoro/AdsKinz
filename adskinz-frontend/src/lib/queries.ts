@@ -222,6 +222,7 @@ export type ChannelCreateBody = {
   publicLink: string;
   privateLink: string;
   adminUsername: string;
+  logoUrl?: string | null;
   language: string;
   maxAdsPerDay: number;
   preferredHours?: number[] | null | undefined;

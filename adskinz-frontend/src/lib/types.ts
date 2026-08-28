@@ -160,6 +160,7 @@ export type Channel = {
   publicLink: string | null;
   privateLink: string | null;
   adminUsername: string | null;
+  logoUrl: string | null;
   maxAdsPerDay: number;
   effectiveMaxAdsPerDay: number;
   preferredHours: number[] | null;
