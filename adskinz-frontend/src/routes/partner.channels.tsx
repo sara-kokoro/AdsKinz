@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PubShell } from "@/components/workspaces";
 import {
   Btn,
+  BotBadge,
   EmptyState,
   ErrorBanner,
   Field,
@@ -19,7 +20,7 @@ import {
   fmtMoney,
   inputCls,
 } from "@/components/kit";
-import { IconAlert, IconCheck, IconClock, IconShield } from "@/components/icons";
+import { IconAlert, IconShield } from "@/components/icons";
 import { Avatar } from "@/components/cards";
 import { ArtChannelPayout, ArtTrustPeriod } from "@/components/illustrations";
 import { ApiError, num, uploadChannelLogo } from "@/lib/api";
@@ -29,12 +30,9 @@ import {
   useChannels,
   useCreateChannel,
   useStartChannel,
-  useUpdateChannel,
-  useVerifyChannelBot,
   type ChannelCreateBody,
 } from "@/lib/queries";
 import type { Channel } from "@/lib/types";
-import { cn } from "@/lib/utils";
 import { useAuthGuard } from "@/lib/auth";
 
 export const Route = createFileRoute("/partner/channels")({
@@ -49,49 +47,35 @@ export const Route = createFileRoute("/partner/channels")({
   component: ChannelsPage,
 });
 
-function BotBadge({ ok }: { ok: boolean }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border border-seam px-2.5 py-1 text-[11px] font-semibold",
-        ok ? "bg-success-soft text-success" : "bg-danger-soft text-danger",
-      )}
-    >
-      {ok ? <IconCheck width={11} height={11} /> : <IconAlert width={11} height={11} />}
-      {ok ? "Bot is administrator" : "Bot admin rights missing"}
-    </span>
-  );
-}
-
 function ChannelCard({
   channel,
   botOk,
   onStart,
   starting,
-  onOpen,
 }: {
   channel: Channel;
   botOk: boolean;
   onStart: () => void;
   starting: boolean;
-  onOpen: () => void;
 }) {
   const { t } = useTranslation();
   return (
     <Panel className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex items-start gap-3">
         <Avatar name={channel.name} size={44} src={channel.logoUrl} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-base font-bold">{channel.name}</p>
-          <p className="num truncate text-xs text-paper-dim">
+          <p className="num text-xs text-paper-dim">
             {fmtInt(channel.subscribers)} {t("pub.subscribers")} · {channel.language} · {channel.effectiveMaxAdsPerDay}
             {t("common.perDay")}
           </p>
         </div>
-        <StatusPill status={channel.status} />
       </div>
 
-      <BotBadge ok={channel.botAdminVerified} />
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusPill status={channel.status} />
+        <BotBadge ok={channel.botAdminVerified} />
+      </div>
 
       {channel.status === "rejected" && channel.rejectionReason && (
         <Quote tone="danger" label={t("status.rejected")}>{channel.rejectionReason}</Quote>
@@ -118,11 +102,15 @@ function ChannelCard({
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between border-t border-seam pt-3">
         <p className="num text-sm font-bold text-success">{fmtMoney(num(channel.earnings))}</p>
-        <button onClick={onOpen} className="text-xs font-semibold text-signal hover:underline">
-          {t("pub.detail.edit")}
-        </button>
+        <Link
+          to="/partner/channels/$id"
+          params={{ id: channel.id }}
+          className="text-xs font-semibold text-signal hover:underline"
+        >
+          {t("pub.detail.viewStats")}
+        </Link>
       </div>
     </Panel>
   );
@@ -135,13 +123,10 @@ function ChannelsPage() {
   const { data: botStatus } = useBotStatus();
   const createChannel = useCreateChannel();
   const startChannel = useStartChannel();
-  const updateChannel = useUpdateChannel();
-  const verifyBot = useVerifyChannelBot();
 
   const CHANNEL_LANGUAGES = AD_LANGUAGES.filter((l) => l.code !== "all");
 
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<Channel | null>(null);
   const [name, setName] = useState("");
   const [link, setLink] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
@@ -151,11 +136,6 @@ function ChannelsPage() {
   const [err, setErr] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [createdBotNotice, setCreatedBotNotice] = useState<string | null>(null);
-
-  const [editFreq, setEditFreq] = useState("2");
-  const [editHours, setEditHours] = useState("");
-  const [editLogoUrl, setEditLogoUrl] = useState<string | null>(null);
-  const [editError, setEditError] = useState<string | null>(null);
 
   const botOkFor = (id: string) => botStatus?.items.find((i) => i.channelId === id)?.isAdmin ?? true;
 
@@ -201,37 +181,6 @@ function ChannelsPage() {
       },
       onError: (err) => setFormError(err instanceof ApiError ? err.message : "Something went wrong."),
     });
-  };
-
-  const openEdit = (c: Channel) => {
-    setEditing(c);
-    setEditFreq(String(c.maxAdsPerDay || 1));
-    setEditHours((c.preferredHours ?? []).join(", "));
-    setEditLogoUrl(c.logoUrl);
-    setEditError(null);
-  };
-
-  const submitEdit = () => {
-    if (!editing) return;
-    const hours = editHours
-      .split(",")
-      .map((h) => h.trim())
-      .filter(Boolean)
-      .map(Number)
-      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 23);
-    setEditError(null);
-    updateChannel.mutate(
-      {
-        id: editing.id,
-        maxAdsPerDay: Number(editFreq) || 1,
-        preferredHours: hours.length ? hours : null,
-        logoUrl: editLogoUrl,
-      },
-      {
-        onSuccess: () => setEditing(null),
-        onError: (err) => setEditError(err instanceof ApiError ? err.message : "Something went wrong."),
-      },
-    );
   };
 
   return (
@@ -284,7 +233,6 @@ function ChannelsPage() {
                 botOk={botOkFor(c.id)}
                 starting={startChannel.isPending && startChannel.variables === c.id}
                 onStart={() => startChannel.mutate(c.id)}
-                onOpen={() => openEdit(c)}
               />
             ))}
           </div>
@@ -342,71 +290,6 @@ function ChannelsPage() {
           </Field>
           <Quote tone="neutral" label={t("pub.form.botStep")}>{t("pub.form.botMissing")}</Quote>
         </div>
-      </Modal>
-
-      <Modal
-        open={!!editing}
-        onClose={() => setEditing(null)}
-        title={editing ? editing.name : ""}
-        sub="Adjust delivery frequency and preferred hours."
-        footer={
-          <>
-            <Btn tone="bounty" onClick={submitEdit} disabled={updateChannel.isPending}>
-              {updateChannel.isPending ? "…" : t("common.save")}
-            </Btn>
-            <Btn variant="secondary" onClick={() => setEditing(null)}>{t("common.cancel")}</Btn>
-          </>
-        }
-      >
-        {editing && (
-          <div className="space-y-4">
-            {editError && <FieldError>{editError}</FieldError>}
-            <Field label={t("pub.form.logo")} htmlFor="elogo">
-              <LogoUpload
-                value={editLogoUrl}
-                onChange={setEditLogoUrl}
-                uploader={uploadChannelLogo}
-                fallbackLabel={editing.name}
-              />
-            </Field>
-            <Field label={t("pub.form.frequency")} htmlFor="ef">
-              <select id="ef" value={editFreq} onChange={(e) => setEditFreq(e.target.value)} className={`num ${inputCls()}`}>
-                <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-              </select>
-            </Field>
-            <Field label={t("pub.form.slots")} hint="Comma-separated UTC hours, e.g. 9, 18" htmlFor="eh">
-              <input id="eh" value={editHours} onChange={(e) => setEditHours(e.target.value)} className={`num ${inputCls()}`} />
-            </Field>
-            <div className="rounded-xl border border-seam p-3 text-xs text-paper-dim">
-              <p className="flex items-center gap-1.5 font-semibold text-paper">
-                <IconClock width={12} height={12} /> {t("pub.detail.botStatus")}
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <BotBadge
-                  ok={
-                    verifyBot.isSuccess && verifyBot.variables === editing.id
-                      ? verifyBot.data.botAdminVerified
-                      : editing.botAdminVerified
-                  }
-                />
-                <Btn
-                  variant="secondary"
-                  className="min-h-8 px-3 text-xs"
-                  onClick={() => verifyBot.mutate(editing.id)}
-                  disabled={verifyBot.isPending && verifyBot.variables === editing.id}
-                >
-                  {verifyBot.isPending && verifyBot.variables === editing.id ? "…" : "Vérifier maintenant"}
-                </Btn>
-              </div>
-              {!editing.botAdminVerified && (
-                <p className="mt-2 text-paper-dim">
-                  Ajoutez @{botStatus?.botUsername ?? "AdsKinzBot"} comme administrateur du canal, puis cliquez sur
-                  « Vérifier maintenant ». Ça n'empêche ni la modération ni la diffusion une fois approuvé.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
       </Modal>
     </PubShell>
   );

@@ -99,6 +99,7 @@ class ChannelResponse(APIModel):
     name: str
     language: str
     subscribers: int
+    subscribersUpdatedAt: datetime | None = None
     status: FrontendChannelStatus
     publicLink: str | None = None
     privateLink: str | None = None
@@ -117,6 +118,29 @@ class ChannelResponse(APIModel):
     createdAt: datetime | None = None
     approvedAt: datetime | None = None
     startedAt: datetime | None = None
+
+
+class ChannelStatsResponse(APIModel):
+    """Everything the channel detail screen needs in one call."""
+
+    channelId: str
+    status: FrontendChannelStatus
+    subscribers: int
+    subscribersUpdatedAt: datetime | None = None
+    lifetimeImpressions: int
+    lifetimeClicks: int
+    lifetimeEarnings: Decimal
+    ctr: float
+    effectiveCpm: Decimal
+    last24hImpressions: int
+    last24hClicks: int
+    last24hEarnings: Decimal
+    adsToday: int
+    maxAdsPerDay: int
+    effectiveMaxAdsPerDay: int
+    livePostsCount: int
+    botAdminVerified: bool
+    trustHoursLeft: int = 0
 
 
 class ChannelListResponse(APIModel):

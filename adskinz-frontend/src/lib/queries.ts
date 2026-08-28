@@ -11,6 +11,7 @@ import type {
   Campaign,
   CampaignTranslations,
   Channel,
+  ChannelStats,
   Deposit,
   DepositAddress,
   DepositList,
@@ -206,6 +207,16 @@ export function useChannels() {
     queryKey: ["publisher", "channels"],
     queryFn: () => apiFetch<Paged<Channel>>("/publisher/channels"),
     select: list<Channel>,
+  });
+}
+
+export function useChannelStats(id: string) {
+  return useQuery({
+    queryKey: ["publisher", "channel-stats", id],
+    queryFn: () => apiFetch<ChannelStats>(`/publisher/channels/${id}/stats`),
+    enabled: Boolean(id),
+    // Near-real-time feel on the channel detail screen without hammering the API.
+    refetchInterval: 30_000,
   });
 }
 

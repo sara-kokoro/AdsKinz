@@ -4,6 +4,7 @@
     GET      /publisher/channels/bot-status
     POST     /publisher/channels/{channel_id}/start
     POST     /publisher/channels/{channel_id}/verify-bot
+    GET      /publisher/channels/{channel_id}/stats
     POST     /publisher/channels/logo-upload-url
     GET/POST /publisher/mini-apps
     GET      /publisher/mini-apps/{mini_app_id}/key
@@ -33,12 +34,14 @@ from app.core.errors import (
 from app.core.security import generate_kinz_key
 from app.models.finance import Withdrawal
 from app.models.placements import Channel, MiniApp, PlacementDailyStat
+from app.models.tracking import Click, Impression, ScheduledPost
 from app.schemas.publisher import (
     BotStatusItem,
     BotStatusResponse,
     ChannelCreateRequest,
     ChannelListResponse,
     ChannelResponse,
+    ChannelStatsResponse,
     LogoUploadRequest,
     MiniAppCreateRequest,
     MiniAppKeyResponse,
@@ -65,6 +68,7 @@ async def _channel_response(session: SessionDep, channel: Channel) -> ChannelRes
         name=channel.name,
         language=channel.declared_language,
         subscribers=channel.subscriber_count,
+        subscribersUpdatedAt=channel.subscriber_count_updated_at,
         status=channel.status_for_frontend(now),  # type: ignore[arg-type]
         publicLink=channel.public_link,
         privateLink=channel.private_invite_link or None,
@@ -317,6 +321,89 @@ async def verify_channel_bot(
     await session.commit()
     await session.refresh(channel)
     return await _channel_response(session, channel)
+
+
+@router.get(
+    "/channels/{channel_id}/stats",
+    response_model=ChannelStatsResponse,
+    summary="Real-time stats for one channel",
+)
+async def channel_stats(
+    channel_id: uuid.UUID,
+    publisher: CurrentPublisherDep,
+    session: SessionDep,
+) -> ChannelStatsResponse:
+    channel = await session.get(Channel, channel_id)
+    if channel is None or channel.publisher_id != publisher.id:
+        raise NotFoundError("Channel not found.")
+
+    now = datetime.now(UTC)
+    since_24h = now - timedelta(hours=24)
+
+    lifetime_clicks = (
+        await session.execute(
+            select(func.count(Click.id)).where(
+                Click.placement_type == "channel", Click.placement_id == channel.id
+            )
+        )
+    ).scalar_one()
+
+    last_24h_impressions_row = (
+        await session.execute(
+            select(func.count(Impression.id), func.coalesce(func.sum(Impression.billed_amount_usd), 0)).where(
+                Impression.placement_type == "channel",
+                Impression.placement_id == channel.id,
+                Impression.served_at >= since_24h,
+            )
+        )
+    ).one()
+    last_24h_clicks_row = (
+        await session.execute(
+            select(func.count(Click.id), func.coalesce(func.sum(Click.billed_amount_usd), 0)).where(
+                Click.placement_type == "channel",
+                Click.placement_id == channel.id,
+                Click.clicked_at >= since_24h,
+            )
+        )
+    ).one()
+
+    live_posts_count = (
+        await session.execute(
+            select(func.count(ScheduledPost.id)).where(
+                ScheduledPost.channel_id == channel.id,
+                ScheduledPost.deleted.is_(False),
+                ScheduledPost.posted_at.is_not(None),
+            )
+        )
+    ).scalar_one()
+
+    impressions = channel.lifetime_impressions
+    ctr = round((lifetime_clicks / impressions) * 100, 2) if impressions else 0.0
+    effective_cpm = (
+        (channel.lifetime_earnings_usd / impressions) * 1000 if impressions else Decimal("0.00")
+    )
+    ads_today = await ad_selection_service.ads_posted_today(session, channel.id)
+
+    return ChannelStatsResponse(
+        channelId=str(channel.id),
+        status=channel.status_for_frontend(now),  # type: ignore[arg-type]
+        subscribers=channel.subscriber_count,
+        subscribersUpdatedAt=channel.subscriber_count_updated_at,
+        lifetimeImpressions=impressions,
+        lifetimeClicks=lifetime_clicks,
+        lifetimeEarnings=channel.lifetime_earnings_usd,
+        ctr=ctr,
+        effectiveCpm=effective_cpm.quantize(Decimal("0.0001")),
+        last24hImpressions=int(last_24h_impressions_row[0]),
+        last24hEarnings=Decimal(last_24h_impressions_row[1]) + Decimal(last_24h_clicks_row[1]),
+        last24hClicks=int(last_24h_clicks_row[0]),
+        adsToday=ads_today,
+        maxAdsPerDay=channel.max_ads_per_day,
+        effectiveMaxAdsPerDay=channel.effective_max_ads_per_day(now),
+        livePostsCount=live_posts_count,
+        botAdminVerified=channel.bot_admin_verified,
+        trustHoursLeft=channel.trust_hours_left(now),
+    )
 
 
 @router.post(

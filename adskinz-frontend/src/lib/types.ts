@@ -156,6 +156,7 @@ export type Channel = {
   name: string;
   language: string;
   subscribers: number;
+  subscribersUpdatedAt: string | null;
   status: string;
   publicLink: string | null;
   privateLink: string | null;
@@ -174,6 +175,27 @@ export type Channel = {
   createdAt: string | null;
   approvedAt: string | null;
   startedAt: string | null;
+};
+
+export type ChannelStats = {
+  channelId: string;
+  status: string;
+  subscribers: number;
+  subscribersUpdatedAt: string | null;
+  lifetimeImpressions: number;
+  lifetimeClicks: number;
+  lifetimeEarnings: number;
+  ctr: number;
+  effectiveCpm: number;
+  last24hImpressions: number;
+  last24hClicks: number;
+  last24hEarnings: number;
+  adsToday: number;
+  maxAdsPerDay: number;
+  effectiveMaxAdsPerDay: number;
+  livePostsCount: number;
+  botAdminVerified: boolean;
+  trustHoursLeft: number;
 };
 
 export type BotStatus = {

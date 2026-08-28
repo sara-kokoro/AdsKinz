@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode, type TextareaHTMLAttribute
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { uploadCreativeImage } from "@/lib/api";
-import { IconAlert, IconEmptyBox, IconImage, IconX } from "@/components/icons";
+import { IconAlert, IconCheck, IconEmptyBox, IconImage, IconX } from "@/components/icons";
 
 /* ---------- status system: single source of truth for colour + label ---------- */
 
@@ -620,6 +620,50 @@ export function LogoUpload({
         </div>
         <FieldError>{err}</FieldError>
       </div>
+    </div>
+  );
+}
+
+/** Small pill showing whether @AdsKinzBot currently has admin rights on a
+ * channel — shared by the channels list and the channel detail screen. */
+export function BotBadge({ ok }: { ok: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border border-seam px-2.5 py-1 text-[11px] font-semibold",
+        ok ? "bg-success-soft text-success" : "bg-danger-soft text-danger",
+      )}
+    >
+      {ok ? <IconCheck width={11} height={11} /> : <IconAlert width={11} height={11} />}
+      {ok ? "Bot is administrator" : "Bot admin rights missing"}
+    </span>
+  );
+}
+
+/** 24-cell UTC hour picker for "preferred posting hours" — a lighter,
+ * touch-friendly stand-in for a full weekly schedule grid (the backend
+ * only stores a flat list of UTC hours, not per-weekday slots). */
+export function HourGrid({ value, onChange }: { value: number[]; onChange: (hours: number[]) => void }) {
+  const toggle = (h: number) => {
+    onChange(value.includes(h) ? value.filter((x) => x !== h) : [...value, h].sort((a, b) => a - b));
+  };
+  return (
+    <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-8">
+      {Array.from({ length: 24 }, (_, h) => h).map((h) => (
+        <button
+          key={h}
+          type="button"
+          onClick={() => toggle(h)}
+          className={cn(
+            "num rounded-lg border py-1.5 text-xs font-semibold transition-colors",
+            value.includes(h)
+              ? "border-signal bg-signal-soft text-signal"
+              : "border-seam text-paper-dim hover:bg-panel-2",
+          )}
+        >
+          {String(h).padStart(2, "0")}
+        </button>
+      ))}
     </div>
   );
 }
