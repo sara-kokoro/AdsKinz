@@ -1,6 +1,6 @@
 """Add logo_url and subscriber_count_updated_at to channels.
 
-Revision ID: 0007_add_channel_logo_and_subscriber_refresh
+Revision ID: 0007_channel_logo_subs_refresh
 Revises: 0006_add_campaign_banner_fields
 Create Date: 2026-08-27
 """
@@ -13,7 +13,10 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision: str = "0007_add_channel_logo_and_subscriber_refresh"
+# Kept to 32 characters or fewer: alembic_version.version_num is
+# varchar(32), and a longer id makes every future upgrade fail with
+# "value too long for type character varying(32)".
+revision: str = "0007_channel_logo_subs_refresh"
 down_revision: str | Sequence[str] | None = "0006_add_campaign_banner_fields"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
