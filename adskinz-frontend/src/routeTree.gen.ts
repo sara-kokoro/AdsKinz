@@ -33,7 +33,6 @@ import { Route as KingceyUsersRouteImport } from './routes/kingcey.users'
 import { Route as KingceyWithdrawalsRouteImport } from './routes/kingcey.withdrawals'
 import { Route as PartnerIndexRouteImport } from './routes/partner.index'
 import { Route as PartnerChannelsRouteImport } from './routes/partner.channels'
-import { Route as PartnerChannelsIdRouteImport } from './routes/partner.channels.$id'
 import { Route as PartnerMiniAppsRouteImport } from './routes/partner.mini-apps'
 import { Route as PartnerSettingsRouteImport } from './routes/partner.settings'
 import { Route as PartnerWithdrawalsRouteImport } from './routes/partner.withdrawals'
@@ -164,11 +163,6 @@ const PartnerChannelsRoute = PartnerChannelsRouteImport.update({
   path: '/partner/channels',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PartnerChannelsIdRoute = PartnerChannelsIdRouteImport.update({
-  id: '/partner/channels/$id',
-  path: '/partner/channels/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const PartnerMiniAppsRoute = PartnerMiniAppsRouteImport.update({
   id: '/partner/mini-apps',
   path: '/partner/mini-apps',
@@ -237,7 +231,6 @@ export interface FileRoutesByFullPath {
   '/kingcey/users': typeof KingceyUsersRoute
   '/kingcey/withdrawals': typeof KingceyWithdrawalsRoute
   '/partner/channels': typeof PartnerChannelsRoute
-  '/partner/channels/$id': typeof PartnerChannelsIdRoute
   '/partner/mini-apps': typeof PartnerMiniAppsRoute
   '/partner/settings': typeof PartnerSettingsRoute
   '/partner/withdrawals': typeof PartnerWithdrawalsRoute
@@ -272,7 +265,6 @@ export interface FileRoutesByTo {
   '/kingcey/users': typeof KingceyUsersRoute
   '/kingcey/withdrawals': typeof KingceyWithdrawalsRoute
   '/partner/channels': typeof PartnerChannelsRoute
-  '/partner/channels/$id': typeof PartnerChannelsIdRoute
   '/partner/mini-apps': typeof PartnerMiniAppsRoute
   '/partner/settings': typeof PartnerSettingsRoute
   '/partner/withdrawals': typeof PartnerWithdrawalsRoute
@@ -309,7 +301,6 @@ export interface FileRoutesById {
   '/kingcey/users': typeof KingceyUsersRoute
   '/kingcey/withdrawals': typeof KingceyWithdrawalsRoute
   '/partner/channels': typeof PartnerChannelsRoute
-  '/partner/channels/$id': typeof PartnerChannelsIdRoute
   '/partner/mini-apps': typeof PartnerMiniAppsRoute
   '/partner/settings': typeof PartnerSettingsRoute
   '/partner/withdrawals': typeof PartnerWithdrawalsRoute
@@ -347,7 +338,6 @@ export interface FileRouteTypes {
     | '/kingcey/users'
     | '/kingcey/withdrawals'
     | '/partner/channels'
-    | '/partner/channels/$id'
     | '/partner/mini-apps'
     | '/partner/settings'
     | '/partner/withdrawals'
@@ -382,7 +372,6 @@ export interface FileRouteTypes {
     | '/kingcey/users'
     | '/kingcey/withdrawals'
     | '/partner/channels'
-    | '/partner/channels/$id'
     | '/partner/mini-apps'
     | '/partner/settings'
     | '/partner/withdrawals'
@@ -418,7 +407,6 @@ export interface FileRouteTypes {
     | '/kingcey/users'
     | '/kingcey/withdrawals'
     | '/partner/channels'
-    | '/partner/channels/$id'
     | '/partner/mini-apps'
     | '/partner/settings'
     | '/partner/withdrawals'
@@ -448,7 +436,6 @@ export interface RootRouteChildren {
   KingceyUsersRoute: typeof KingceyUsersRoute
   KingceyWithdrawalsRoute: typeof KingceyWithdrawalsRoute
   PartnerChannelsRoute: typeof PartnerChannelsRoute
-  PartnerChannelsIdRoute: typeof PartnerChannelsIdRoute
   PartnerMiniAppsRoute: typeof PartnerMiniAppsRoute
   PartnerSettingsRoute: typeof PartnerSettingsRoute
   PartnerWithdrawalsRoute: typeof PartnerWithdrawalsRoute
@@ -632,13 +619,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartnerChannelsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/partner/channels/$id': {
-      id: '/partner/channels/$id'
-      path: '/partner/channels/$id'
-      fullPath: '/partner/channels/$id'
-      preLoaderRoute: typeof PartnerChannelsIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/partner/mini-apps': {
       id: '/partner/mini-apps'
       path: '/partner/mini-apps'
@@ -744,7 +724,6 @@ const rootRouteChildren: RootRouteChildren = {
   KingceyUsersRoute: KingceyUsersRoute,
   KingceyWithdrawalsRoute: KingceyWithdrawalsRoute,
   PartnerChannelsRoute: PartnerChannelsRoute,
-  PartnerChannelsIdRoute: PartnerChannelsIdRoute,
   PartnerMiniAppsRoute: PartnerMiniAppsRoute,
   PartnerSettingsRoute: PartnerSettingsRoute,
   PartnerWithdrawalsRoute: PartnerWithdrawalsRoute,

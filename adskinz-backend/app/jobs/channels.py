@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
-from app.bot.aiogram_bot import fetch_chat_photo_bytes, get_member_count, verify_bot_is_admin
+from app.bot.aiogram_bot import fetch_chat_photo_bytes, get_member_count, resolve_chat, verify_bot_is_admin
 from app.config import settings
 from app.core.enums import ChannelStatus
 from app.database import session_scope
@@ -47,15 +47,29 @@ async def _increment_admin_failures(channel_id: str) -> int:
 
 
 async def refresh_channel_subscribers() -> dict:
-    """Re-read the live subscriber count from Telegram for every deliverable
+    """Re-read the live subscriber count from Telegram for every visible
     channel — the count is never left to the publisher's own declaration.
 
-    Runs every minute; each channel is still only worth one Telegram call
-    per run, so this stays well inside normal bot API limits even with a
-    few hundred channels.
+    Also self-heals two things that can fail at submission time (a
+    transient Telegram error, a flood-control hiccup): a channel whose chat
+    couldn't be resolved yet (``telegram_chat_id`` still null) gets another
+    resolution attempt here, and any channel still missing a logo gets
+    another attempt to capture it. Both keep retrying every minute until
+    they succeed, so a channel is never permanently stuck on its initial
+    placeholder numbers.
+
+    Runs every minute; each channel is still only worth one or two Telegram
+    calls per run, so this stays well inside normal bot API limits even
+    with a few hundred channels.
     """
     now = datetime.now(UTC)
-    summary = {"channels_checked": 0, "updated": 0, "failed": 0, "logos_captured": 0}
+    summary = {
+        "channels_checked": 0,
+        "updated": 0,
+        "failed": 0,
+        "logos_captured": 0,
+        "chats_resolved": 0,
+    }
 
     async with session_scope() as session:
         channels = (
@@ -64,12 +78,12 @@ async def refresh_channel_subscribers() -> dict:
                     select(Channel).where(
                         Channel.status.in_(
                             [
+                                ChannelStatus.PENDING_MODERATION.value,
                                 ChannelStatus.APPROVED_NOT_STARTED.value,
                                 ChannelStatus.ACTIVE_BUILDING_TRUST.value,
                                 ChannelStatus.ACTIVE.value,
                             ]
                         ),
-                        Channel.telegram_chat_id.is_not(None),
                     )
                 )
             )
@@ -79,22 +93,48 @@ async def refresh_channel_subscribers() -> dict:
         summary["channels_checked"] = len(channels)
 
         for channel in channels:
-            count, error = await get_member_count(channel.telegram_chat_id)
-            if count is None:
-                summary["failed"] += 1
-                logger.warning(
-                    "channels.subscriber_refresh_failed channel=%s error=%s", channel.id, error
-                )
-                continue
-            channel.subscriber_count = count
-            channel.subscriber_count_updated_at = now
-            summary["updated"] += 1
+            if channel.telegram_chat_id is None:
+                # Initial resolution at submission time never landed — retry
+                # it here instead of leaving the channel stuck forever.
+                chat_id, username, members, error = await resolve_chat(channel.public_link)
+                if chat_id is None:
+                    summary["failed"] += 1
+                    logger.warning(
+                        "channels.chat_resolution_retry_failed channel=%s error=%s",
+                        channel.id,
+                        error,
+                    )
+                    continue
+                channel.telegram_chat_id = chat_id
+                channel.telegram_username = username
+                summary["chats_resolved"] += 1
+                if members is not None:
+                    channel.subscriber_count = members
+                    channel.subscriber_count_updated_at = now
+                    summary["updated"] += 1
+                try:
+                    is_admin, can_post, can_delete, _ = await verify_bot_is_admin(chat_id)
+                    channel.bot_admin_verified = bool(is_admin and can_post and can_delete)
+                    channel.bot_admin_last_checked_at = now
+                except Exception:  # noqa: BLE001 - a bot-status miss must not break the refresh
+                    pass
+            else:
+                count, error = await get_member_count(channel.telegram_chat_id)
+                if count is None:
+                    summary["failed"] += 1
+                    logger.warning(
+                        "channels.subscriber_refresh_failed channel=%s error=%s", channel.id, error
+                    )
+                    continue
+                channel.subscriber_count = count
+                channel.subscriber_count_updated_at = now
+                summary["updated"] += 1
 
             # Self-healing logo capture: a channel only pays for this once
             # it actually has one — cheap for the steady state, and retries
             # automatically for the rare channel where the bot couldn't
             # read the photo yet (e.g. it wasn't admin at submission time).
-            if not channel.logo_url:
+            if not channel.logo_url and channel.telegram_chat_id is not None:
                 try:
                     photo_bytes = await fetch_chat_photo_bytes(channel.telegram_chat_id)
                     if photo_bytes:
