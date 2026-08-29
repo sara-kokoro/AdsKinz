@@ -16,9 +16,9 @@ from app.schemas.common import APIModel, RequestModel
 
 FrontendChannelStatus = Literal[
     "pending_moderation", "approved_not_started", "building_trust",
-    "active", "suspended", "rejected",
+    "active", "suspended", "archived", "rejected",
 ]
-FrontendMiniAppStatus = Literal["pending_moderation", "active", "suspended", "rejected"]
+FrontendMiniAppStatus = Literal["pending_moderation", "active", "suspended", "archived", "rejected"]
 
 # The frontend enforces the same shape before submitting.
 TON_ADDRESS_RE = re.compile(r"^U[Qf][A-Za-z0-9_-]{10,}$")
@@ -180,17 +180,41 @@ class ChannelStartRequest(RequestModel):
 class MiniAppCreateRequest(RequestModel):
     name: str = Field(min_length=3, max_length=160)
     url: str
+    original_url: str | None = Field(default=None, alias="originalUrl", max_length=2048)
+    bot_id: str | None = Field(default=None, alias="botId", max_length=64)
+    bot_username: str | None = Field(default=None, alias="botUsername", max_length=64)
+    bot_token: str | None = Field(default=None, alias="botToken", max_length=200)
     formats_enabled: list[str] = Field(alias="formats", min_length=1)
     category: str | None = Field(default=None, max_length=64)
     description: str | None = Field(default=None, max_length=600)
 
-    @field_validator("url")
+    @field_validator("url", "original_url")
     @classmethod
-    def _url(cls, value: str) -> str:
-        value = (value or "").strip()
+    def _url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
         if not (value.startswith("https://") or value.startswith("http://t.me/")):
             raise ValueError("Mini App URL must start with https://")
         return value
+
+    @field_validator("bot_username")
+    @classmethod
+    def _bot_username(cls, value: str | None) -> str | None:
+        value = (value or "").strip()
+        if not value:
+            return None
+        if not value.startswith("@"):
+            value = f"@{value}"
+        if not re.fullmatch(r"@[A-Za-z0-9_]{4,32}", value):
+            raise ValueError("Bot username must be a valid Telegram handle.")
+        return value
+
+    @field_validator("bot_token")
+    @classmethod
+    def _bot_token(cls, value: str | None) -> str | None:
+        value = (value or "").strip()
+        return value or None
 
     @field_validator("formats_enabled")
     @classmethod
@@ -221,6 +245,10 @@ class MiniAppResponse(APIModel):
     id: str
     name: str
     url: str
+    originalUrl: str | None = None
+    botId: str | None = None
+    botUsername: str | None = None
+    botVerificationEnabled: bool = False
     status: FrontendMiniAppStatus
     formats: list[str] = Field(default_factory=list)
     kinzKey: str | None = None
@@ -229,6 +257,7 @@ class MiniAppResponse(APIModel):
     impressions: int = 0
     earnings: Decimal = Decimal("0.00")
     createdAt: datetime | None = None
+    archivedAt: datetime | None = None
 
 
 class MiniAppListResponse(APIModel):

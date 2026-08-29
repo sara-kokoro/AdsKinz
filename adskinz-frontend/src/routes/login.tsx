@@ -343,10 +343,6 @@ function LoginPage() {
               </Btn>
             </form>
           )}
-
-          <p className="mt-6 text-center text-xs text-paper-dim">
-            Admin? <Link to="/kingcey" className="font-semibold text-signal hover:underline">Internal console</Link>
-          </p>
         </div>
       </main>
     </div>

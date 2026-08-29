@@ -4,10 +4,16 @@
     GET      /publisher/channels/bot-status
     POST     /publisher/channels/{channel_id}/start
     POST     /publisher/channels/{channel_id}/verify-bot
+    POST     /publisher/channels/{channel_id}/suspend
+    POST     /publisher/channels/{channel_id}/resume
+    POST     /publisher/channels/{channel_id}/archive
     GET      /publisher/channels/{channel_id}/stats
     POST     /publisher/channels/logo-upload-url
     GET/POST /publisher/mini-apps
     GET      /publisher/mini-apps/{mini_app_id}/key
+    POST     /publisher/mini-apps/{mini_app_id}/suspend
+    POST     /publisher/mini-apps/{mini_app_id}/resume
+    POST     /publisher/mini-apps/{mini_app_id}/archive
     GET/POST /publisher/withdrawals
     GET      /publisher/stats
 """
@@ -100,6 +106,10 @@ def _mini_app_response(mini_app: MiniApp, *, reveal_key: bool = True) -> MiniApp
         id=str(mini_app.id),
         name=mini_app.name,
         url=mini_app.url,
+        originalUrl=mini_app.original_url,
+        botId=mini_app.bot_id,
+        botUsername=mini_app.bot_username,
+        botVerificationEnabled=bool(mini_app.bot_token),
         status=mini_app.status,  # type: ignore[arg-type]
         formats=[
             _FORMAT_TO_UI.get(f, f) for f in (mini_app.formats_enabled or [])
@@ -110,6 +120,7 @@ def _mini_app_response(mini_app: MiniApp, *, reveal_key: bool = True) -> MiniApp
         impressions=mini_app.lifetime_impressions,
         earnings=mini_app.lifetime_earnings_usd,
         createdAt=mini_app.created_at,
+        archivedAt=mini_app.archived_at,
     )
 
 
@@ -347,6 +358,78 @@ async def verify_channel_bot(
     return await _channel_response(session, channel)
 
 
+@router.post(
+    "/channels/{channel_id}/suspend",
+    response_model=ChannelResponse,
+    summary="Pause delivery on a channel without deleting it",
+)
+async def suspend_channel(
+    channel_id: uuid.UUID,
+    publisher: CurrentPublisherDep,
+    session: SessionDep,
+) -> ChannelResponse:
+    """Stops new ads from being placed. Already-live posts keep running
+    their normal 24h lifetime — this only stops new ones going up."""
+    channel = await session.get(Channel, channel_id)
+    if channel is None or channel.publisher_id != publisher.id:
+        raise NotFoundError("Channel not found.")
+    if channel.status == ChannelStatus.ARCHIVED.value:
+        raise BusinessRuleError("Un-archive this channel before suspending it.")
+    channel.status = ChannelStatus.SUSPENDED.value
+    channel.suspended_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(channel)
+    return await _channel_response(session, channel)
+
+
+@router.post(
+    "/channels/{channel_id}/resume",
+    response_model=ChannelResponse,
+    summary="Resume a suspended channel",
+)
+async def resume_channel(
+    channel_id: uuid.UUID,
+    publisher: CurrentPublisherDep,
+    session: SessionDep,
+) -> ChannelResponse:
+    channel = await session.get(Channel, channel_id)
+    if channel is None or channel.publisher_id != publisher.id:
+        raise NotFoundError("Channel not found.")
+    if channel.status != ChannelStatus.SUSPENDED.value:
+        raise BusinessRuleError("Only a suspended channel can be resumed.")
+    channel.status = (
+        ChannelStatus.ACTIVE.value if channel.approved_at else ChannelStatus.APPROVED_NOT_STARTED.value
+    )
+    channel.suspended_at = None
+    await session.commit()
+    await session.refresh(channel)
+    return await _channel_response(session, channel)
+
+
+@router.post(
+    "/channels/{channel_id}/archive",
+    response_model=ChannelResponse,
+    summary="Archive a channel (suspend + hide from the active list)",
+)
+async def archive_channel(
+    channel_id: uuid.UUID,
+    publisher: CurrentPublisherDep,
+    session: SessionDep,
+) -> ChannelResponse:
+    """Archiving never deletes anything — history, stats and payouts already
+    earned stay intact. It just stops delivery and moves the channel out of
+    the way. There is no un-archive: re-adding the same channel later is a
+    fresh submission, same as any platform that treats archive as final."""
+    channel = await session.get(Channel, channel_id)
+    if channel is None or channel.publisher_id != publisher.id:
+        raise NotFoundError("Channel not found.")
+    channel.status = ChannelStatus.ARCHIVED.value
+    channel.archived_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(channel)
+    return await _channel_response(session, channel)
+
+
 @router.get(
     "/channels/{channel_id}/stats",
     response_model=ChannelStatsResponse,
@@ -545,7 +628,10 @@ async def create_mini_app(
         publisher_id=publisher.id,
         name=payload.name,
         url=payload.url,
-        original_url=payload.url,
+        original_url=payload.original_url or payload.url,
+        bot_id=payload.bot_id,
+        bot_username=payload.bot_username,
+        bot_token=payload.bot_token,
         category=payload.category,
         description=payload.description,
         kinz_key=generate_kinz_key(live=True),
@@ -584,6 +670,70 @@ async def mini_app_key(
         snippet=snippet,
         docsUrl=f"{settings.PUBLIC_BASE_URL}/docs/sdk",
     )
+
+
+@router.post(
+    "/mini-apps/{mini_app_id}/suspend",
+    response_model=MiniAppResponse,
+    summary="Pause a Mini App without deleting it",
+)
+async def suspend_mini_app(
+    mini_app_id: uuid.UUID,
+    publisher: CurrentPublisherDep,
+    session: SessionDep,
+) -> MiniAppResponse:
+    mini_app = await session.get(MiniApp, mini_app_id)
+    if mini_app is None or mini_app.publisher_id != publisher.id:
+        raise NotFoundError("Mini App not found.")
+    if mini_app.status == MiniAppStatus.ARCHIVED.value:
+        raise BusinessRuleError("Un-archive this Mini App before suspending it.")
+    mini_app.status = MiniAppStatus.SUSPENDED.value
+    await session.commit()
+    await session.refresh(mini_app)
+    return _mini_app_response(mini_app)
+
+
+@router.post(
+    "/mini-apps/{mini_app_id}/resume",
+    response_model=MiniAppResponse,
+    summary="Resume a suspended Mini App",
+)
+async def resume_mini_app(
+    mini_app_id: uuid.UUID,
+    publisher: CurrentPublisherDep,
+    session: SessionDep,
+) -> MiniAppResponse:
+    mini_app = await session.get(MiniApp, mini_app_id)
+    if mini_app is None or mini_app.publisher_id != publisher.id:
+        raise NotFoundError("Mini App not found.")
+    if mini_app.status != MiniAppStatus.SUSPENDED.value:
+        raise BusinessRuleError("Only a suspended Mini App can be resumed.")
+    mini_app.status = MiniAppStatus.ACTIVE.value if mini_app.approved_at else MiniAppStatus.PENDING_MODERATION.value
+    await session.commit()
+    await session.refresh(mini_app)
+    return _mini_app_response(mini_app)
+
+
+@router.post(
+    "/mini-apps/{mini_app_id}/archive",
+    response_model=MiniAppResponse,
+    summary="Archive a Mini App (suspend + hide from the active list)",
+)
+async def archive_mini_app(
+    mini_app_id: uuid.UUID,
+    publisher: CurrentPublisherDep,
+    session: SessionDep,
+) -> MiniAppResponse:
+    """Archiving never deletes anything — stats and payouts already earned
+    stay intact. There is no un-archive, same as the channel flow above."""
+    mini_app = await session.get(MiniApp, mini_app_id)
+    if mini_app is None or mini_app.publisher_id != publisher.id:
+        raise NotFoundError("Mini App not found.")
+    mini_app.status = MiniAppStatus.ARCHIVED.value
+    mini_app.archived_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(mini_app)
+    return _mini_app_response(mini_app)
 
 
 # --------------------------------------------------------------------------- #

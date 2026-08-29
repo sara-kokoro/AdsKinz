@@ -41,6 +41,7 @@ class ChannelStatus(StrEnum):
     ACTIVE_BUILDING_TRUST = "active_building_trust"
     ACTIVE = "active"
     SUSPENDED = "suspended"
+    ARCHIVED = "archived"
     REJECTED = "rejected"
 
     @classmethod
@@ -52,6 +53,7 @@ class MiniAppStatus(StrEnum):
     PENDING_MODERATION = "pending_moderation"
     ACTIVE = "active"
     SUSPENDED = "suspended"
+    ARCHIVED = "archived"
     REJECTED = "rejected"
 
 

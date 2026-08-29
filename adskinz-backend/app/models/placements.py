@@ -79,6 +79,7 @@ class Channel(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_ad_posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Rolling counters kept up to date by the delivery pipeline.
@@ -151,7 +152,7 @@ class MiniApp(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
     __tablename__ = "mini_apps"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending_moderation', 'active', 'suspended', 'rejected')",
+            "status IN ('pending_moderation', 'active', 'suspended', 'archived', 'rejected')",
             name="status_valid",
         ),
         Index("ix_mini_apps_publisher_status", "publisher_id", "status"),
@@ -165,6 +166,10 @@ class MiniApp(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
     url: Mapped[str] = mapped_column(Text, nullable=False)
     original_url: Mapped[str | None] = mapped_column(Text)
     bot_id: Mapped[str | None] = mapped_column(String(64))
+    bot_username: Mapped[str | None] = mapped_column(String(64))
+    # Used only server-side to validate Telegram WebApp initData signatures
+    # (see app/services/telegram_auth.py) — never returned in an API response.
+    bot_token: Mapped[str | None] = mapped_column(Text)
     category: Mapped[str | None] = mapped_column(String(64))
     description: Mapped[str | None] = mapped_column(Text)
 
@@ -178,8 +183,7 @@ class MiniApp(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
     )
     rejection_reason: Mapped[str | None] = mapped_column(Text)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    integration_detected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     sdk_version: Mapped[str | None] = mapped_column(String(32))
     last_serve_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

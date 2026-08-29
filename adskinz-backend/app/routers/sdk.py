@@ -22,17 +22,27 @@ from app.core.security import generate_tracking_id
 from app.models.placements import MiniApp
 from app.models.tracking import Impression, TrackingLink
 from app.redis_client import rate_limit_hit
-from app.schemas.sdk import NoFillResponse, ServeCreative, ServeResponse
+from app.schemas.sdk import NoFillResponse, ServeCreative, ServeErrorResponse, ServeResponse
 from app.services import ad_selection_service, billing_service
+from app.services.telegram_auth import validate_init_data
 
 router = APIRouter(prefix="/sdk", tags=["sdk"])
 
 _MINIAPP_PLACEMENT = "miniapp"
 
+_BOT_MISMATCH_MESSAGES = {
+    "missing_init_data": "This Kinz-ID key requires Telegram launch data, none was received.",
+    "malformed_init_data": "Telegram launch data could not be read.",
+    "missing_hash": "Telegram launch data is missing its signature.",
+    "signature_mismatch": "This Kinz-ID key does not belong to this bot/Mini App.",
+    "expired": "Telegram launch data has expired — reopen the Mini App.",
+    "malformed_auth_date": "Telegram launch data has an invalid timestamp.",
+}
+
 
 @router.get(
     "/serve",
-    response_model=ServeResponse | NoFillResponse,
+    response_model=ServeResponse | NoFillResponse | ServeErrorResponse,
     summary="Serve one ad to a Mini App slot",
 )
 async def serve(
@@ -42,11 +52,20 @@ async def serve(
     key: str = Query(..., min_length=8, max_length=64, description="Kinz-ID key"),
     lang: str = Query("en", max_length=8),
     format: Literal["interstitial", "popInterstitial"] = Query("interstitial"),
-) -> ServeResponse | NoFillResponse:
+    init_data: str | None = Query(None, alias="initData", max_length=4096),
+) -> ServeResponse | NoFillResponse | ServeErrorResponse:
     """Return a creative, or ``filled: false`` when no campaign is eligible.
 
     The impression is billed at serve time: for Mini Apps there is no later
     view signal to reconcile against, unlike channel posts.
+
+    When the Mini App owner registered a bot token, every call must also
+    carry Telegram's own signed ``initData`` for that launch. Its signature
+    is verified against the registered bot token (see
+    ``app.services.telegram_auth``); a mismatch means this ``kinz_key`` is
+    being used from outside the Mini App it was issued to — a very clear,
+    human-readable reason is returned so the SDK can surface it instead of
+    silently skipping the slot like a normal no-fill.
     """
     response.headers["Cache-Control"] = "no-store"
 
@@ -70,6 +89,14 @@ async def serve(
         return NoFillResponse(reason="placement_inactive", retryAfter=600)
     if format not in (mini_app.formats_enabled or []):
         return NoFillResponse(reason="format_disabled", retryAfter=600)
+
+    if mini_app.bot_token:
+        is_valid, error = validate_init_data(init_data or "", mini_app.bot_token)
+        if not is_valid:
+            return ServeErrorResponse(
+                reason=f"bot_mismatch:{error}",
+                message=_BOT_MISMATCH_MESSAGES.get(error or "", "This Kinz-ID key is not valid for this app."),
+            )
 
     campaign = await ad_selection_service.select_for_mini_app(
         session, lang=lang, serve_format=format
@@ -166,15 +193,37 @@ _SDK_SOURCE = """/* AdsKinz Mini App SDK */
     } catch (e) { return "en"; }
   }
 
+  function initData() {
+    try {
+      var tg = window.Telegram && window.Telegram.WebApp;
+      return (tg && tg.initData) || "";
+    } catch (e) { return ""; }
+  }
+
   function request(format) {
     var url = API + "/sdk/serve?key=" + encodeURIComponent(key)
       + "&lang=" + encodeURIComponent(lang())
-      + "&format=" + encodeURIComponent(format || "interstitial");
+      + "&format=" + encodeURIComponent(format || "interstitial")
+      + "&initData=" + encodeURIComponent(initData());
     return fetch(url, { credentials: "omit" }).then(function (r) { return r.json(); });
   }
 
+  function renderError(ad) {
+    var banner = document.createElement("div");
+    banner.setAttribute("data-adskinz-error", "1");
+    banner.style.cssText = "position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483000;"
+      + "background:#3a1420;color:#ffb4c0;border:1px solid #7a2436;border-radius:12px;"
+      + "padding:12px 14px;font:13px/1.4 system-ui,-apple-system,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.4)";
+    banner.textContent = "AdsKinz: " + ad.message;
+    document.body.appendChild(banner);
+    setTimeout(function () { banner.remove(); }, 8000);
+    return banner;
+  }
+
   function render(ad) {
-    if (!ad || !ad.filled) return null;
+    if (!ad) return null;
+    if (ad.reason && String(ad.reason).indexOf("bot_mismatch") === 0) return renderError(ad);
+    if (!ad.filled) return null;
     var overlay = document.createElement("div");
     overlay.setAttribute("data-adskinz", ad.trackingId);
     overlay.style.cssText = "position:fixed;inset:0;z-index:2147483000;display:flex;"

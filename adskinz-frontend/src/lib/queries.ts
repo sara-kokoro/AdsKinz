@@ -267,6 +267,30 @@ export function useVerifyChannelBot() {
   });
 }
 
+export function useSuspendChannel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<Channel>(`/publisher/channels/${id}/suspend`, { method: "POST" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
+  });
+}
+
+export function useResumeChannel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<Channel>(`/publisher/channels/${id}/resume`, { method: "POST" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
+  });
+}
+
+export function useArchiveChannel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<Channel>(`/publisher/channels/${id}/archive`, { method: "POST" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
+  });
+}
+
 export function useUpdateChannel() {
   const qc = useQueryClient();
   return useMutation({
@@ -290,10 +314,38 @@ export function useCreateMiniApp() {
     mutationFn: (body: {
       name: string;
       url: string;
+      originalUrl?: string | null | undefined;
+      botId?: string | null | undefined;
+      botUsername?: string | null | undefined;
+      botToken?: string | null | undefined;
       formats: string[];
       category?: string | null | undefined;
       description?: string | null | undefined;
     }) => apiFetch<MiniApp>("/publisher/mini-apps", { method: "POST", body }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
+  });
+}
+
+export function useSuspendMiniApp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<MiniApp>(`/publisher/mini-apps/${id}/suspend`, { method: "POST" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
+  });
+}
+
+export function useResumeMiniApp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<MiniApp>(`/publisher/mini-apps/${id}/resume`, { method: "POST" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
+  });
+}
+
+export function useArchiveMiniApp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<MiniApp>(`/publisher/mini-apps/${id}/archive`, { method: "POST" }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher"] }),
   });
 }

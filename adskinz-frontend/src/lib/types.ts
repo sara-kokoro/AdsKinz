@@ -216,6 +216,10 @@ export type MiniApp = {
   id: string;
   name: string;
   url: string;
+  originalUrl: string | null;
+  botId: string | null;
+  botUsername: string | null;
+  botVerificationEnabled: boolean;
   status: string;
   formats: string[];
   kinzKey: string | null;
@@ -224,6 +228,7 @@ export type MiniApp = {
   impressions: number;
   earnings: string;
   createdAt: string | null;
+  archivedAt: string | null;
 };
 
 export type MiniAppKey = { id: string; kinzKey: string; snippet: string; docsUrl: string };

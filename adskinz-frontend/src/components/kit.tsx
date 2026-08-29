@@ -27,6 +27,7 @@ export const STATUS_TONE: Record<string, StatusTone> = {
   approved_not_started: "bounty",
   building_trust: "signal",
   suspended: "danger",
+  archived: "neutral",
   pending: "bounty",
   approved: "signal",
   paid: "success",
@@ -627,6 +628,7 @@ export function LogoUpload({
 /** Small pill showing whether @AdsKinzBot currently has admin rights on a
  * channel — shared by the channels list and the channel detail screen. */
 export function BotBadge({ ok }: { ok: boolean }) {
+  const { t } = useTranslation();
   return (
     <span
       className={cn(
@@ -635,7 +637,7 @@ export function BotBadge({ ok }: { ok: boolean }) {
       )}
     >
       {ok ? <IconCheck width={11} height={11} /> : <IconAlert width={11} height={11} />}
-      {ok ? "Bot is administrator" : "Bot admin rights missing"}
+      {ok ? t("pub.detail.botAdmin") : t("pub.detail.botMissing")}
     </span>
   );
 }
@@ -643,27 +645,54 @@ export function BotBadge({ ok }: { ok: boolean }) {
 /** 24-cell UTC hour picker for "preferred posting hours" — a lighter,
  * touch-friendly stand-in for a full weekly schedule grid (the backend
  * only stores a flat list of UTC hours, not per-weekday slots). */
-export function HourGrid({ value, onChange }: { value: number[]; onChange: (hours: number[]) => void }) {
+export function HourGrid({
+  value,
+  onChange,
+  maxSelectable,
+}: {
+  value: number[];
+  onChange: (hours: number[]) => void;
+  /** Caps how many hours can be picked at once — mirrors the channel's own
+   * daily ad cap, so a publisher can never select more time slots than they
+   * can actually receive ads for. */
+  maxSelectable?: number;
+}) {
+  const capped = typeof maxSelectable === "number" && maxSelectable > 0;
+  const atCap = capped && value.length >= maxSelectable!;
+
   const toggle = (h: number) => {
-    onChange(value.includes(h) ? value.filter((x) => x !== h) : [...value, h].sort((a, b) => a - b));
+    if (value.includes(h)) {
+      onChange(value.filter((x) => x !== h));
+      return;
+    }
+    if (atCap) return;
+    onChange([...value, h].sort((a, b) => a - b));
   };
+
   return (
     <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-8">
-      {Array.from({ length: 24 }, (_, h) => h).map((h) => (
-        <button
-          key={h}
-          type="button"
-          onClick={() => toggle(h)}
-          className={cn(
-            "num rounded-lg border py-1.5 text-xs font-semibold transition-colors",
-            value.includes(h)
-              ? "border-signal bg-signal-soft text-signal"
-              : "border-seam text-paper-dim hover:bg-panel-2",
-          )}
-        >
-          {String(h).padStart(2, "0")}
-        </button>
-      ))}
+      {Array.from({ length: 24 }, (_, h) => h).map((h) => {
+        const selected = value.includes(h);
+        const disabled = !selected && atCap;
+        return (
+          <button
+            key={h}
+            type="button"
+            onClick={() => toggle(h)}
+            disabled={disabled}
+            className={cn(
+              "num rounded-lg border py-1.5 text-xs font-semibold transition-colors",
+              selected
+                ? "border-signal bg-signal-soft text-signal"
+                : disabled
+                  ? "cursor-not-allowed border-seam text-paper-dim/40"
+                  : "border-seam text-paper-dim hover:bg-panel-2",
+            )}
+          >
+            {String(h).padStart(2, "0")}
+          </button>
+        );
+      })}
     </div>
   );
 }

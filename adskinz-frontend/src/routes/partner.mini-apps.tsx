@@ -19,7 +19,14 @@ import { Avatar } from "@/components/cards";
 import { IconCheck, IconCopy, IconSparkle } from "@/components/icons";
 import { ArtMiniAppPlacement } from "@/components/illustrations";
 import { ApiError, num } from "@/lib/api";
-import { useCreateMiniApp, useMiniAppKey, useMiniApps } from "@/lib/queries";
+import {
+  useArchiveMiniApp,
+  useCreateMiniApp,
+  useMiniAppKey,
+  useMiniApps,
+  useResumeMiniApp,
+  useSuspendMiniApp,
+} from "@/lib/queries";
 import type { MiniApp } from "@/lib/types";
 import { useAuthGuard } from "@/lib/auth";
 
@@ -35,9 +42,14 @@ export const Route = createFileRoute("/partner/mini-apps")({
   component: MiniAppsPage,
 });
 
-function KeyPanel({ appId }: { appId: string }) {
-  const { data, isLoading, isError, refetch } = useMiniAppKey(appId);
+function KeyPanel({ app }: { app: MiniApp }) {
+  const { t } = useTranslation();
+  const { data, isLoading, isError, refetch } = useMiniAppKey(app.id);
   const [copied, setCopied] = useState<"key" | "snippet" | null>(null);
+  const suspendApp = useSuspendMiniApp();
+  const resumeApp = useResumeMiniApp();
+  const archiveApp = useArchiveMiniApp();
+  const [confirmArchive, setConfirmArchive] = useState(false);
 
   const copy = async (text: string, which: "key" | "snippet") => {
     try {
@@ -49,36 +61,95 @@ function KeyPanel({ appId }: { appId: string }) {
     }
   };
 
-  if (isLoading) return <div className="h-24 animate-pulse rounded-xl bg-panel-2" />;
-  if (isError || !data) return <ErrorBanner onRetry={() => void refetch()} />;
-
   return (
-    <div className="space-y-3">
-      <Field label="Kinz-ID key" htmlFor="mkkey">
-        <div className="flex gap-2">
-          <input id="mkkey" readOnly value={data.kinzKey} className={`num ${inputCls()}`} />
-          <Btn variant="secondary" className="shrink-0" onClick={() => copy(data.kinzKey, "key")}>
-            {copied === "key" ? <IconCheck width={14} height={14} /> : <IconCopy width={14} height={14} />}
-          </Btn>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusPill status={app.status} />
+        {app.botVerificationEnabled && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-seam bg-success-soft px-2.5 py-1 text-[11px] font-semibold text-success">
+            <IconCheck width={11} height={11} /> {t("pub.form.miniBotToken")}
+          </span>
+        )}
+      </div>
+
+      {(app.botId || app.botUsername || app.originalUrl) && (
+        <div className="grid gap-2 text-xs text-paper-dim sm:grid-cols-2">
+          {app.originalUrl && <p><span className="font-semibold text-paper">{t("pub.form.miniOriginalUrl")}:</span> {app.originalUrl}</p>}
+          {app.botUsername && <p><span className="font-semibold text-paper">{t("pub.form.miniBotUsername")}:</span> {app.botUsername}</p>}
+          {app.botId && <p><span className="font-semibold text-paper">{t("pub.form.miniBotId")}:</span> {app.botId}</p>}
         </div>
-      </Field>
-      <Field label="Integration snippet" htmlFor="mksnip">
-        <div className="flex items-start gap-2">
-          <textarea
-            id="mksnip"
-            readOnly
-            value={data.snippet}
-            rows={4}
-            className={`num ${inputCls()} resize-none font-mono text-xs`}
-          />
-          <Btn variant="secondary" className="shrink-0" onClick={() => copy(data.snippet, "snippet")}>
-            {copied === "snippet" ? <IconCheck width={14} height={14} /> : <IconCopy width={14} height={14} />}
-          </Btn>
-        </div>
-      </Field>
-      <Link to="/docs/quickstart" className="text-xs font-semibold text-signal hover:underline">
-        {t_docs()}
-      </Link>
+      )}
+
+      {app.status === "suspended" && <Quote tone="neutral">{t("pub.detail.suspended")}</Quote>}
+      {app.status === "archived" && <Quote tone="neutral">{t("pub.detail.archived")}</Quote>}
+
+      {isLoading ? (
+        <div className="h-24 animate-pulse rounded-xl bg-panel-2" />
+      ) : isError || !data ? (
+        <ErrorBanner onRetry={() => void refetch()} />
+      ) : (
+        <>
+          <Field label="Kinz-ID key" htmlFor="mkkey">
+            <div className="flex gap-2">
+              <input id="mkkey" readOnly value={data.kinzKey} className={`num ${inputCls()}`} />
+              <Btn variant="secondary" className="shrink-0" onClick={() => copy(data.kinzKey, "key")}>
+                {copied === "key" ? <IconCheck width={14} height={14} /> : <IconCopy width={14} height={14} />}
+              </Btn>
+            </div>
+          </Field>
+          <Field label="Integration snippet" htmlFor="mksnip">
+            <div className="flex items-start gap-2">
+              <textarea
+                id="mksnip"
+                readOnly
+                value={data.snippet}
+                rows={4}
+                className={`num ${inputCls()} resize-none font-mono text-xs`}
+              />
+              <Btn variant="secondary" className="shrink-0" onClick={() => copy(data.snippet, "snippet")}>
+                {copied === "snippet" ? <IconCheck width={14} height={14} /> : <IconCopy width={14} height={14} />}
+              </Btn>
+            </div>
+          </Field>
+          <Link to="/docs/quickstart" className="text-xs font-semibold text-signal hover:underline">
+            {t_docs()}
+          </Link>
+        </>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 border-t border-seam pt-4">
+        {app.status !== "archived" && (
+          <>
+            {app.status === "suspended" ? (
+              <Btn variant="secondary" onClick={() => resumeApp.mutate(app.id)} disabled={resumeApp.isPending}>
+                {resumeApp.isPending ? "…" : t("pub.detail.resume")}
+              </Btn>
+            ) : (
+              <Btn variant="secondary" onClick={() => suspendApp.mutate(app.id)} disabled={suspendApp.isPending}>
+                {suspendApp.isPending ? "…" : t("pub.detail.suspend")}
+              </Btn>
+            )}
+            {!confirmArchive ? (
+              <Btn variant="ghost" className="text-danger" onClick={() => setConfirmArchive(true)}>
+                {t("pub.detail.archive")}
+              </Btn>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-paper-dim">{t("pub.detail.archiveConfirmApp")}</span>
+                <Btn
+                  variant="secondary"
+                  className="text-danger"
+                  onClick={() => archiveApp.mutate(app.id)}
+                  disabled={archiveApp.isPending}
+                >
+                  {archiveApp.isPending ? "…" : t("pub.detail.archive")}
+                </Btn>
+                <Btn variant="ghost" onClick={() => setConfirmArchive(false)}>{t("common.cancel")}</Btn>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -126,6 +197,10 @@ function MiniAppsPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [originalUrl, setOriginalUrl] = useState("");
+  const [botUsername, setBotUsername] = useState("");
+  const [botId, setBotId] = useState("");
+  const [botToken, setBotToken] = useState("");
   const [formats, setFormats] = useState<string[]>(["interstitial", "popInterstitial"]);
   const [err, setErr] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -136,6 +211,10 @@ function MiniAppsPage() {
   const resetForm = () => {
     setName("");
     setUrl("");
+    setOriginalUrl("");
+    setBotUsername("");
+    setBotId("");
+    setBotToken("");
     setFormats(["interstitial", "popInterstitial"]);
     setErr({});
     setFormError(null);
@@ -151,7 +230,15 @@ function MiniAppsPage() {
 
     setFormError(null);
     createMiniApp.mutate(
-      { name: name.trim(), url: url.trim(), formats },
+      {
+        name: name.trim(),
+        url: url.trim(),
+        originalUrl: originalUrl.trim() || null,
+        botUsername: botUsername.trim() || null,
+        botId: botId.trim() || null,
+        botToken: botToken.trim() || null,
+        formats,
+      },
       {
         onSuccess: () => {
           setOpen(false);
@@ -215,6 +302,20 @@ function MiniAppsPage() {
           <Field label={t("pub.form.miniDirect")} hint={t("pub.form.miniDirectHint")} error={err["url"]} htmlFor="mu">
             <input id="mu" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://t.me/MyTgBot/app" className={`num ${inputCls(!!err["url"])}`} />
           </Field>
+          <Field label={t("pub.form.miniOriginalUrl")} hint={t("pub.form.miniOriginalUrlHint")} htmlFor="mou">
+            <input id="mou" value={originalUrl} onChange={(e) => setOriginalUrl(e.target.value)} placeholder="https://myminiapp.com" className={inputCls()} />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t("pub.form.miniBotUsername")} htmlFor="mbu">
+              <input id="mbu" value={botUsername} onChange={(e) => setBotUsername(e.target.value)} placeholder="@MyTgBot" className={inputCls()} />
+            </Field>
+            <Field label={t("pub.form.miniBotId")} htmlFor="mbi">
+              <input id="mbi" value={botId} onChange={(e) => setBotId(e.target.value)} className={`num ${inputCls()}`} />
+            </Field>
+          </div>
+          <Field label={t("pub.form.miniBotToken")} hint={t("pub.form.miniBotTokenHint")} htmlFor="mbt">
+            <input id="mbt" type="password" value={botToken} onChange={(e) => setBotToken(e.target.value)} className={inputCls()} />
+          </Field>
           <div>
             <p className="text-sm font-semibold">{t("pub.form.miniFormats")}</p>
             <div className="mt-2 flex flex-wrap gap-4">
@@ -252,7 +353,7 @@ function MiniAppsPage() {
         title={selectedApp?.name ?? ""}
         sub="Kinz-ID key and integration snippet for this Mini App."
       >
-        {selectedApp && <KeyPanel appId={selectedApp.id} />}
+        {selectedApp && <KeyPanel app={selectedApp} />}
       </Modal>
     </PubShell>
   );

@@ -25,11 +25,14 @@ import { ArtChannelPayout, ArtTrustPeriod } from "@/components/illustrations";
 import { ApiError, num } from "@/lib/api";
 import { AD_LANGUAGES } from "@/lib/constants";
 import {
+  useArchiveChannel,
   useBotStatus,
   useChannels,
   useChannelStats,
   useCreateChannel,
+  useResumeChannel,
   useStartChannel,
+  useSuspendChannel,
   useUpdateChannel,
   useVerifyChannelBot,
   type ChannelCreateBody,
@@ -130,11 +133,15 @@ function ChannelDetailModal({ channel, onClose }: { channel: Channel; onClose: (
   const updateChannel = useUpdateChannel();
   const verifyBot = useVerifyChannelBot();
   const startChannel = useStartChannel();
+  const suspendChannel = useSuspendChannel();
+  const resumeChannel = useResumeChannel();
+  const archiveChannel = useArchiveChannel();
 
   const [frequency, setFrequency] = useState(String(channel.maxAdsPerDay || 1));
   const [hours, setHours] = useState<number[]>(channel.preferredHours ?? []);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
 
   const liveBotOk =
     verifyBot.isSuccess && verifyBot.variables === channel.id ? verifyBot.data.botAdminVerified : channel.botAdminVerified;
@@ -237,14 +244,20 @@ function ChannelDetailModal({ channel, onClose }: { channel: Channel; onClose: (
 
           <div className="mb-4 flex items-center gap-3">
             <Avatar name={channel.name} size={48} src={channel.logoUrl} />
-            <p className="text-xs text-paper-dim">
-              {t("pub.form.logo")} — récupéré automatiquement depuis la photo de profil du canal sur Telegram, se
-              met à jour tout seul.
-            </p>
           </div>
 
-          <Field label={t("pub.form.frequency")} hint="1 à 3 publicités par jour." htmlFor="mfreq">
-            <select id="mfreq" value={frequency} onChange={(e) => setFrequency(e.target.value)} className={`num ${inputCls()}`}>
+          <Field label={t("pub.form.frequency")} hint={t("pub.detail.adsPerDayHint")} htmlFor="mfreq">
+            <select
+              id="mfreq"
+              value={frequency}
+              onChange={(e) => {
+                const next = e.target.value;
+                setFrequency(next);
+                const cap = Number(next) || 1;
+                if (hours.length > cap) setHours(hours.slice(0, cap));
+              }}
+              className={`num ${inputCls()}`}
+            >
               <option value="1">1</option>
               <option value="2">2</option>
               <option value="3">3</option>
@@ -253,9 +266,12 @@ function ChannelDetailModal({ channel, onClose }: { channel: Channel; onClose: (
 
           <div className="mt-4">
             <p className="text-sm font-semibold">{t("pub.form.slots")}</p>
-            <p className="mt-1 text-xs text-paper-dim">Heures UTC où les pubs peuvent être publiées. Aucune sélection = toute heure.</p>
+            <p className="mt-1 text-xs text-paper-dim">{t("pub.detail.hoursHint")}</p>
+            <p className="mt-0.5 text-xs text-paper-dim">
+              {t("pub.detail.hoursCapHint", { max: Number(frequency) || 1 })}
+            </p>
             <div className="mt-2">
-              <HourGrid value={hours} onChange={setHours} />
+              <HourGrid value={hours} onChange={setHours} maxSelectable={Number(frequency) || 1} />
             </div>
           </div>
 
@@ -263,9 +279,44 @@ function ChannelDetailModal({ channel, onClose }: { channel: Channel; onClose: (
             <Btn tone="bounty" onClick={save} disabled={updateChannel.isPending}>
               {updateChannel.isPending ? "…" : t("common.save")}
             </Btn>
-            {saved && !updateChannel.isPending && <span className="text-xs font-semibold text-success">Enregistré</span>}
+            {saved && !updateChannel.isPending && <span className="text-xs font-semibold text-success">{t("pub.detail.saved")}</span>}
           </div>
         </div>
+
+        {channel.status === "suspended" && <Quote tone="neutral">{t("pub.detail.suspended")}</Quote>}
+        {channel.status === "archived" && <Quote tone="neutral">{t("pub.detail.archived")}</Quote>}
+
+        {channel.status !== "archived" && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-seam pt-4">
+            {channel.status === "suspended" ? (
+              <Btn variant="secondary" onClick={() => resumeChannel.mutate(channel.id)} disabled={resumeChannel.isPending}>
+                {resumeChannel.isPending ? "…" : t("pub.detail.resume")}
+              </Btn>
+            ) : (
+              <Btn variant="secondary" onClick={() => suspendChannel.mutate(channel.id)} disabled={suspendChannel.isPending}>
+                {suspendChannel.isPending ? "…" : t("pub.detail.suspend")}
+              </Btn>
+            )}
+            {!confirmArchive ? (
+              <Btn variant="ghost" className="text-danger" onClick={() => setConfirmArchive(true)}>
+                {t("pub.detail.archive")}
+              </Btn>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-paper-dim">{t("pub.detail.archiveConfirm")}</span>
+                <Btn
+                  variant="secondary"
+                  className="text-danger"
+                  onClick={() => archiveChannel.mutate(channel.id, { onSuccess: onClose })}
+                  disabled={archiveChannel.isPending}
+                >
+                  {archiveChannel.isPending ? "…" : t("pub.detail.archive")}
+                </Btn>
+                <Btn variant="ghost" onClick={() => setConfirmArchive(false)}>{t("common.cancel")}</Btn>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Modal>
   );
@@ -290,7 +341,7 @@ function ChannelsPage() {
   const [frequency, setFrequency] = useState("2");
   const [err, setErr] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [createdBotNotice, setCreatedBotNotice] = useState<string | null>(null);
+  const [createdBotNotice, setCreatedBotNotice] = useState<{ bot: string; name: string } | null>(null);
 
   const viewingChannel = channels?.find((c) => c.id === viewingId) ?? null;
 
@@ -308,7 +359,7 @@ function ChannelsPage() {
     const e: Record<string, string> = {};
     if (name.trim().length < 5) e["name"] = t("pub.form.errName");
     if (!/^https:\/\/t\.me\/.+/.test(link)) e["link"] = t("pub.form.errLink");
-    if (!adminUsername.trim()) e["adminUsername"] = "Enter the admin's Telegram username.";
+    if (!adminUsername.trim()) e["adminUsername"] = t("pub.form.errAdminUsername");
     setErr(e);
     if (Object.keys(e).length) return;
 
@@ -326,10 +377,7 @@ function ChannelsPage() {
         setOpen(false);
         resetForm();
         if (!created.botAdminVerified) {
-          setCreatedBotNotice(
-            `Le bot @${botStatus?.botUsername ?? "AdsKinzBot"} n'est pas encore administrateur de « ${created.name} ». ` +
-              "Ça n'empêche pas la modération : ajoutez-le comme admin quand vous voulez, puis revenez dans les réglages du canal pour vérifier.",
-          );
+          setCreatedBotNotice({ bot: botStatus?.botUsername ?? "AdsKinzBot", name: created.name });
         }
       },
       onError: (err) => setFormError(err instanceof ApiError ? err.message : "Something went wrong."),
@@ -344,13 +392,15 @@ function ChannelsPage() {
         {createdBotNotice && (
           <div className="flex flex-wrap items-start gap-2 rounded-xl border border-seam bg-panel-2 px-4 py-3 text-sm text-paper-dim">
             <IconAlert width={16} height={16} className="mt-0.5 shrink-0 text-signal" />
-            <span className="flex-1">{createdBotNotice}</span>
+            <span className="flex-1">
+              {t("pub.detail.botNotice", { bot: createdBotNotice.bot, name: createdBotNotice.name })}
+            </span>
             <button
               type="button"
               onClick={() => setCreatedBotNotice(null)}
               className="shrink-0 text-xs font-semibold text-paper-dim underline"
             >
-              Compris
+              {t("pub.detail.gotIt")}
             </button>
           </div>
         )}
@@ -416,7 +466,6 @@ function ChannelsPage() {
           <Field label={t("pub.form.publicLink")} hint={t("pub.form.publicLinkHint")} error={err["link"]} htmlFor="cl">
             <input id="cl" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://t.me/…" className={inputCls(!!err["link"])} />
           </Field>
-          <p className="text-xs text-paper-dim">Le logo du canal est récupéré automatiquement depuis Telegram — rien à uploader.</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("pub.form.lang")} hint={t("pub.form.langHint")} htmlFor="cg">
               <select id="cg" value={language} onChange={(e) => setLanguage(e.target.value)} className={inputCls()}>
@@ -429,7 +478,7 @@ function ChannelsPage() {
               <input id="cu" value={adminUsername} onChange={(e) => setAdminUsername(e.target.value)} placeholder="@username" className={inputCls(!!err["adminUsername"])} />
             </Field>
           </div>
-          <Field label={t("pub.form.frequency")} hint="Combien de publicités le canal recevra chaque jour." htmlFor="cf">
+          <Field label={t("pub.form.frequency")} hint={t("pub.detail.adsPerDayHint")} htmlFor="cf">
             <select id="cf" value={frequency} onChange={(e) => setFrequency(e.target.value)} className={`num ${inputCls()}`}>
               <option value="1">1</option><option value="2">2</option><option value="3">3</option>
             </select>
