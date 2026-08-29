@@ -140,6 +140,29 @@ async def get_member_count(chat_id_or_username: int | str) -> tuple[int | None, 
     return count, None
 
 
+async def fetch_chat_photo_bytes(chat_id: int | str) -> bytes | None:
+    """Download a channel's current profile photo straight from Telegram.
+
+    Channel photos are public (anyone in the channel already sees them), so
+    this is used to auto-populate the channel's logo — the publisher never
+    has to upload anything themselves.
+    """
+    try:
+        bot = get_bot()
+        chat = await bot.get_chat(chat_id)
+        if not chat.photo:
+            return None
+        file = await bot.get_file(chat.photo.big_file_id)
+        buf = await bot.download_file(file.file_path)
+        return buf.read() if buf else None
+    except (TelegramForbiddenError, TelegramBadRequest) as exc:
+        logger.info("bot.chat_photo_unavailable chat=%s error=%s", chat_id, exc)
+        return None
+    except Exception as exc:  # noqa: BLE001 - Telegram/network failures must be reported gracefully
+        logger.warning("bot.chat_photo_failed chat=%s error=%s", chat_id, exc)
+        return None
+
+
 async def resolve_chat(public_link_or_username: str) -> tuple[int | None, str | None, int | None, str | None]:
     """Resolve a public Telegram link or username and return its chat metadata."""
     chat_ref = _normalise_public_chat(public_link_or_username)

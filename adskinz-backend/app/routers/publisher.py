@@ -180,13 +180,14 @@ async def create_channel(
     if duplicate is not None:
         raise ConflictError("This channel has already been submitted.")
 
-    from app.bot.aiogram_bot import resolve_chat, verify_bot_is_admin
+    from app.bot.aiogram_bot import fetch_chat_photo_bytes, resolve_chat, verify_bot_is_admin
 
     telegram_chat_id: int | None = None
     telegram_username: str | None = None
     subscriber_count = settings.MIN_CHANNEL_SUBSCRIBERS
     bot_admin_verified = False
     bot_checked_at: datetime | None = None
+    logo_url = payload.logo_url
 
     try:
         chat_id, username, members, _ = await resolve_chat(payload.public_link)
@@ -203,6 +204,16 @@ async def create_channel(
             is_admin, can_post, can_delete, _ = await verify_bot_is_admin(chat_id)
             bot_admin_verified = bool(is_admin and can_post and can_delete)
             bot_checked_at = datetime.now(UTC)
+
+            # The channel's logo is its own public Telegram photo — the bot
+            # fetches and re-hosts it automatically, the publisher never
+            # uploads one themselves.
+            if not logo_url:
+                photo_bytes = await fetch_chat_photo_bytes(chat_id)
+                if photo_bytes:
+                    logo_url = upload_service.upload_channel_logo_bytes(
+                        publisher_id=publisher.id, data=photo_bytes
+                    )
     except BusinessRuleError:
         raise
     except Exception:  # noqa: BLE001 - Telegram being unreachable must not block submission
@@ -214,7 +225,7 @@ async def create_channel(
         public_link=payload.public_link,
         private_invite_link=payload.private_invite_link,
         admin_username=payload.admin_username,
-        logo_url=payload.logo_url,
+        logo_url=logo_url,
         description=payload.description,
         declared_language=payload.declared_language,
         subscriber_count=subscriber_count,
@@ -308,7 +319,7 @@ async def verify_channel_bot(
     if channel is None or channel.publisher_id != publisher.id:
         raise NotFoundError("Channel not found.")
 
-    from app.bot.aiogram_bot import verify_bot_is_admin
+    from app.bot.aiogram_bot import fetch_chat_photo_bytes, verify_bot_is_admin
 
     target = channel.telegram_chat_id or channel.public_link
     try:
@@ -318,6 +329,19 @@ async def verify_channel_bot(
 
     channel.bot_admin_verified = bool(is_admin and can_post and can_delete)
     channel.bot_admin_last_checked_at = datetime.now(UTC)
+
+    # Piggyback a logo refresh onto the manual re-check — a natural moment
+    # to pick up a channel photo that wasn't set yet at submission time.
+    if channel.telegram_chat_id is not None:
+        try:
+            photo_bytes = await fetch_chat_photo_bytes(channel.telegram_chat_id)
+            if photo_bytes:
+                channel.logo_url = upload_service.upload_channel_logo_bytes(
+                    publisher_id=publisher.id, data=photo_bytes
+                )
+        except Exception:  # noqa: BLE001 - a logo refresh failure must not break the bot check
+            pass
+
     await session.commit()
     await session.refresh(channel)
     return await _channel_response(session, channel)

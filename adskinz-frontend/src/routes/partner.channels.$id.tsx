@@ -9,7 +9,6 @@ import {
   Field,
   FieldError,
   HourGrid,
-  LogoUpload,
   Panel,
   Quote,
   RowSkeleton,
@@ -21,7 +20,7 @@ import {
 } from "@/components/kit";
 import { Avatar } from "@/components/cards";
 import { IconClock } from "@/components/icons";
-import { ApiError, num, uploadChannelLogo } from "@/lib/api";
+import { ApiError, num } from "@/lib/api";
 import { useAuthGuard } from "@/lib/auth";
 import {
   useChannels,
@@ -64,7 +63,6 @@ function ChannelDetail() {
   const updateChannel = useUpdateChannel();
   const verifyBot = useVerifyChannelBot();
 
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [frequency, setFrequency] = useState("2");
   const [hours, setHours] = useState<number[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -72,7 +70,6 @@ function ChannelDetail() {
 
   useEffect(() => {
     if (!channel) return;
-    setLogoUrl(channel.logoUrl);
     setFrequency(String(channel.maxAdsPerDay || 1));
     setHours(channel.preferredHours ?? []);
   }, [channel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -86,7 +83,6 @@ function ChannelDetail() {
         id: channel.id,
         maxAdsPerDay: Number(frequency) || 1,
         preferredHours: hours.length ? hours : null,
-        logoUrl,
       },
       {
         onSuccess: () => setSaved(true),
@@ -212,14 +208,16 @@ function ChannelDetail() {
               <SectionTitle>{t("pub.detail.configuration")}</SectionTitle>
               {saveError && <FieldError>{saveError}</FieldError>}
 
-              <Field label={t("pub.form.logo")} htmlFor="dlogo">
-                <LogoUpload
-                  value={logoUrl}
-                  onChange={setLogoUrl}
-                  uploader={uploadChannelLogo}
-                  fallbackLabel={channel.name}
-                />
-              </Field>
+              <div>
+                <p className="text-sm font-semibold">{t("pub.form.logo")}</p>
+                <div className="mt-2 flex items-center gap-3">
+                  <Avatar name={channel.name} size={56} src={channel.logoUrl} />
+                  <p className="text-xs text-paper-dim">
+                    Récupéré automatiquement depuis la photo de profil du canal sur Telegram — pas
+                    d'upload à faire. Il se met à jour tout seul si vous changez la photo du canal.
+                  </p>
+                </div>
+              </div>
 
               <Field label={t("pub.form.frequency")} hint="1 à 3 publicités par jour." htmlFor="dfreq">
                 <select

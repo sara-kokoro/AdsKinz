@@ -7,13 +7,13 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
-from app.bot.aiogram_bot import get_member_count, verify_bot_is_admin
+from app.bot.aiogram_bot import fetch_chat_photo_bytes, get_member_count, verify_bot_is_admin
 from app.config import settings
 from app.core.enums import ChannelStatus
 from app.database import session_scope
 from app.models.placements import Channel
 from app.redis_client import cache_delete_pattern, get_redis
-from app.services import email_service
+from app.services import email_service, upload_service
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ async def refresh_channel_subscribers() -> dict:
     few hundred channels.
     """
     now = datetime.now(UTC)
-    summary = {"channels_checked": 0, "updated": 0, "failed": 0}
+    summary = {"channels_checked": 0, "updated": 0, "failed": 0, "logos_captured": 0}
 
     async with session_scope() as session:
         channels = (
@@ -89,6 +89,21 @@ async def refresh_channel_subscribers() -> dict:
             channel.subscriber_count = count
             channel.subscriber_count_updated_at = now
             summary["updated"] += 1
+
+            # Self-healing logo capture: a channel only pays for this once
+            # it actually has one — cheap for the steady state, and retries
+            # automatically for the rare channel where the bot couldn't
+            # read the photo yet (e.g. it wasn't admin at submission time).
+            if not channel.logo_url:
+                try:
+                    photo_bytes = await fetch_chat_photo_bytes(channel.telegram_chat_id)
+                    if photo_bytes:
+                        channel.logo_url = upload_service.upload_channel_logo_bytes(
+                            publisher_id=channel.publisher_id, data=photo_bytes
+                        )
+                        summary["logos_captured"] += 1
+                except Exception:  # noqa: BLE001 - a logo miss must not break the subscriber refresh
+                    pass
 
     return summary
 

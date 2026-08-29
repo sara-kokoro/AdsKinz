@@ -9,7 +9,6 @@ import {
   ErrorBanner,
   Field,
   FieldError,
-  LogoUpload,
   Modal,
   Panel,
   Quote,
@@ -23,7 +22,7 @@ import {
 import { IconAlert, IconShield } from "@/components/icons";
 import { Avatar } from "@/components/cards";
 import { ArtChannelPayout, ArtTrustPeriod } from "@/components/illustrations";
-import { ApiError, num, uploadChannelLogo } from "@/lib/api";
+import { ApiError, num } from "@/lib/api";
 import { AD_LANGUAGES } from "@/lib/constants";
 import {
   useBotStatus,
@@ -130,7 +129,6 @@ function ChannelsPage() {
   const [name, setName] = useState("");
   const [link, setLink] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [language, setLanguage] = useState(CHANNEL_LANGUAGES[0]?.code ?? "en");
   const [frequency, setFrequency] = useState("2");
   const [err, setErr] = useState<Record<string, string>>({});
@@ -143,7 +141,6 @@ function ChannelsPage() {
     setName("");
     setLink("");
     setAdminUsername("");
-    setLogoUrl(null);
     setLanguage(CHANNEL_LANGUAGES[0]?.code ?? "en");
     setFrequency("2");
     setErr({});
@@ -163,7 +160,6 @@ function ChannelsPage() {
       publicLink: link.trim(),
       privateLink: link.trim(),
       adminUsername: adminUsername.trim(),
-      logoUrl,
       language,
       maxAdsPerDay: Number(frequency) || 1,
     };
@@ -257,20 +253,13 @@ function ChannelsPage() {
       >
         <div className="space-y-4">
           {formError && <FieldError>{formError}</FieldError>}
-          <Field label={t("pub.form.logo")} htmlFor="clogo">
-            <LogoUpload
-              value={logoUrl}
-              onChange={setLogoUrl}
-              uploader={uploadChannelLogo}
-              fallbackLabel={name || "?"}
-            />
-          </Field>
           <Field label={t("pub.form.channelName")} hint={t("pub.form.channelNameHint")} error={err["name"]} htmlFor="cn">
             <input id="cn" value={name} onChange={(e) => setName(e.target.value)} className={inputCls(!!err["name"])} />
           </Field>
           <Field label={t("pub.form.publicLink")} hint={t("pub.form.publicLinkHint")} error={err["link"]} htmlFor="cl">
             <input id="cl" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://t.me/…" className={inputCls(!!err["link"])} />
           </Field>
+          <p className="text-xs text-paper-dim">Le logo du canal est récupéré automatiquement depuis Telegram — rien à uploader.</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("pub.form.lang")} hint={t("pub.form.langHint")} htmlFor="cg">
               <select id="cg" value={language} onChange={(e) => setLanguage(e.target.value)} className={inputCls()}>

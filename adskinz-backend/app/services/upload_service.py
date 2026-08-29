@@ -41,6 +41,22 @@ def _r2_client() -> Any:
     )
 
 
+def upload_channel_logo_bytes(*, publisher_id: uuid.UUID, data: bytes, content_type: str = "image/jpeg") -> str:
+    """Direct server-side upload used when @AdsKinzBot downloads a channel's
+    own Telegram profile photo and re-hosts it on R2 — no browser involved.
+
+    Channel logos are Telegram's own public channel photos, not private
+    material, so the bot fetches and stores them automatically instead of
+    asking the publisher to upload a file themselves.
+    """
+    _assert_configured()
+    ext = ALLOWED_CONTENT_TYPES.get(content_type, "jpg")
+    key = f"channel-logos/{publisher_id}/{uuid.uuid4().hex}.{ext}"
+    client = _r2_client()
+    client.put_object(Bucket=settings.R2_BUCKET, Key=key, Body=data, ContentType=content_type)
+    return f"{settings.R2_PUBLIC_BASE_URL.rstrip('/')}/{key}"
+
+
 def create_upload_url(*, content_type: str, advertiser_id: uuid.UUID) -> dict[str, str]:
     """Return a presigned PUT URL and the final public URL for one image.
 
