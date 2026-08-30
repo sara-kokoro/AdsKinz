@@ -20,6 +20,7 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.config import settings
@@ -61,7 +62,10 @@ class Channel(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
     subscriber_count_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     logo_url: Mapped[str | None] = mapped_column(Text)
     max_ads_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
-    preferred_hours_utc: Mapped[list[int] | None] = mapped_column(ARRAY(Integer))
+    # Per-weekday posting hours, e.g. {"mon": [8, 18], "tue": [], ...}.
+    # A missing or empty day means "no restriction that day" — same
+    # "nothing selected = any hour" convention the old flat list used.
+    preferred_slots: Mapped[dict | None] = mapped_column(JSONB)
 
     # Telegram identifiers resolved once the bot can see the chat.
     telegram_chat_id: Mapped[int | None] = mapped_column(BigInteger, index=True)

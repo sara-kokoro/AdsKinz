@@ -236,7 +236,7 @@ export type ChannelCreateBody = {
   logoUrl?: string | null;
   language: string;
   maxAdsPerDay: number;
-  preferredHours?: number[] | null | undefined;
+  preferredSlots?: Record<string, number[]> | null | undefined;
   description?: string | null | undefined;
 };
 

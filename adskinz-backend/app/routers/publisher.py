@@ -57,6 +57,7 @@ from app.schemas.publisher import (
     WithdrawalCreateRequest,
     WithdrawalListResponse,
     WithdrawalResponse,
+    validate_preferred_slots,
 )
 from app.services import ad_selection_service, billing_service, moderation_service, upload_service
 
@@ -82,7 +83,7 @@ async def _channel_response(session: SessionDep, channel: Channel) -> ChannelRes
         logoUrl=channel.logo_url or None,
         maxAdsPerDay=channel.max_ads_per_day,
         effectiveMaxAdsPerDay=channel.effective_max_ads_per_day(now),
-        preferredHours=channel.preferred_hours_utc,
+        preferredSlots=channel.preferred_slots,
         rejectionReason=channel.rejection_reason,
         botAdminVerified=channel.bot_admin_verified,
         trustHoursLeft=channel.trust_hours_left(now),
@@ -241,7 +242,7 @@ async def create_channel(
         declared_language=payload.declared_language,
         subscriber_count=subscriber_count,
         max_ads_per_day=payload.max_ads_per_day,
-        preferred_hours_utc=payload.preferred_hours_utc,
+        preferred_slots=payload.preferred_slots,
         submitted_ip_hash=ip_hash,
         telegram_chat_id=telegram_chat_id,
         telegram_username=telegram_username,
@@ -330,7 +331,7 @@ async def verify_channel_bot(
     if channel is None or channel.publisher_id != publisher.id:
         raise NotFoundError("Channel not found.")
 
-    from app.bot.aiogram_bot import fetch_chat_photo_bytes, verify_bot_is_admin
+    from app.bot.aiogram_bot import fetch_chat_photo_bytes, get_member_count, verify_bot_is_admin
 
     target = channel.telegram_chat_id or channel.public_link
     try:
@@ -341,9 +342,15 @@ async def verify_channel_bot(
     channel.bot_admin_verified = bool(is_admin and can_post and can_delete)
     channel.bot_admin_last_checked_at = datetime.now(UTC)
 
-    # Piggyback a logo refresh onto the manual re-check — a natural moment
-    # to pick up a channel photo that wasn't set yet at submission time.
+    # A manual re-check ("Verify now" / opening the channel's stats) is also
+    # the moment to pull a fully fresh subscriber count and logo, instead of
+    # waiting up to a minute for the background job.
     if channel.telegram_chat_id is not None:
+        count, _ = await get_member_count(channel.telegram_chat_id)
+        if count is not None:
+            channel.subscriber_count = count
+            channel.subscriber_count_updated_at = datetime.now(UTC)
+
         try:
             photo_bytes = await fetch_chat_photo_bytes(channel.telegram_chat_id)
             if photo_bytes:
@@ -569,11 +576,11 @@ async def update_channel(
             )
         channel.max_ads_per_day = value
 
-    if "preferredHours" in payload:
-        hours = payload["preferredHours"] or None
-        if hours and any(int(h) < 0 or int(h) > 23 for h in hours):
-            raise BusinessRuleError("Preferred hours must be UTC hours between 0 and 23.")
-        channel.preferred_hours_utc = sorted({int(h) for h in hours}) if hours else None
+    if "preferredSlots" in payload:
+        try:
+            channel.preferred_slots = validate_preferred_slots(payload["preferredSlots"])
+        except ValueError as exc:
+            raise BusinessRuleError(str(exc)) from exc
 
     if "logoUrl" in payload:
         logo_url = (payload["logoUrl"] or "").strip() or None

@@ -121,11 +121,20 @@ async def refresh_channel_subscribers() -> dict:
             else:
                 count, error = await get_member_count(channel.telegram_chat_id)
                 if count is None:
-                    summary["failed"] += 1
-                    logger.warning(
-                        "channels.subscriber_refresh_failed channel=%s error=%s", channel.id, error
-                    )
-                    continue
+                    # The lightweight call failed (flood control, transient
+                    # error) — fall back to the heavier full resolution,
+                    # which is what worked the first time this channel was
+                    # ever counted, before giving up for this run.
+                    _, _, fallback_members, fallback_error = await resolve_chat(channel.public_link)
+                    if fallback_members is not None:
+                        count = fallback_members
+                    else:
+                        summary["failed"] += 1
+                        logger.warning(
+                            "channels.subscriber_refresh_failed channel=%s error=%s fallback_error=%s",
+                            channel.id, error, fallback_error,
+                        )
+                        continue
                 channel.subscriber_count = count
                 channel.subscriber_count_updated_at = now
                 summary["updated"] += 1

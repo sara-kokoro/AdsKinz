@@ -147,3 +147,7 @@ BUTTON_LABELS: tuple[str, ...] = (
 AD_LANGUAGES: tuple[str, ...] = (
     "all", "en", "fr", "ru", "zh", "es", "pt", "ar", "hi", "id", "tr", "uk",
 )
+
+# Monday-first weekday keys used by Channel.preferred_slots (per-weekday
+# posting hours). Index matches Python's datetime.weekday() (0 = Monday).
+WEEKDAY_KEYS: tuple[str, ...] = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")

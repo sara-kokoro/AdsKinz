@@ -164,7 +164,7 @@ export type Channel = {
   logoUrl: string | null;
   maxAdsPerDay: number;
   effectiveMaxAdsPerDay: number;
-  preferredHours: number[] | null;
+  preferredSlots: Record<string, number[]> | null;
   rejectionReason: string | null;
   botAdminVerified: boolean;
   trustHoursLeft: number;

@@ -21,7 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.enums import CampaignFormat, CampaignStatus
+from app.core.enums import CampaignFormat, CampaignStatus, WEEKDAY_KEYS
 from app.models.accounts import Advertiser
 from app.models.campaigns import Campaign, CampaignTranslation, utc_today
 from app.models.placements import Channel
@@ -279,9 +279,14 @@ async def channel_has_slot(session: AsyncSession, channel: Channel) -> bool:
     if quota <= 0:
         return False
 
-    # Respect the publisher's preferred UTC hours when they set some.
-    if channel.preferred_hours_utc:
-        if datetime.now(UTC).hour not in channel.preferred_hours_utc:
+    # Respect the publisher's preferred UTC hours for today's weekday, when
+    # they set any for that day. No entry for today (or an empty list) is
+    # the same "no restriction" convention as before.
+    if channel.preferred_slots:
+        now = datetime.now(UTC)
+        weekday_key = WEEKDAY_KEYS[now.weekday()]
+        today_hours = channel.preferred_slots.get(weekday_key)
+        if today_hours and now.hour not in today_hours:
             return False
 
     return await ads_posted_today(session, channel.id) < quota

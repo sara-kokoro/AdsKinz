@@ -11,6 +11,10 @@ const en = {
   common: {
     brand: "AdsKinz",
     login: "Login",
+    weekday: {
+      mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday",
+      fri: "Friday", sat: "Saturday", sun: "Sunday",
+    },
     getStarted: "Get started",
     launchCampaign: "Launch a campaign",
     becomePublisher: "Become a publisher",
@@ -432,6 +436,8 @@ const en = {
       adsPerDayHint: "1 to 3 ads per day.",
       hoursHint: "UTC hours ads can go out. None selected = any hour.",
       hoursCapHint: "You can pick up to {{max}} hour(s) — matches the ads-per-day limit above.",
+      hoursSelected: "{{count}} hour(s)",
+      anyHour: "Any hour",
             botNotice: "@{{bot}} isn't an administrator of «{{name}}» yet. This doesn't block moderation — add it as admin whenever you're ready, then come back to this channel's settings to verify.",
       suspend: "Suspend",
       resume: "Resume",
@@ -622,6 +628,10 @@ const fr: Dict = {
   common: {
     brand: "AdsKinz",
     login: "Connexion",
+    weekday: {
+      mon: "Lundi", tue: "Mardi", wed: "Mercredi", thu: "Jeudi",
+      fri: "Vendredi", sat: "Samedi", sun: "Dimanche",
+    },
     getStarted: "Commencer",
     launchCampaign: "Lancer une campagne",
     becomePublisher: "Devenir publisher",
@@ -1038,6 +1048,8 @@ const fr: Dict = {
       adsPerDayHint: "1 à 3 publicités par jour.",
       hoursHint: "Heures UTC où les pubs peuvent être publiées. Aucune sélection = toute heure.",
       hoursCapHint: "Vous pouvez choisir jusqu'à {{max}} heure(s) — correspond à la limite de pubs par jour ci-dessus.",
+      hoursSelected: "{{count}} heure(s)",
+      anyHour: "Toute heure",
             botNotice: "@{{bot}} n'est pas encore administrateur de « {{name}} ». Ça n'empêche pas la modération : ajoutez-le comme admin quand vous voulez, puis revenez dans les réglages du canal pour vérifier.",
       suspend: "Suspendre",
       resume: "Réactiver",
@@ -1226,6 +1238,10 @@ const ru: Dict = {
   common: {
     brand: "AdsKinz",
     login: "Вход",
+    weekday: {
+      mon: "Понедельник", tue: "Вторник", wed: "Среда", thu: "Четверг",
+      fri: "Пятница", sat: "Суббота", sun: "Воскресенье",
+    },
     getStarted: "Начать",
     launchCampaign: "Запустить кампанию",
     becomePublisher: "Стать паблишером",
@@ -1632,6 +1648,8 @@ const ru: Dict = {
       adsPerDayHint: "От 1 до 3 объявлений в день.",
       hoursHint: "Часы UTC для показа рекламы. Ничего не выбрано = любой час.",
       hoursCapHint: "Можно выбрать до {{max}} час(ов) — соответствует лимиту объявлений в день выше.",
+      hoursSelected: "{{count}} ч.",
+      anyHour: "Любой час",
             botNotice: "@{{bot}} ещё не администратор канала «{{name}}». Это не блокирует модерацию — добавьте бота администратором в любое время и вернитесь сюда для проверки.",
       suspend: "Приостановить",
       resume: "Возобновить",
@@ -1820,6 +1838,10 @@ const zh: Dict = {
   common: {
     brand: "AdsKinz",
     login: "登录",
+    weekday: {
+      mon: "周一", tue: "周二", wed: "周三", thu: "周四",
+      fri: "周五", sat: "周六", sun: "周日",
+    },
     getStarted: "开始使用",
     launchCampaign: "投放广告",
     becomePublisher: "成为发布者",
@@ -2199,6 +2221,8 @@ const zh: Dict = {
       adsPerDayHint: "每天 1 到 3 条广告。",
       hoursHint: "可发布广告的 UTC 时段。不选 = 任意时段。",
       hoursCapHint: "最多可选择 {{max}} 个时段——对应上方的每日广告上限。",
+      hoursSelected: "{{count}} 个时段",
+      anyHour: "任意时段",
             botNotice: "@{{bot}} 尚未成为「{{name}}」的管理员。这不会阻止审核——随时可以将它添加为管理员，然后回到该频道的设置进行验证。",
       suspend: "暂停",
       resume: "恢复",

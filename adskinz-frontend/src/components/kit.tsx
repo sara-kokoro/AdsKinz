@@ -696,3 +696,55 @@ export function HourGrid({
     </div>
   );
 }
+
+const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+
+/** Per-weekday posting schedule: one collapsible HourGrid per day, each
+ * capped by the channel's own daily ad limit. A day with nothing picked
+ * means "any hour that day" — same convention as the hour grid itself. */
+export function WeekSlotsEditor({
+  value,
+  onChange,
+  maxSelectable,
+}: {
+  value: Record<string, number[]>;
+  onChange: (v: Record<string, number[]>) => void;
+  maxSelectable?: number;
+}) {
+  const { t } = useTranslation();
+  const [openDay, setOpenDay] = useState<string | null>(null);
+
+  return (
+    <div className="space-y-2">
+      {WEEKDAYS.map((day) => {
+        const hours = value[day] ?? [];
+        const isOpen = openDay === day;
+        return (
+          <div key={day} className="overflow-hidden rounded-xl border border-seam">
+            <button
+              type="button"
+              onClick={() => setOpenDay(isOpen ? null : day)}
+              className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-panel-2"
+            >
+              <span className="text-sm font-semibold">{t(`common.weekday.${day}`)}</span>
+              <span className="num text-xs text-paper-dim">
+                {hours.length
+                  ? t("pub.detail.hoursSelected", { count: hours.length })
+                  : t("pub.detail.anyHour")}
+              </span>
+            </button>
+            {isOpen && (
+              <div className="border-t border-seam p-3">
+                <HourGrid
+                  value={hours}
+                  onChange={(h) => onChange({ ...value, [day]: h })}
+                  maxSelectable={maxSelectable}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

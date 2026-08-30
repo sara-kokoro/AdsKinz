@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramRetryAfter
 from aiogram.types import (
     ChatMemberAdministrator,
     InlineKeyboardButton,
@@ -132,10 +132,26 @@ async def get_member_count(chat_id_or_username: int | str) -> tuple[int | None, 
     try:
         bot = get_bot()
         count = await bot.get_chat_member_count(chat_id_or_username)
+    except TelegramRetryAfter as exc:
+        # Flood control: log the exact wait Telegram asked for. The
+        # refresh job just retries next minute; the error is annotated so
+        # it's obvious in logs why a channel's count is momentarily stale,
+        # instead of looking like a silent permanent failure.
+        logger.warning(
+            "bot.member_count_flood_wait chat=%s retry_after=%s", chat_id_or_username, exc.retry_after
+        )
+        return None, f"flood_wait:{exc.retry_after}s"
     except (TelegramForbiddenError, TelegramBadRequest) as exc:
+        logger.warning(
+            "bot.member_count_failed chat=%s error_type=%s error=%s",
+            chat_id_or_username, type(exc).__name__, exc,
+        )
         return None, str(exc)
     except Exception as exc:  # noqa: BLE001 - Telegram/network failures must be reported gracefully
-        logger.warning("bot.member_count_failed chat=%s error=%s", chat_id_or_username, exc)
+        logger.warning(
+            "bot.member_count_failed chat=%s error_type=%s error=%s",
+            chat_id_or_username, type(exc).__name__, exc,
+        )
         return None, str(exc)
     return count, None
 

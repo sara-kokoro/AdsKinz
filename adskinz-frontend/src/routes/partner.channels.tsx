@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PubShell } from "@/components/workspaces";
 import {
@@ -8,7 +8,7 @@ import {
   ErrorBanner,
   Field,
   FieldError,
-  HourGrid,
+  WeekSlotsEditor,
   Modal,
   Panel,
   Quote,
@@ -138,7 +138,7 @@ function ChannelDetailModal({ channel, onClose }: { channel: Channel; onClose: (
   const archiveChannel = useArchiveChannel();
 
   const [frequency, setFrequency] = useState(String(channel.maxAdsPerDay || 1));
-  const [hours, setHours] = useState<number[]>(channel.preferredHours ?? []);
+  const [slots, setSlots] = useState<Record<string, number[]>>(channel.preferredSlots ?? {});
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
@@ -146,11 +146,27 @@ function ChannelDetailModal({ channel, onClose }: { channel: Channel; onClose: (
   const liveBotOk =
     verifyBot.isSuccess && verifyBot.variables === channel.id ? verifyBot.data.botAdminVerified : channel.botAdminVerified;
 
+  // Every time the detail view opens for a channel, pull a fully fresh
+  // subscriber count and logo instead of waiting for the background job.
+  const refreshedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (refreshedFor.current === channel.id) return;
+    refreshedFor.current = channel.id;
+    verifyBot.mutate(channel.id);
+  }, [channel.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const save = () => {
     setSaveError(null);
     setSaved(false);
+    const cleanedSlots = Object.fromEntries(
+      Object.entries(slots).filter(([, hrs]) => hrs.length > 0),
+    );
     updateChannel.mutate(
-      { id: channel.id, maxAdsPerDay: Number(frequency) || 1, preferredHours: hours.length ? hours : null },
+      {
+        id: channel.id,
+        maxAdsPerDay: Number(frequency) || 1,
+        preferredSlots: Object.keys(cleanedSlots).length ? cleanedSlots : null,
+      },
       {
         onSuccess: () => setSaved(true),
         onError: (err) => setSaveError(err instanceof ApiError ? err.message : "Something went wrong."),
@@ -158,14 +174,18 @@ function ChannelDetailModal({ channel, onClose }: { channel: Channel; onClose: (
     );
   };
 
+  const freshChannel = verifyBot.isSuccess && verifyBot.variables === channel.id ? verifyBot.data : null;
+  const liveSubscribers = freshChannel?.subscribers ?? channel.subscribers;
+  const liveLogoUrl = freshChannel?.logoUrl ?? channel.logoUrl;
+
   return (
     <Modal open onClose={onClose} title={channel.name} sub={t("pub.detail.channelTitle")} wide>
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-3">
-          <Avatar name={channel.name} size={52} src={channel.logoUrl} />
+          <Avatar name={channel.name} size={52} src={liveLogoUrl} />
           <div className="min-w-0 flex-1">
             <p className="num text-xs text-paper-dim">
-              {channel.language} · {fmtInt(channel.subscribers)} {t("pub.subscribers")}
+              {channel.language} · {fmtInt(liveSubscribers)} {t("pub.subscribers")}
             </p>
           </div>
           <StatusPill status={channel.status} />
@@ -254,7 +274,9 @@ function ChannelDetailModal({ channel, onClose }: { channel: Channel; onClose: (
                 const next = e.target.value;
                 setFrequency(next);
                 const cap = Number(next) || 1;
-                if (hours.length > cap) setHours(hours.slice(0, cap));
+                setSlots((cur) =>
+                  Object.fromEntries(Object.entries(cur).map(([day, hrs]) => [day, hrs.slice(0, cap)])),
+                );
               }}
               className={`num ${inputCls()}`}
             >
@@ -271,7 +293,7 @@ function ChannelDetailModal({ channel, onClose }: { channel: Channel; onClose: (
               {t("pub.detail.hoursCapHint", { max: Number(frequency) || 1 })}
             </p>
             <div className="mt-2">
-              <HourGrid value={hours} onChange={setHours} maxSelectable={Number(frequency) || 1} />
+              <WeekSlotsEditor value={slots} onChange={setSlots} maxSelectable={Number(frequency) || 1} />
             </div>
           </div>
 

@@ -11,7 +11,7 @@ from typing import Literal
 from pydantic import Field, field_validator
 
 from app.config import settings
-from app.core.enums import AD_LANGUAGES, MiniAppFormat
+from app.core.enums import AD_LANGUAGES, MiniAppFormat, WEEKDAY_KEYS
 from app.schemas.common import APIModel, RequestModel
 
 FrontendChannelStatus = Literal[
@@ -25,6 +25,22 @@ TON_ADDRESS_RE = re.compile(r"^U[Qf][A-Za-z0-9_-]{10,}$")
 TG_LINK_RE = re.compile(r"^https://t\.me/[A-Za-z0-9_+/-]+$", re.IGNORECASE)
 
 
+
+def validate_preferred_slots(value: dict[str, list[int]] | None) -> dict[str, list[int]] | None:
+    if not value:
+        return None
+    cleaned: dict[str, list[int]] = {}
+    for day, hours in value.items():
+        if day not in WEEKDAY_KEYS:
+            raise ValueError(f"Unknown weekday '{day}'. Use one of: {', '.join(WEEKDAY_KEYS)}.")
+        if not hours:
+            continue
+        if any(h < 0 or h > 23 for h in hours):
+            raise ValueError("Preferred hours must be UTC hours between 0 and 23.")
+        cleaned[day] = sorted(set(hours))
+    return cleaned or None
+
+
 # --------------------------------------------------------------------------- #
 # Channels
 # --------------------------------------------------------------------------- #
@@ -36,7 +52,7 @@ class ChannelCreateRequest(RequestModel):
     logo_url: str | None = Field(default=None, alias="logoUrl")
     declared_language: str = Field(alias="language")
     max_ads_per_day: int = Field(default=1, alias="maxAdsPerDay")
-    preferred_hours_utc: list[int] | None = Field(default=None, alias="preferredHours")
+    preferred_slots: dict[str, list[int]] | None = Field(default=None, alias="preferredSlots")
     description: str | None = Field(default=None, max_length=600)
 
     @field_validator("logo_url")
@@ -84,14 +100,10 @@ class ChannelCreateRequest(RequestModel):
             raise ValueError(f"Ads per day must be between 0 and {settings.MAX_ADS_PER_DAY}.")
         return value
 
-    @field_validator("preferred_hours_utc")
+    @field_validator("preferred_slots")
     @classmethod
-    def _hours(cls, value: list[int] | None) -> list[int] | None:
-        if not value:
-            return None
-        if any(h < 0 or h > 23 for h in value):
-            raise ValueError("Preferred hours must be UTC hours between 0 and 23.")
-        return sorted(set(value))
+    def _slots(cls, value: dict[str, list[int]] | None) -> dict[str, list[int]] | None:
+        return validate_preferred_slots(value)
 
 
 class ChannelResponse(APIModel):
@@ -107,7 +119,7 @@ class ChannelResponse(APIModel):
     logoUrl: str | None = None
     maxAdsPerDay: int = 1
     effectiveMaxAdsPerDay: int = 1
-    preferredHours: list[int] | None = None
+    preferredSlots: dict[str, list[int]] | None = None
     rejectionReason: str | None = None
     botAdminVerified: bool = False
     trustHoursLeft: int = 0
