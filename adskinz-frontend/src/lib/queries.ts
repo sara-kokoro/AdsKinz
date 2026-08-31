@@ -175,10 +175,13 @@ export function useVerifyDeposit() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (network: string) =>
-      apiFetch<{ transfers_seen: number; deposits_created: number; deposits_confirmed: number; deposits_credited: number }>(
-        "/billing/deposit-address/verify",
-        { method: "POST", query: { network } },
-      ),
+      apiFetch<{
+        transfers_seen: number;
+        deposits_created: number;
+        deposits_confirmed: number;
+        deposits_credited: number;
+        scan_error?: string;
+      }>("/billing/deposit-address/verify", { method: "POST", query: { network } }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["billing", "deposits"] });
       void qc.invalidateQueries({ queryKey: ["billing", "balance"] });

@@ -303,6 +303,7 @@ const en = {
       verifyFoundCredited: "Found it — your balance has been updated.",
       verifyFoundPending: "Found your transfer — waiting on more confirmations before it's credited.",
       verifyNothingYet: "Nothing found yet. If you just sent it, give it a minute and try again.",
+      verifyScanFailed: "Could not scan the chain right now ({{error}}). This is a temporary problem on our side, not your deposit — try again shortly.",
       trcWarning:
         "Use only USD₮ TRON/TRC20. The current fee for transferring 3.25 USD₮ in the TRON network. It will be deducted from the top-up amount.",
       history: "Deposit history",
@@ -915,6 +916,7 @@ const fr: Dict = {
       verifyFoundCredited: "Trouvé — ton solde a été mis à jour.",
       verifyFoundPending: "Transfert trouvé — en attente de plus de confirmations avant crédit.",
       verifyNothingYet: "Rien trouvé pour l'instant. Si tu viens de l'envoyer, patiente une minute et réessaie.",
+      verifyScanFailed: "Impossible de scanner la chaîne pour le moment ({{error}}). C'est un problème temporaire de notre côté, pas ton dépôt — réessaie dans un instant.",
       trcWarning:
         "Utilisez uniquement USD₮ TRON/TRC20. Les frais actuels de transfert sont de 3,25 USD₮ sur le réseau TRON. Ils seront déduits du montant rechargé.",
       history: "Historique des dépôts",
@@ -1506,6 +1508,7 @@ const ru: Dict = {
     },
     deposits: {
       title: "Пополнения",
+      verifyScanFailed: "Не удалось проверить блокчейн сейчас ({{error}}). Это временная проблема на нашей стороне, а не с вашим депозитом — попробуйте снова чуть позже.",
       noMinimum: "У пополнений нет минимума. Минимум $50 действует для кампании, а не для депозита.",
       method: "Способ оплаты",
       ton: "USDT TON",
@@ -2092,6 +2095,7 @@ const zh: Dict = {
     },
     deposits: {
       title: "充值",
+      verifyScanFailed: "暂时无法扫描链上数据（{{error}}）。这是我们这边的临时问题，不是你的充值出了问题——请稍后重试。",
       noMinimum: "充值没有最低限额。$50 的门槛针对单个广告，而非单次充值。",
       method: "支付方式",
       ton: "USDT TON",

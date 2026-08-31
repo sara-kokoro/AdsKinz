@@ -47,6 +47,13 @@ function Deposits() {
     setVerifyError(null);
     verify.mutate(net, {
       onSuccess: (res) => {
+        if (res.scan_error) {
+          // The scan itself failed (bad API key, provider down, rate
+          // limit) — distinct from "nothing found yet", which just means
+          // the deposit hasn't shown up on-chain.
+          setVerifyError(t("adv.deposits.verifyScanFailed", { error: res.scan_error }));
+          return;
+        }
         setVerifyNotice(
           res.deposits_credited > 0
             ? t("adv.deposits.verifyFoundCredited", { count: res.deposits_credited })

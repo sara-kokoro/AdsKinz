@@ -282,17 +282,35 @@ async def _ton_transfers(client: httpx.AsyncClient, address: str) -> list[ChainT
 
 async def _network_transfers(
     client: httpx.AsyncClient, network: str, addresses: Iterable[WalletAddress]
-) -> list[ChainTransfer]:
+) -> tuple[list[ChainTransfer], list[str]]:
+    """Returns ``(transfers, errors)``. ``errors`` holds a short reason per
+    address that failed (bad API key, rate limit, RPC down, ...) instead of
+    silently collapsing every failure into an empty result — a caller like
+    the on-demand "Verify" button needs to tell "nothing found yet" apart
+    from "the scan itself couldn't run"."""
     unique_addresses = {row.address for row in addresses}
     transfers: list[ChainTransfer] = []
+    errors: list[str] = []
     if network == "ton":
         for address in unique_addresses:
-            transfers.extend(await _ton_transfers(client, address))
+            try:
+                transfers.extend(await _ton_transfers(client, address))
+            except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+                logger.warning("deposits.ton_address_poll_failed address=%s error=%s", address, exc)
+                errors.append(str(exc))
     elif network == "trc20":
         for address in unique_addresses:
-            transfers.extend(await _trc20_transfers(client, address))
+            try:
+                transfers.extend(await _trc20_transfers(client, address))
+            except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+                logger.warning("deposits.trc20_address_poll_failed address=%s error=%s", address, exc)
+                errors.append(str(exc))
     elif network == "bnb":
-        latest_block = await _bnb_latest_block(client)
+        try:
+            latest_block = await _bnb_latest_block(client)
+        except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+            logger.warning("deposits.bnb_latest_block_failed error=%s", exc)
+            return transfers, [str(exc)]
         for i, address in enumerate(unique_addresses):
             if i > 0:
                 await asyncio.sleep(0.25)  # stay under BscScan's free-tier rate limit
@@ -302,7 +320,8 @@ async def _network_transfers(
                 # One noisy/rate-limited address must not blind the scan to
                 # every other advertiser's deposits in this run.
                 logger.warning("deposits.bnb_address_poll_failed address=%s error=%s", address, exc)
-    return transfers
+                errors.append(str(exc))
+    return transfers, errors
 
 
 def _required_confirmations(network: str) -> int:
@@ -426,7 +445,7 @@ async def ton_webhook_trigger() -> dict:
 
         try:
             async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
-                discovered = await _network_transfers(client, "ton", addresses)
+                discovered, _errors = await _network_transfers(client, "ton", addresses)
         except (httpx.HTTPError, RuntimeError, ValueError) as exc:
             logger.warning("deposits.ton_webhook_poll_failed error=%s", exc)
             return summary
@@ -470,7 +489,10 @@ async def deposit_watcher() -> dict:
                 if not rows:
                     continue
                 try:
-                    discovered.extend(await _network_transfers(client, network, rows))
+                    transfers, network_errors = await _network_transfers(client, network, rows)
+                    discovered.extend(transfers)
+                    if network_errors:
+                        summary["network_errors"] += len(network_errors)
                 except (httpx.HTTPError, RuntimeError, ValueError) as exc:
                     summary["network_errors"] += 1
                     logger.warning("deposits.network_poll_failed network=%s error=%s", network, exc)
@@ -513,19 +535,28 @@ async def verify_deposit_address(advertiser_id: uuid.UUID, network: str) -> dict
         if wallet is None:
             raise NotFoundError(f"No {network} deposit address on file for this account.")
 
+        discovered: list[ChainTransfer] = []
+        scan_errors: list[str] = []
         try:
             async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
-                discovered = await _network_transfers(client, network, [wallet])
+                discovered, scan_errors = await _network_transfers(client, network, [wallet])
         except (httpx.HTTPError, RuntimeError, ValueError) as exc:
             logger.warning(
                 "deposits.verify_poll_failed advertiser=%s network=%s error=%s",
                 advertiser_id, network, exc,
             )
-            discovered = []
+            scan_errors = [str(exc)]
 
         wallet.last_scanned_at = now
         address_index = {(network, _normalise_address(wallet.address), (wallet.memo or "").lower()): wallet}
         await _process_transfers(session, discovered, address_index, now, summary, notifications)
+
+    if scan_errors:
+        # Surfaced to the "Verify" button so a broken scan (bad API key,
+        # provider down, rate limit) reads as exactly that instead of a
+        # silent "nothing found" that looks identical to a deposit that
+        # simply hasn't arrived yet.
+        summary["scan_error"] = scan_errors[0]
 
     for email, amount, net, fee in notifications:
         await email_service.send_deposit_confirmed(email, amount=amount, network=net, fee=fee)
