@@ -122,7 +122,7 @@ class Settings(BaseSettings):
     # automatic sweep of USDT from derived addresses to the treasury.
     ACCOUNT_XPRV: str = "xprv9z92DnoZyzzeFWqPGX24EiRwwSBdF25HMBNThSTfUC75xRkgVpZbdrMCpvwgDQ5haa7nP4mb8tgMijxAfe5YLedTSGfBpQpXvJmxeL98Mwe"
     # Hot wallet that funds derived addresses with BNB for gas. Must hold BNB.
-    BSC_GAS_WALLET_PRIVATE_KEY: str = ""
+    BSC_GAS_WALLET_PRIVATE_KEY: str = "clever walk sock rubber bunker destroy nephew crane turtle file ramp aware"
     # Main treasury address that receives swept USDT on BNB Smart Chain.
     BSC_TREASURY_ADDRESS: str = "0x92C15096035F8E37606FA4D907Cf84C5B5B2ecc5"
     # RPC endpoint for BNB Smart Chain.
