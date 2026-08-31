@@ -180,6 +180,13 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = "AdsKinz <onboarding@resend.dev>"
     ADMIN_ALERT_EMAIL: str = "abdoulmadjidkingceymarkouma@gmail.com"
     ENABLE_EMAIL: bool = True
+    # Internal console sign-in: click "Ask code" -> an 8-digit one-time code
+    # is emailed here via Resend. Submitting that code together with this
+    # fixed password (never sent to the frontend, compared server-side only)
+    # opens the session. Replaces the old TOTP-based two-step login.
+    ADMIN_LOGIN_EMAIL: str = "markoumaabdoulmadjidv@gmail.com"
+    ADMIN_LOGIN_PASSWORD: str = "saratou_jessica_love"
+    ADMIN_LOGIN_CODE_TTL_SECONDS: int = 600
 
     # ------------------------------------------------------------------ #
     # Business rules — single source of truth, enforced server-side
