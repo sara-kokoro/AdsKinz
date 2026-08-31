@@ -142,61 +142,76 @@ async def _trc20_transfers(client: httpx.AsyncClient, address: str) -> list[Chai
 
 
 async def _bnb_latest_block(client: httpx.AsyncClient) -> int:
-    latest_response = await client.get(
-        settings.BSCSCAN_BASE_URL,
-        params={
-            "chainid": settings.BSC_CHAIN_ID,
-            "module": "proxy",
-            "action": "eth_blockNumber",
-            "apikey": settings.BSCSCAN_API_KEY,
-        },
+    """BSCTrace/MegaNode speaks standard JSON-RPC 2.0 (POST), not BscScan's
+    REST module/action GET style. ``eth_blockNumber`` is unchanged from the
+    old proxy call — only the transport and response shape differ."""
+    response = await client.post(
+        settings.MEGANODE_BSC_RPC_URL,
+        json={"jsonrpc": "2.0", "id": 1, "method": "eth_blockNumber", "params": []},
     )
-    latest_response.raise_for_status()
-    latest_raw = latest_response.json().get("result")
-    if isinstance(latest_raw, int):
-        return latest_raw
-    return int(str(latest_raw), 16) if isinstance(latest_raw, str) else 0
+    response.raise_for_status()
+    payload = response.json()
+    if "error" in payload:
+        raise RuntimeError(str(payload["error"]))
+    latest_raw = payload.get("result")
+    return int(latest_raw, 16) if isinstance(latest_raw, str) else 0
 
 
 async def _bnb_transfers(client: httpx.AsyncClient, address: str, latest_block: int) -> list[ChainTransfer]:
-    response = await client.get(
-        settings.BSCSCAN_BASE_URL,
-        params={
-            "chainid": settings.BSC_CHAIN_ID,
-            "module": "account",
-            "action": "tokentx",
-            "contractaddress": settings.USDT_BEP20_CONTRACT,
-            "address": address,
-            "page": 1,
-            "offset": 200,
-            "sort": "desc",
-            "apikey": settings.BSCSCAN_API_KEY,
+    """BSCTrace/MegaNode equivalent of BscScan's ``tokentx``: the enhanced
+    ``nr_getAssetTransfers`` RPC method, filtered server-side to ERC20
+    ("20") transfers landing on our address from the USDT BEP20 contract."""
+    response = await client.post(
+        settings.MEGANODE_BSC_RPC_URL,
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "nr_getAssetTransfers",
+            "params": [
+                {
+                    "category": ["20"],
+                    "contractAddresses": [settings.USDT_BEP20_CONTRACT],
+                    "toAddress": address,
+                    "order": "desc",
+                    "maxCount": "0x3E8",
+                }
+            ],
         },
     )
     response.raise_for_status()
     payload = response.json()
-    if str(payload.get("status", "1")) not in {"1", "true", "True"}:
-        message = payload.get("result") or payload.get("message") or "BscScan rejected the request."
-        raise RuntimeError(str(message))
+    if "error" in payload:
+        error = payload["error"]
+        message = error.get("message") if isinstance(error, dict) else error
+        raise RuntimeError(str(message or "MegaNode/BSCTrace rejected the request."))
 
+    result = payload.get("result") or {}
     transfers: list[ChainTransfer] = []
-    for item in payload.get("result", []):
+    for item in result.get("transfers", []):
         if _normalise_address(item.get("to")) != _normalise_address(address):
             continue
         if _normalise_address(item.get("contractAddress")) != _normalise_address(
             settings.USDT_BEP20_CONTRACT
         ):
             continue
-        amount = _decimal_amount(item.get("value"), item.get("tokenDecimal", 18))
+        raw_value = item.get("value")
+        raw_decimal = item.get("decimal")
+        decimals = int(raw_decimal, 16) if isinstance(raw_decimal, str) else 18
+        amount = (
+            _decimal_amount(int(raw_value, 16), decimals)
+            if isinstance(raw_value, str)
+            else None
+        )
         tx_hash = str(item.get("hash") or "")
         if amount is None or amount <= 0 or not tx_hash:
             continue
-        block_number = (
-            int(item["blockNumber"]) if str(item.get("blockNumber", "")).isdigit() else None
+        raw_block = item.get("blockNum")
+        block_number = int(raw_block, 16) if isinstance(raw_block, str) else None
+        confirmations = (
+            max(0, latest_block - block_number + 1)
+            if block_number is not None and latest_block
+            else 0
         )
-        confirmations = int(item.get("confirmations") or 0)
-        if not confirmations and block_number is not None and latest_block:
-            confirmations = max(0, latest_block - block_number + 1)
         transfers.append(
             ChainTransfer(
                 network="bnb",
@@ -313,7 +328,7 @@ async def _network_transfers(
             return transfers, [str(exc)]
         for i, address in enumerate(unique_addresses):
             if i > 0:
-                await asyncio.sleep(0.25)  # stay under BscScan's free-tier rate limit
+                await asyncio.sleep(0.25)  # stay under MegaNode's free-tier rate limit
             try:
                 transfers.extend(await _bnb_transfers(client, address, latest_block))
             except (httpx.HTTPError, RuntimeError, ValueError) as exc:
@@ -429,7 +444,7 @@ async def ton_webhook_trigger() -> dict:
     """Scan only TON wallets — called when TonAPI's webhook notifies us that
     something happened on the hot wallet, instead of waiting for the next
     scheduled cycle. Scoped to TON only so a burst of TON notifications never
-    burns TronGrid/BscScan rate limit budget."""
+    burns TronGrid/MegaNode rate limit budget."""
     summary = {"transfers_seen": 0, "deposits_created": 0, "deposits_confirmed": 0, "deposits_credited": 0}
     notifications: list[tuple[str, Decimal, str, Decimal]] = []
     now = datetime.now(UTC)

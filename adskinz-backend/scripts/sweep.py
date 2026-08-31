@@ -91,27 +91,22 @@ def trc20_balance(client: Tron, address: str) -> int:
     return int(contract.functions.balanceOf(address))
 
 
-def bscscan_balance(address: str) -> int:
-    """Read the USDT balance via BscScan; this performs no signing or sending."""
-    if not settings.BSCSCAN_API_KEY:
-        raise RuntimeError("BSCSCAN_API_KEY is required for BEP20 balance checks.")
-    response = httpx.get(
-        settings.BSCSCAN_BASE_URL,
-        params={
-            "module": "account",
-            "action": "tokenbalance",
-            "contractaddress": settings.USDT_BEP20_CONTRACT,
-            "address": address,
-            "tag": "latest",
-            "apikey": settings.BSCSCAN_API_KEY,
-        },
-        timeout=20,
+def bep20_balance(address: str) -> int:
+    """Read the USDT balance via a standard eth_call (balanceOf) through
+    BSCTrace/MegaNode; this performs no signing or sending."""
+    if not settings.MEGANODE_API_KEY:
+        raise RuntimeError("MEGANODE_API_KEY is required for BEP20 balance checks.")
+    selector = "70a08231"  # keccak4("balanceOf(address)")
+    padded_address = address.lower().removeprefix("0x").rjust(64, "0")
+    result = rpc_call(
+        settings.MEGANODE_BSC_RPC_URL,
+        "eth_call",
+        [
+            {"to": settings.USDT_BEP20_CONTRACT, "data": f"0x{selector}{padded_address}"},
+            "latest",
+        ],
     )
-    response.raise_for_status()
-    payload = response.json()
-    if payload.get("status") != "1":
-        raise RuntimeError(payload.get("result") or payload.get("message") or "BscScan request failed.")
-    return int(payload["result"])
+    return int(result, 16) if isinstance(result, str) else 0
 
 
 def rpc_call(rpc_url: str, method: str, params: list[object]) -> object:
@@ -230,7 +225,7 @@ def main() -> None:
             print(f"  TRC20 {wallet.trc20_address}: balance lookup failed ({exc})")
 
         try:
-            bsc_amount = bscscan_balance(wallet.bsc_address)
+            bsc_amount = bep20_balance(wallet.bsc_address)
             print(f"  BSC   {wallet.bsc_address}: {display_usdt(bsc_amount)}")
         except Exception as exc:
             bsc_amount = 0

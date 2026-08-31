@@ -142,9 +142,16 @@ class Settings(BaseSettings):
 
     TRONGRID_API_KEY: str = "b94228c9-c234-4399-8c39-ccaf46d13b97"
     TRONGRID_BASE_URL: str = "https://api.trongrid.io"
+    # Deprecated: Etherscan V2 no longer offers free-tier access to BNB Smart
+    # Chain. Kept only for reference — deposits.py and sweep.py now read
+    # BNB Smart Chain data through MEGANODE_BSC_RPC_URL below instead.
     BSCSCAN_API_KEY: str = "RAYN37HRFNVPYJYNEWMUJJ6RVBZFY4M2ZH"
     BSCSCAN_BASE_URL: str = "https://api.etherscan.io/v2/api"
     BSC_CHAIN_ID: int = 56
+    # BSCTrace (via NodeReal's MegaNode) — free-tier BNB Smart Chain provider
+    # used for block height, BEP20 balance and transfer-history lookups.
+    MEGANODE_API_KEY: str = "747b7559829d440195bc6c7c55f052a7"
+    MEGANODE_BSC_RPC_URL: str = "https://bsc-mainnet.nodereal.io/v1/747b7559829d440195bc6c7c55f052a7"
     TONCENTER_API_KEY: str = "f355c8138b5f1d7158541863828cdd9693470c25621006e54615bfdee49785ad"
     TONCENTER_BASE_URL: str = "https://toncenter.com/api/v2"
     TONAPI_API_KEY: str = "AGJFFJJM2XZ56RYAAAAC3OULCTZUEX4XIAKURHDBPKOM5LUMAKMXMBWTMXTIGV66GMCVQ2A"
