@@ -19,44 +19,42 @@ export const Route = createFileRoute("/kingcey/")({
 });
 
 function AdminSignIn() {
-  const { adminLogin, adminTotp, token, role, ready } = useAuth();
+  const { adminRequestCode, adminVerifyCode, token, role, ready } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState<"credentials" | "totp">("credentials");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [step, setStep] = useState<"ask" | "verify">("ask");
   const [code, setCode] = useState("");
-  const [partialToken, setPartialToken] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sentNotice, setSentNotice] = useState(false);
 
   useEffect(() => {
     if (ready && token && role === "admin") void navigate({ to: "/kingcey/overview", replace: true });
   }, [ready, token, role, navigate]);
 
-  async function submitCredentials(e: React.FormEvent) {
-    e.preventDefault();
+  async function askCode() {
     setBusy(true);
     setError(null);
     try {
-      const res = await adminLogin(email.trim(), password);
-      setPartialToken(res.partial_token);
-      setStep("totp");
+      await adminRequestCode();
+      setStep("verify");
+      setSentNotice(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Sign in failed. Check your credentials.");
+      setError(err instanceof ApiError ? err.message : "Could not send the code. Try again.");
     } finally {
       setBusy(false);
     }
   }
 
-  async function submitTotp(e: React.FormEvent) {
+  async function submitVerify(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await adminTotp(partialToken, code.trim());
+      await adminVerifyCode(code.trim(), password);
       await navigate({ to: "/kingcey/overview", replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Invalid authentication code.");
+      setError(err instanceof ApiError ? err.message : "Invalid or expired code/password.");
     } finally {
       setBusy(false);
     }
@@ -74,19 +72,32 @@ function AdminSignIn() {
         </p>
 
         <div className="mt-6 rounded-2xl border border-seam bg-panel p-5">
-          {step === "credentials" ? (
-            <form className="space-y-4" onSubmit={submitCredentials}>
-              <Field label="Work email">
+          {step === "ask" ? (
+            <div className="space-y-4">
+              {error && <FieldError>{error}</FieldError>}
+              <Btn className="w-full" onClick={() => void askCode()} disabled={busy}>
+                {busy ? "Sending…" : "Ask code"}
+              </Btn>
+            </div>
+          ) : (
+            <form className="space-y-4" onSubmit={submitVerify}>
+              {sentNotice && (
+                <p className="rounded-xl border border-seam bg-panel-2 px-3 py-2 text-xs text-paper-dim">
+                  A code was emailed. It expires in 10 minutes and can only be used once.
+                </p>
+              )}
+              <Field label="8-digit code">
                 <input
-                  className={inputCls()}
-                  type="email"
-                  autoComplete="username"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  className={`${inputCls()} num tracking-[0.3em]`}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={8}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                   required
                 />
               </Field>
-              <Field label="Password">
+              <Field label="Console password">
                 <input
                   className={inputCls()}
                   type="password"
@@ -97,46 +108,26 @@ function AdminSignIn() {
                 />
               </Field>
               {error && <FieldError>{error}</FieldError>}
-              <Btn className="w-full" disabled={busy}>
-                {busy ? "Checking…" : "Continue"}
-              </Btn>
-            </form>
-          ) : (
-            <form className="space-y-4" onSubmit={submitTotp}>
-              <Field label="6-digit authenticator code">
-                <input
-                  className={`${inputCls()} num tracking-[0.4em]`}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                  required
-                />
-              </Field>
-              {error && <FieldError>{error}</FieldError>}
-              <Btn className="w-full" disabled={busy || code.length < 6}>
+              <Btn className="w-full" disabled={busy || code.length < 8 || !password}>
                 {busy ? "Verifying…" : "Open console"}
               </Btn>
               <button
                 type="button"
                 className="w-full text-xs font-semibold text-paper-dim hover:text-paper"
-                onClick={() => {
-                  setStep("credentials");
-                  setCode("");
-                  setError(null);
-                }}
+                onClick={() => void askCode()}
+                disabled={busy}
               >
-                Back to credentials
+                Ask a new code
               </button>
             </form>
           )}
         </div>
 
         <div className="mt-5">
-          <Quote>Two-factor authentication is mandatory for every admin session.</Quote>
+          <Quote>The code and the console password are both required — either alone opens nothing.</Quote>
         </div>
       </div>
     </main>
   );
 }
+

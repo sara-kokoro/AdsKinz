@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiFetch, tokenStore, type Role } from "./api";
-import type { AdminPartialTokenResponse, AdminSessionResponse, RegisterResponse, TokenRefreshResponse, TokenResponse, UserProfile } from "./types";
+import type { AdminRequestCodeResponse, AdminSessionResponse, RegisterResponse, TokenRefreshResponse, TokenResponse, UserProfile } from "./types";
 
 type AuthState = {
   ready: boolean;
@@ -20,8 +20,8 @@ type AuthState = {
   }) => Promise<RegisterResponse>;
   verifyEmail: (email: string, code: string) => Promise<Role>;
   resendVerification: (email: string) => Promise<RegisterResponse>;
-  adminLogin: (email: string, password: string) => Promise<AdminPartialTokenResponse>;
-  adminTotp: (partialToken: string, code: string) => Promise<void>;
+  adminRequestCode: () => Promise<AdminRequestCodeResponse>;
+  adminVerifyCode: (code: string, password: string) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
 };
@@ -212,21 +212,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const adminLogin = useCallback(
-    (email: string, password: string) =>
-      apiFetch<AdminPartialTokenResponse>("/admin/auth/login", {
+  const adminRequestCode = useCallback(
+    () =>
+      apiFetch<AdminRequestCodeResponse>("/admin/auth/request-code", {
         method: "POST",
-        body: { email, password },
         auth: false,
       }),
     [],
   );
 
-  const adminTotp = useCallback(
-    async (partialToken: string, code: string) => {
-      const res = await apiFetch<AdminSessionResponse>("/admin/auth/totp", {
+  const adminVerifyCode = useCallback(
+    async (code: string, password: string) => {
+      const res = await apiFetch<AdminSessionResponse>("/admin/auth/verify-code", {
         method: "POST",
-        body: { partial_token: partialToken, code },
+        body: { code, password },
         auth: false,
       });
       applySession(res.access_token, res.refresh_token, "admin", null);
@@ -262,12 +261,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register,
       verifyEmail,
       resendVerification,
-      adminLogin,
-      adminTotp,
+      adminRequestCode,
+      adminVerifyCode,
       logout,
       refresh,
     }),
-    [ready, token, role, user, login, register, verifyEmail, resendVerification, adminLogin, adminTotp, logout, refresh],
+    [ready, token, role, user, login, register, verifyEmail, resendVerification, adminRequestCode, adminVerifyCode, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

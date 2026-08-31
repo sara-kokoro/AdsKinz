@@ -1,14 +1,17 @@
-"""Account registration, login and the two-step admin authentication."""
+"""Account registration, login and the admin console sign-in."""
 
 from __future__ import annotations
 
+import hmac
 import logging
+import secrets
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.enums import Role
 from app.core.errors import (
     AccountBlockedError,
@@ -19,7 +22,6 @@ from app.core.errors import (
 )
 from app.core.security import (
     create_access_token,
-    create_admin_partial_token,
     create_admin_session_token,
     create_refresh_token,
     decode_token,
@@ -30,12 +32,13 @@ from app.core.security import (
 )
 from app.models.accounts import AdminUser, Advertiser, Publisher, RefreshToken
 from app.schemas.auth import (
-    AdminPartialTokenResponse,
+    AdminRequestCodeResponse,
     AdminSessionResponse,
     RegisterResponse,
     TokenResponse,
     UserProfile,
 )
+from app.services import email_service
 
 logger = logging.getLogger(__name__)
 
@@ -339,79 +342,83 @@ async def login(
 
 
 # --------------------------------------------------------------------------- #
-# Admin: two-step login
+# Admin: emailed code + fixed console password
 # --------------------------------------------------------------------------- #
-async def admin_login(
-    session: AsyncSession,
-    *,
-    email: str,
-    password: str,
-) -> AdminPartialTokenResponse:
-    """Step 1. Validates the password and returns a short-lived partial token.
-
-    The partial token grants no access at all: it is only accepted by
-    ``admin_verify_totp``.
-    """
-    email = email.strip().lower()
+async def _get_or_create_console_admin(session: AsyncSession) -> AdminUser:
+    """The console has exactly one operator account, identified by
+    ``settings.ADMIN_LOGIN_EMAIL``. It is auto-provisioned on first use so
+    there is nothing to run manually before the console works."""
+    email = settings.ADMIN_LOGIN_EMAIL.strip().lower()
     admin = (
         await session.execute(select(AdminUser).where(AdminUser.email == email))
     ).scalar_one_or_none()
-
     if admin is None:
-        verify_password(password, hash_password("timing-equaliser"))
-        raise AuthenticationError(_INVALID_CREDENTIALS)
+        admin = AdminUser(
+            email=email,
+            # Unused by this login flow (the real check is the fixed
+            # console password in settings), stored only because the
+            # column is required.
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+            is_active=True,
+        )
+        session.add(admin)
+        await session.flush()
+    return admin
 
-    if not verify_password(password, admin.password_hash):
-        raise AuthenticationError(_INVALID_CREDENTIALS)
 
+async def admin_request_login_code(session: AsyncSession) -> AdminRequestCodeResponse:
+    """Step 1 — "Ask code". Emails a fresh one-time 8-digit code and
+    discards any code requested earlier."""
+    admin = await _get_or_create_console_admin(session)
     if not admin.is_active:
         raise AccountBlockedError("This admin account is disabled.")
 
-    if not admin.totp_secret:
-        raise AuthenticationError(
-            "This admin account has no authenticator configured. Run the "
-            "create_admin script to provision one."
-        )
-
-    return AdminPartialTokenResponse(
-        partial_token=create_admin_partial_token(admin.id),
-        expires_in=token_expiry_seconds("admin_partial"),
+    code = f"{secrets.randbelow(10**8):08d}"
+    admin.login_code_hash = hash_password(code)
+    admin.login_code_expires_at = datetime.now(UTC) + timedelta(
+        seconds=settings.ADMIN_LOGIN_CODE_TTL_SECONDS
     )
+    await session.commit()
+
+    await email_service.send_admin_login_code(settings.ADMIN_LOGIN_EMAIL, code=code)
+    logger.info("admin.login_code_requested")
+
+    return AdminRequestCodeResponse(expiresIn=settings.ADMIN_LOGIN_CODE_TTL_SECONDS)
 
 
-async def admin_verify_totp(
+async def admin_verify_login_code(
     session: AsyncSession,
     *,
-    partial_token: str,
     code: str,
+    password: str,
     ip_hash: str | None = None,
 ) -> AdminSessionResponse:
-    """Step 2. Validates the 6-digit code and issues the real admin session."""
-    payload = decode_token(partial_token, expected_kind="admin_partial")
-    subject = payload.get("sub")
-    if not subject:
-        raise TokenError("Malformed partial token.")
+    """Step 2 — the emailed code plus the fixed console password.
 
-    admin = (
-        await session.execute(select(AdminUser).where(AdminUser.id == subject))
-    ).scalar_one_or_none()
-    if admin is None or not admin.is_active:
-        raise AuthenticationError("Admin account is not active.")
+    Both must match; either alone grants nothing. The code is single-use
+    and expires (``ADMIN_LOGIN_CODE_TTL_SECONDS``), so a leaked email does
+    not help without the password, and a leaked password does not help
+    without a fresh code.
+    """
+    admin = await _get_or_create_console_admin(session)
+    if not admin.is_active:
+        raise AccountBlockedError("This admin account is disabled.")
 
-    # pyotp counters advance every 30 seconds; refusing a counter we have
-    # already accepted blocks replay of a code captured on the wire.
-    import pyotp  # imported lazily so tests can stub it
+    # Constant-time comparison: the console password never varies in
+    # length in practice, but this avoids leaking timing information.
+    password_ok = hmac.compare_digest(password, settings.ADMIN_LOGIN_PASSWORD)
 
-    totp = pyotp.TOTP(admin.totp_secret)
-    if not totp.verify(code, valid_window=1):
-        raise AuthenticationError("Invalid authentication code.")
+    code_ok = False
+    if admin.login_code_hash and admin.login_code_expires_at:
+        if datetime.now(UTC) <= admin.login_code_expires_at:
+            code_ok = verify_password(code, admin.login_code_hash)
 
-    counter = int(datetime.now(UTC).timestamp()) // 30
-    if admin.last_totp_counter is not None and counter <= admin.last_totp_counter:
-        raise AuthenticationError("This authentication code has already been used.")
+    if not (password_ok and code_ok):
+        raise AuthenticationError("Invalid or expired code/password. Ask for a new code and try again.")
 
-    admin.last_totp_counter = counter
-    admin.totp_confirmed = True
+    # One-time use: burn the code the moment it succeeds.
+    admin.login_code_hash = None
+    admin.login_code_expires_at = None
     admin.last_login_at = datetime.now(UTC)
     admin.last_login_ip_hash = ip_hash
 

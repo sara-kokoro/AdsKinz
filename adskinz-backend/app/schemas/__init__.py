@@ -28,10 +28,9 @@ from app.schemas.advertiser import (
     TranslationItem,
 )
 from app.schemas.auth import (
-    AdminLoginRequest,
-    AdminPartialTokenResponse,
+    AdminRequestCodeResponse,
     AdminSessionResponse,
-    AdminTotpRequest,
+    AdminVerifyCodeRequest,
     LoginRequest,
     RegisterRequest,
     TokenResponse,
@@ -70,11 +69,10 @@ from app.schemas.sdk import NoFillResponse, ServeCreative, ServeResponse
 
 __all__ = [
     "APIModel",
-    "AdminLoginRequest",
     "AdminOverviewResponse",
-    "AdminPartialTokenResponse",
+    "AdminRequestCodeResponse",
     "AdminSessionResponse",
-    "AdminTotpRequest",
+    "AdminVerifyCodeRequest",
     "AdvertiserStatsResponse",
     "AnomalyItem",
     "AnomalyListResponse",

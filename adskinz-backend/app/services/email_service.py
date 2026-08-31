@@ -194,6 +194,19 @@ async def send_verification_code(to: str, *, code: str) -> bool:
     return await send_email(to, "AdsKinz — verify your email", body)
 
 
+async def send_admin_login_code(to: str, *, code: str) -> bool:
+    """Send the one-time 8-digit code used to sign in to the internal console."""
+    body = _render(
+        "AdsKinz internal console — sign-in code",
+        "Someone requested a sign-in code for the internal console. Enter it "
+        "together with the console password to continue.",
+        {"Sign-in code": code},
+        "This code expires in 10 minutes and can only be used once. If you did "
+        "not request this, ignore this email — no one can sign in without it.",
+    )
+    return await send_email(to, "AdsKinz — internal console sign-in code", body)
+
+
 async def send_admin_alert(subject: str, detail: str) -> bool:
     """Operational alert to the platform operator."""
     return await send_email(

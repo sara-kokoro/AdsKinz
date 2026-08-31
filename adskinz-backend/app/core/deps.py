@@ -152,10 +152,9 @@ async def get_current_admin(
     session: SessionDep,
     authorization: Annotated[str | None, Header()] = None,
 ) -> CurrentAdmin:
-    """Only full admin session tokens are accepted.
-
-    A partial token issued by ``/admin/auth/login`` is deliberately rejected
-    here: it is only valid on ``/admin/auth/totp``.
+    """Only full admin session tokens are accepted — issued by
+    ``POST /admin/auth/verify-code`` after the emailed code and the console
+    password both check out.
     """
     token = _extract_bearer(authorization)
     payload = decode_token(token, expected_kind="admin_session")

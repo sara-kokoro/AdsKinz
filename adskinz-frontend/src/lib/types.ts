@@ -36,11 +36,9 @@ export type TokenRefreshResponse = {
   role: Role;
 };
 
-export type AdminPartialTokenResponse = {
-  partial_token: string;
-  expires_in: number;
-  totp_required: boolean;
-  message: string;
+export type AdminRequestCodeResponse = {
+  sent: boolean;
+  expiresIn: number;
 };
 
 export type AdminSessionResponse = {

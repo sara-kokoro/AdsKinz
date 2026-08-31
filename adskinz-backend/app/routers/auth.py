@@ -3,8 +3,8 @@
 Paths are fixed by the frontend contract and must not be renamed:
     POST /auth/register
     POST /auth/login
-    POST /admin/auth/login
-    POST /admin/auth/totp
+    POST /admin/auth/request-code
+    POST /admin/auth/verify-code
 """
 
 from __future__ import annotations
@@ -19,10 +19,9 @@ from app.core.deps import (
 )
 from app.core.enums import Role
 from app.schemas.auth import (
-    AdminLoginRequest,
-    AdminPartialTokenResponse,
+    AdminRequestCodeResponse,
     AdminSessionResponse,
-    AdminTotpRequest,
+    AdminVerifyCodeRequest,
     ChangePasswordRequest,
     EmailVerifyRequest,
     LoginRequest,
@@ -204,42 +203,34 @@ async def refresh(
 
 
 # --------------------------------------------------------------------------- #
-# Admin: two-step login
+# Admin: emailed code + fixed console password
 # --------------------------------------------------------------------------- #
 @admin_auth_router.post(
-    "/login",
-    response_model=AdminPartialTokenResponse,
+    "/request-code",
+    response_model=AdminRequestCodeResponse,
     dependencies=[Depends(login_rate_limit)],
-    summary="Admin step 1 — password, returns a partial token",
+    summary="Admin step 1 — email a fresh 8-digit sign-in code",
 )
-async def admin_login(
-    payload: AdminLoginRequest,
-    session: SessionDep,
-) -> AdminPartialTokenResponse:
-    """Validates the password only.
-
-    The returned partial token grants no access; it is only accepted by
-    ``POST /admin/auth/totp``.
-    """
-    return await auth_service.admin_login(
-        session, email=payload.email, password=payload.password
-    )
+async def admin_request_code(session: SessionDep) -> AdminRequestCodeResponse:
+    """Sends the code to the fixed console email (never entered by the
+    user). No request body — just click "Ask code"."""
+    return await auth_service.admin_request_login_code(session)
 
 
 @admin_auth_router.post(
-    "/totp",
+    "/verify-code",
     response_model=AdminSessionResponse,
     dependencies=[Depends(login_rate_limit)],
-    summary="Admin step 2 — TOTP code, returns the real session token",
+    summary="Admin step 2 — emailed code + console password, returns the session token",
 )
-async def admin_totp(
-    payload: AdminTotpRequest,
+async def admin_verify_code(
+    payload: AdminVerifyCodeRequest,
     session: SessionDep,
     ip_hash: ClientIPHashDep,
 ) -> AdminSessionResponse:
-    return await auth_service.admin_verify_totp(
+    return await auth_service.admin_verify_login_code(
         session,
-        partial_token=payload.partial_token,
         code=payload.code,
+        password=payload.password,
         ip_hash=ip_hash,
     )

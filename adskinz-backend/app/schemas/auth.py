@@ -84,16 +84,18 @@ class ResendVerificationRequest(RequestModel):
     email: EmailStr
 
 
-class AdminLoginRequest(RequestModel):
-    email: EmailStr
-    password: str = Field(min_length=1)
+class AdminRequestCodeResponse(APIModel):
+    """Returned by POST /admin/auth/request-code."""
+
+    sent: Literal[True] = True
+    expiresIn: int
 
 
-class AdminTotpRequest(RequestModel):
-    """Second factor. ``partial_token`` comes from /admin/auth/login."""
+class AdminVerifyCodeRequest(RequestModel):
+    """Step 2 — the 8-digit emailed code plus the fixed console password."""
 
-    partial_token: str = Field(min_length=10)
-    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+    code: str = Field(min_length=8, max_length=8, pattern=r"^\d{8}$")
+    password: str = Field(min_length=1, max_length=200)
 
 
 class UserProfile(APIModel):
@@ -148,29 +150,6 @@ class TokenRefreshResponse(APIModel):
     token_type: Literal["bearer"] = "bearer"
     expires_in: int
     role: Role
-
-
-class AdminPartialTokenResponse(APIModel):
-    """Returned by /admin/auth/login. Not a usable session token.
-
-    It only unlocks ``POST /admin/auth/totp``; every protected admin route
-    rejects it.
-    """
-
-    partial_token: str
-    expires_in: int
-    totp_required: Literal[True] = True
-    message: str = "Enter the 6-digit code from your authenticator app."
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def partialToken(self) -> str:  # noqa: N802
-        return self.partial_token
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def totpRequired(self) -> bool:  # noqa: N802
-        return self.totp_required
 
 
 class AdminSessionResponse(APIModel):

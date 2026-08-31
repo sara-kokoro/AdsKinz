@@ -138,14 +138,21 @@ class AdminUser(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
 
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    # Never serialised into an API response after initial provisioning.
-    totp_secret: Mapped[str] = mapped_column(Text, nullable=False)
+    # Legacy TOTP fields, unused by the current email-code + fixed-password
+    # login flow (kept nullable so old rows and the create_admin script
+    # don't need to change shape).
+    totp_secret: Mapped[str | None] = mapped_column(Text)
     totp_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_ip_hash: Mapped[str | None] = mapped_column(String(64))
-    # Guards against TOTP code replay within the same 30s step.
+    # Guards against TOTP code replay within the same 30s step. Unused now.
     last_totp_counter: Mapped[int | None] = mapped_column(Integer)
+    # One-time 8-digit sign-in code, emailed via Resend on "Ask code".
+    # Hashed the same way as a password; cleared the moment it's consumed
+    # or expires, so it can never be replayed.
+    login_code_hash: Mapped[str | None] = mapped_column(Text)
+    login_code_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<AdminUser {self.email}>"
