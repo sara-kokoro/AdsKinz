@@ -117,10 +117,10 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Extended public keys used to derive advertiser deposit addresses.
     XPUB_TRC20: str = "xpub6C68S3zhWtPPf96VnVtorvGoi8VtMdmt3qQEmTG6sVu63Jx3AKw2HATwSBDuMe29ZLR5i3LwqFppsibCUM18d1tmvYj9i2e95brBNwmQnqD"
-    XPUB_BEP20: str = "xpub6D8NdJLTpNYwTzurNYZ4brNgVU27eUo8iQJ4VpsH2Xe4qE5q3MsrBefggFJFq9vQqsRfHgKeYcdqiXrH9UUPocM63BQQ84pGPeztLu9aACQ"
+    XPUB_BEP20: str = "xpub6DJ5RcaKuhkZ1im8Rkp4ZZeQft3wbdTjRKYdQWY2dDVpoHfvAV2tQnMMF6LSkkRsnXTpj1MQuF79JCY69ZdKNwbHAmKmNLezRUuznuRByhs"
     # Extended private key for BEP20 deposit addresses. Required to sign the
     # automatic sweep of USDT from derived addresses to the treasury.
-    ACCOUNT_XPRV: str = "xprv9z92DnoZyzzeFWqPGX24EiRwwSBdF25HMBNThSTfUC75xRkgVpZbdrMCpvwgDQ5haa7nP4mb8tgMijxAfe5YLedTSGfBpQpXvJmxeL98Mwe"
+    ACCOUNT_XPRV: str = "xprv9zJj273S5LCFoEgfKjH4CRhg7rDTCAjt46d2c88R4sxqvVLmcwidrz2sPntTXP2dLGR3wJemPNrMYFQfeU9E48qQaJjp1VbqFUBu3Fkumzo"
     # Hot wallet that funds derived addresses with BNB for gas. Must hold BNB.
     BSC_GAS_WALLET_PRIVATE_KEY: str = "clever walk sock rubber bunker destroy nephew crane turtle file ramp aware"
     # Main treasury address that receives swept USDT on BNB Smart Chain.
