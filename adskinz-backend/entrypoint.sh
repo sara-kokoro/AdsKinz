@@ -9,8 +9,9 @@ alembic upgrade head
 echo "entrypoint: migrations up to date, starting the API."
 
 if [ "${RUN_WALLET_ADDRESS_RESET:-}" = "1" ]; then
-  echo "entrypoint: RUN_WALLET_ADDRESS_RESET=1 -> resetting wallet addresses..."
-  python -m app.onetime_reset_wallet_addresses --network all --yes
+  RESET_NETWORK="${RUN_WALLET_ADDRESS_RESET_NETWORK:-all}"
+  echo "entrypoint: RUN_WALLET_ADDRESS_RESET=1 (network=$RESET_NETWORK) -> resetting wallet addresses..."
+  python -m app.onetime_reset_wallet_addresses --network "$RESET_NETWORK" --yes
   echo "entrypoint: wallet address reset done."
 fi
 
