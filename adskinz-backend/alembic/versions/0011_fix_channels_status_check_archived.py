@@ -22,9 +22,9 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.drop_constraint("ck_channels_status_valid", "channels", type_="check")
+    op.drop_constraint(op.f("ck_channels_status_valid"), "channels", type_="check")
     op.create_check_constraint(
-        "ck_channels_status_valid",
+        op.f("ck_channels_status_valid"),
         "channels",
         "status IN ('pending_moderation', 'approved_not_started', "
         "'active_building_trust', 'active', 'suspended', 'archived', 'rejected')",
@@ -32,9 +32,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint("ck_channels_status_valid", "channels", type_="check")
+    op.drop_constraint(op.f("ck_channels_status_valid"), "channels", type_="check")
     op.create_check_constraint(
-        "ck_channels_status_valid",
+        op.f("ck_channels_status_valid"),
         "channels",
         "status IN ('pending_moderation', 'approved_not_started', "
         "'active_building_trust', 'active', 'suspended', 'rejected')",
