@@ -54,12 +54,13 @@ function Deposits() {
           setVerifyError(t("adv.deposits.verifyScanFailed", { error: res.scan_error }));
           return;
         }
+        const networkLabel = t(NETWORKS.find((n) => n.id === net)?.key ?? "adv.deposits.bnb");
         setVerifyNotice(
           res.deposits_credited > 0
             ? t("adv.deposits.verifyFoundCredited", { count: res.deposits_credited })
             : res.transfers_seen > 0
               ? t("adv.deposits.verifyFoundPending")
-              : t("adv.deposits.verifyNothingYet"),
+              : t("adv.deposits.verifyNothingYet", { network: networkLabel }),
         );
       },
       onError: (e) => setVerifyError(e instanceof ApiError ? e.message : t("common.loadError")),

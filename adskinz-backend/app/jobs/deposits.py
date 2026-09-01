@@ -6,7 +6,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable
 
@@ -354,12 +354,20 @@ async def _process_transfers(
     now: datetime,
     summary: dict[str, int],
     notifications: list[tuple[str, Decimal, str, Decimal]],
+    recent_since: datetime | None = None,
 ) -> None:
     """Persist discovered transfers, credit confirmed ones, and trigger sweeps.
 
     Shared by the scheduled batch watcher and the on-demand single-address
     verify endpoint — the two must never diverge in how a deposit is
     validated and credited.
+
+    ``recent_since``, when given, scopes ``summary["transfers_seen"]`` to
+    deposits first created at or after that time. Without this, an already
+    -credited deposit from days ago kept re-incrementing transfers_seen on
+    every later "Verify" click (the chain scan still finds the old tx),
+    which made the UI claim a transfer was "found — pending confirmations"
+    forever, even with nothing actually pending.
     """
     for transfer in discovered:
         memo_key = (transfer.memo or "").strip().lower() if transfer.network == "ton" else ""
@@ -368,7 +376,6 @@ async def _process_transfers(
         )
         if wallet is None:
             continue
-        summary["transfers_seen"] += 1
 
         deposit = (
             await session.execute(select(Deposit).where(Deposit.tx_hash == transfer.tx_hash))
@@ -396,6 +403,12 @@ async def _process_transfers(
             deposit.confirmations = max(deposit.confirmations, transfer.confirmations)
             if transfer.block_number is not None:
                 deposit.block_number = transfer.block_number
+
+        # Only count as "seen" for messaging purposes when it's genuinely
+        # still awaiting credit, and (if a lookback window was given) recent
+        # enough to matter to the person who just clicked "Verify".
+        if not deposit.credited and (recent_since is None or deposit.created_at >= recent_since):
+            summary["transfers_seen"] += 1
 
         if (
             deposit.confirmations < _required_confirmations(deposit.network)
@@ -564,7 +577,15 @@ async def verify_deposit_address(advertiser_id: uuid.UUID, network: str) -> dict
 
         wallet.last_scanned_at = now
         address_index = {(network, _normalise_address(wallet.address), (wallet.memo or "").lower()): wallet}
-        await _process_transfers(session, discovered, address_index, now, summary, notifications)
+        await _process_transfers(
+            session,
+            discovered,
+            address_index,
+            now,
+            summary,
+            notifications,
+            recent_since=now - timedelta(minutes=30),
+        )
 
     if scan_errors:
         # Surfaced to the "Verify" button so a broken scan (bad API key,

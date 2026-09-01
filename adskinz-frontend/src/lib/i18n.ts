@@ -305,7 +305,7 @@ const en = {
       verifying: "Checking the chain…",
       verifyFoundCredited: "Found it — your balance has been updated.",
       verifyFoundPending: "Found your transfer — waiting on more confirmations before it's credited.",
-      verifyNothingYet: "Nothing found yet. If you just sent it, give it a minute and try again.",
+      verifyNothingYet: "No deposit received on {{network}} in the last 30 minutes. If you just sent it, give it a minute and try again.",
       verifyScanFailed: "Could not scan the chain right now ({{error}}). This is a temporary problem on our side, not your deposit — try again shortly.",
       trcWarning:
         "Use only USD₮ TRON/TRC20. The current fee for transferring 3.25 USD₮ in the TRON network. It will be deducted from the top-up amount.",
@@ -922,7 +922,7 @@ const fr: Dict = {
       verifying: "Vérification en cours…",
       verifyFoundCredited: "Trouvé — ton solde a été mis à jour.",
       verifyFoundPending: "Transfert trouvé — en attente de plus de confirmations avant crédit.",
-      verifyNothingYet: "Rien trouvé pour l'instant. Si tu viens de l'envoyer, patiente une minute et réessaie.",
+      verifyNothingYet: "Aucun dépôt reçu sur {{network}} au cours des 30 dernières minutes. Si tu viens de l'envoyer, patiente un instant et réessaie.",
       verifyScanFailed: "Impossible de scanner la chaîne pour le moment ({{error}}). C'est un problème temporaire de notre côté, pas ton dépôt — réessaie dans un instant.",
       trcWarning:
         "Utilisez uniquement USD₮ TRON/TRC20. Les frais actuels de transfert sont de 3,25 USD₮ sur le réseau TRON. Ils seront déduits du montant rechargé.",
