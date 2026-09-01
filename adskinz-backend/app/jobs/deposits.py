@@ -50,6 +50,32 @@ def _normalise_address(value: Any) -> str:
     return str(value or "").strip().lower()
 
 
+def _int_maybe_hex(value: Any, *, default: int | None) -> int | None:
+    """Parse an int that may come back as ``"0x..."`` OR as a plain decimal
+    string, depending on the field and the provider.
+
+    The previous code assumed every numeric-looking string from MegaNode's
+    ``nr_getAssetTransfers`` was hex (``int(value, 16)``). Fields like
+    ``decimal`` and ``blockNum`` can come back as a plain base-10 string
+    (e.g. ``"18"``) instead. Blindly parsing ``"18"`` as hex silently gives
+    ``24`` — for the token-decimals field specifically, that turns a real
+    $5/$15 USDT transfer into an amount that rounds to $0.00 once divided
+    by 10**24 and quantized to 2 decimals, which is exactly what produced
+    the "$0.00, sweep worked, never credited" deposits.
+    """
+    if value is None:
+        return default
+    text = str(value).strip()
+    if not text:
+        return default
+    try:
+        if text.lower().startswith("0x"):
+            return int(text, 16)
+        return int(text, 10)
+    except (TypeError, ValueError):
+        return default
+
+
 def _normalise_ton_address(value: Any) -> str:
     """Canonicalise a TON address to raw ``wc:hex`` form for comparison.
 
@@ -196,17 +222,16 @@ async def _bnb_transfers(client: httpx.AsyncClient, address: str, latest_block: 
             continue
         raw_value = item.get("value")
         raw_decimal = item.get("decimal")
-        decimals = int(raw_decimal, 16) if isinstance(raw_decimal, str) else 18
+        decimals = _int_maybe_hex(raw_decimal, default=18)
+        raw_int_value = _int_maybe_hex(raw_value, default=None)
         amount = (
-            _decimal_amount(int(raw_value, 16), decimals)
-            if isinstance(raw_value, str)
-            else None
+            _decimal_amount(raw_int_value, decimals) if raw_int_value is not None else None
         )
         tx_hash = str(item.get("hash") or "")
         if amount is None or amount <= 0 or not tx_hash:
             continue
         raw_block = item.get("blockNum")
-        block_number = int(raw_block, 16) if isinstance(raw_block, str) else None
+        block_number = _int_maybe_hex(raw_block, default=None)
         confirmations = (
             max(0, latest_block - block_number + 1)
             if block_number is not None and latest_block
@@ -429,10 +454,23 @@ async def _process_transfers(
         )
         deposit.status = DepositStatus.CONFIRMED.value
         deposit.confirmed_at = now
-        deposit.credited = True
         summary["deposits_confirmed"] += 1
         if credited > 0:
+            # Only lock the deposit as "done" once the balance was actually
+            # moved. Previously this was set unconditionally, so a deposit
+            # whose computed amount_usd came out as 0 (e.g. the BNB
+            # decimals-parsing bug above) got marked credited=True forever
+            # on the very first pass — confirmations satisfied, sweep ran,
+            # but the advertiser's balance never moved, and no future
+            # "Vérifier" click or scheduler pass could ever retry it because
+            # the (confirmations >= required) OR credited check skips it.
+            deposit.credited = True
             summary["deposits_credited"] += 1
+        else:
+            logger.error(
+                "deposits.zero_amount_confirmed deposit=%s network=%s gross=%s amount_usd=%s tx=%s",
+                deposit.id, deposit.network, deposit.gross_amount_usd, deposit.amount_usd, deposit.tx_hash,
+            )
 
         # Automatic BEP20 sweep: send USDT from the derived address to treasury.
         if deposit.network == "bnb" and wallet.derivation_index is not None:
