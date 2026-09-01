@@ -303,6 +303,24 @@ export type AuditEntry = {
   createdAt: string | null;
 };
 
+export type Bep20SweepItem = {
+  id: string;
+  depositId: string;
+  advertiserEmail: string;
+  derivedAddress: string;
+  derivationIndex: number;
+  treasuryAddress: string;
+  grossAmountUsd: string | null;
+  sweptAmountUsd: string | null;
+  gasTopupTxHash: string | null;
+  sweepTxHash: string | null;
+  dustReturnTxHash: string | null;
+  status: "pending" | "in_progress" | "swept" | "failed";
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Finances = {
   period: string;
   periodStart: string;

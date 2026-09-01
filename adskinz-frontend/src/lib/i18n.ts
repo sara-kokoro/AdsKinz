@@ -164,6 +164,9 @@ const en = {
     paid: "Paid",
     awaiting_confirmation: "Awaiting confirmation",
     confirmed: "Confirmed",
+    in_progress: "In progress",
+    swept: "Swept",
+    failed: "Failed",
   },
   adv: {
     workspace: "traffic",
@@ -545,6 +548,7 @@ const en = {
       finances: "Finances",
       anomalies: "Anomalies",
       audit: "Audit log",
+      sweeps: "Sweeps",
     },
     overview: {
       campaigns: "Campaigns to moderate",
@@ -777,6 +781,9 @@ const fr: Dict = {
     paid: "Payé",
     awaiting_confirmation: "En attente de confirmation",
     confirmed: "Confirmé",
+    in_progress: "En cours",
+    swept: "Effectué",
+    failed: "Échoué",
   },
   adv: {
     workspace: "traffic",
@@ -1158,6 +1165,7 @@ const fr: Dict = {
       finances: "Finances",
       anomalies: "Anomalies",
       audit: "Journal d'audit",
+      sweeps: "Sweeps",
     },
     overview: {
       campaigns: "Campagnes à modérer",
@@ -1385,6 +1393,9 @@ const ru: Dict = {
     paid: "Выплачено",
     awaiting_confirmation: "Ожидает подтверждения",
     confirmed: "Подтверждено",
+    in_progress: "В процессе",
+    swept: "Выполнено",
+    failed: "Ошибка",
   },
   adv: {
     workspace: "traffic",
@@ -1759,6 +1770,7 @@ const ru: Dict = {
       finances: "Финансы",
       anomalies: "Аномалии",
       audit: "Журнал аудита",
+      sweeps: "Свипы",
     },
     overview: {
       campaigns: "Кампаний на модерации",
@@ -1980,6 +1992,9 @@ const zh: Dict = {
     paid: "已支付",
     awaiting_confirmation: "等待确认",
     confirmed: "已确认",
+    in_progress: "进行中",
+    swept: "已归集",
+    failed: "失败",
   },
   adv: {
     workspace: "traffic",
@@ -2333,6 +2348,7 @@ const zh: Dict = {
       finances: "财务",
       anomalies: "异常",
       audit: "审计日志",
+      sweeps: "归集",
     },
     overview: {
       campaigns: "待审核广告",

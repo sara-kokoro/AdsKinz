@@ -122,6 +122,7 @@ export function AdminShell({
     { to: "/kingcey/mini-apps", label: t("x.admin.miniApps"), icon: <IconApp {...ico} />, badge: liveBadges.miniapps },
     { to: "/kingcey/users", label: t("x.admin.users"), icon: <IconShield {...ico} />, badge: liveBadges.users },
     { to: "/kingcey/withdrawals", label: t("admin.nav.withdrawals"), icon: <IconWallet {...ico} />, badge: liveBadges.withdrawals },
+    { to: "/kingcey/sweeps", label: t("admin.nav.sweeps"), icon: <IconWallet {...ico} /> },
     { to: "/kingcey/disputes", label: t("admin.nav.disputes"), icon: <IconScale {...ico} />, badge: liveBadges.disputes },
     { to: "/kingcey/finances", label: t("admin.nav.finances"), icon: <IconTrend {...ico} /> },
     { to: "/kingcey/anomalies", label: t("admin.nav.anomalies"), icon: <IconAlert {...ico} />, badge: liveBadges.anomalies },

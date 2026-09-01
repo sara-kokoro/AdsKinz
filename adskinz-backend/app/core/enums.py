@@ -115,6 +115,7 @@ class AuditAction(StrEnum):
     USER_BLOCKED = "user_blocked"
     USER_UNBLOCKED = "user_unblocked"
     ADMIN_LOGIN = "admin_login"
+    BEP20_SWEEP_RETRIED = "bep20_sweep_retried"
 
 
 class AnomalyKind(StrEnum):

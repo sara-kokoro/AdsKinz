@@ -39,6 +39,38 @@ class ModerationActionResponse(APIModel):
 
 
 # --------------------------------------------------------------------------- #
+# BEP20 sweeps
+# --------------------------------------------------------------------------- #
+class Bep20SweepItem(APIModel):
+    id: str
+    depositId: str
+    advertiserEmail: str
+    derivedAddress: str
+    derivationIndex: int
+    treasuryAddress: str
+    grossAmountUsd: Decimal | None
+    sweptAmountUsd: Decimal | None
+    gasTopupTxHash: str | None
+    sweepTxHash: str | None
+    dustReturnTxHash: str | None
+    status: str
+    error: str | None
+    createdAt: datetime
+    updatedAt: datetime
+
+
+class Bep20SweepListResponse(APIModel):
+    items: list[Bep20SweepItem]
+    total: int
+
+
+class Bep20SweepRetryResponse(APIModel):
+    id: str
+    status: str
+    message: str
+
+
+# --------------------------------------------------------------------------- #
 # Queues
 # --------------------------------------------------------------------------- #
 class QueueCampaignItem(APIModel):

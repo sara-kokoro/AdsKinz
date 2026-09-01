@@ -22,6 +22,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.deps import ClientIPHashDep, CurrentAdminDep, PaginationDep, SessionDep
 from app.core.enums import (
+    AuditAction,
     CampaignStatus,
     ChannelStatus,
     DepositStatus,
@@ -31,7 +32,7 @@ from app.core.enums import (
 from app.core.errors import NotFoundError, ValidationError
 from app.models.accounts import Advertiser, AdminUser, Publisher, RefreshToken
 from app.models.campaigns import Campaign, campaign_format_to_frontend
-from app.models.finance import Deposit, PlatformRevenue, Withdrawal
+from app.models.finance import Bep20Sweep, Deposit, PlatformRevenue, WalletAddress, Withdrawal
 from app.models.placements import Channel, MiniApp
 from app.models.tracking import Anomaly, AuditLog
 from app.schemas.admin import (
@@ -41,6 +42,9 @@ from app.schemas.admin import (
     ApproveRequest,
     AuditItem,
     AuditListResponse,
+    Bep20SweepItem,
+    Bep20SweepListResponse,
+    Bep20SweepRetryResponse,
     BlockAccountRequest,
     FinanceSeriesPoint,
     FinancesResponse,
@@ -53,7 +57,7 @@ from app.schemas.admin import (
     QueueWithdrawalItem,
 )
 from app.schemas.common import MessageResponse
-from app.services import billing_service, moderation_service
+from app.services import bep20_sweep_service, billing_service, moderation_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -593,6 +597,109 @@ async def mark_withdrawal_paid(
     return ModerationActionResponse(
         id=str(withdrawal.id), status=withdrawal.status, message="Payout recorded as paid."
     )
+
+
+# --------------------------------------------------------------------------- #
+# BEP20 sweeps
+# --------------------------------------------------------------------------- #
+@router.get(
+    "/sweeps/bep20",
+    response_model=Bep20SweepListResponse,
+    summary="List BEP20 sweeps (filter by status)",
+)
+async def list_bep20_sweeps(
+    admin: CurrentAdminDep,
+    session: SessionDep,
+    status_filter: str | None = Query(None, alias="status"),
+) -> Bep20SweepListResponse:
+    query = (
+        select(Bep20Sweep, Advertiser.email)
+        .join(Deposit, Deposit.id == Bep20Sweep.deposit_id)
+        .join(Advertiser, Advertiser.id == Deposit.advertiser_id)
+        .order_by(Bep20Sweep.created_at.desc())
+    )
+    if status_filter:
+        query = query.where(Bep20Sweep.status == status_filter)
+
+    rows = (await session.execute(query)).all()
+
+    items = [
+        Bep20SweepItem(
+            id=str(sweep.id),
+            depositId=str(sweep.deposit_id),
+            advertiserEmail=email,
+            derivedAddress=sweep.derived_address,
+            derivationIndex=sweep.derivation_index,
+            treasuryAddress=sweep.treasury_address,
+            grossAmountUsd=sweep.gross_amount_usd,
+            sweptAmountUsd=sweep.swept_amount_usd,
+            gasTopupTxHash=sweep.gas_topup_tx_hash,
+            sweepTxHash=sweep.sweep_tx_hash,
+            dustReturnTxHash=sweep.dust_return_tx_hash,
+            status=sweep.status,
+            error=sweep.error,
+            createdAt=sweep.created_at,
+            updatedAt=sweep.updated_at,
+        )
+        for sweep, email in rows
+    ]
+    return Bep20SweepListResponse(items=items, total=len(items))
+
+
+@router.post(
+    "/sweeps/bep20/{sweep_id}/retry",
+    response_model=Bep20SweepRetryResponse,
+    summary="Manually retry a failed BEP20 sweep",
+)
+async def retry_bep20_sweep(
+    sweep_id: uuid.UUID,
+    admin: CurrentAdminDep,
+    session: SessionDep,
+    ip_hash: ClientIPHashDep,
+) -> Bep20SweepRetryResponse:
+    sweep = (
+        await session.execute(select(Bep20Sweep).where(Bep20Sweep.id == sweep_id))
+    ).scalar_one_or_none()
+    if sweep is None:
+        raise NotFoundError("Sweep not found.")
+    if sweep.status == "swept":
+        return Bep20SweepRetryResponse(
+            id=str(sweep.id), status=sweep.status, message="Already swept, nothing to do."
+        )
+
+    deposit = (
+        await session.execute(select(Deposit).where(Deposit.id == sweep.deposit_id))
+    ).scalar_one()
+    wallet = (
+        await session.execute(
+            select(WalletAddress).where(
+                WalletAddress.advertiser_id == deposit.advertiser_id,
+                WalletAddress.network == "bnb",
+            )
+        )
+    ).scalar_one_or_none()
+    if wallet is None:
+        raise NotFoundError("No BEP20 wallet address on file for this advertiser anymore.")
+
+    sweep = await bep20_sweep_service.sweep_bep20_deposit(session, deposit, wallet)
+
+    moderation_service.log_action(
+        session,
+        admin_id=admin.id,
+        action=AuditAction.BEP20_SWEEP_RETRIED.value,
+        target_type="bep20_sweep",
+        target_id=sweep.id,
+        target_label=sweep.derived_address,
+        details={"status": sweep.status, "error": sweep.error},
+        ip_hash=ip_hash,
+    )
+    await session.commit()
+
+    if sweep.status == "swept":
+        message = f"Swept successfully. tx={sweep.sweep_tx_hash}"
+    else:
+        message = f"Retry failed: {sweep.error}"
+    return Bep20SweepRetryResponse(id=str(sweep.id), status=sweep.status, message=message)
 
 
 # --------------------------------------------------------------------------- #

@@ -7,6 +7,7 @@ import type {
   Anomaly,
   AuditEntry,
   Balance,
+  Bep20SweepItem,
   BotStatus,
   Campaign,
   CampaignTranslations,
@@ -452,6 +453,29 @@ export function useAudit() {
     queryKey: ["admin", "audit"],
     queryFn: () => apiFetch<Paged<AuditEntry>>("/admin/audit"),
     select: list<AuditEntry>,
+  });
+}
+
+export function useBep20Sweeps(status?: string) {
+  return useQuery({
+    queryKey: ["admin", "sweeps", "bep20", status ?? "all"],
+    queryFn: () =>
+      apiFetch<Paged<Bep20SweepItem>>("/admin/sweeps/bep20", {
+        query: status ? { status } : undefined,
+      }),
+    select: list<Bep20SweepItem>,
+  });
+}
+
+export function useRetryBep20Sweep() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ id: string; status: string; message: string }>(
+        `/admin/sweeps/bep20/${id}/retry`,
+        { method: "POST" },
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin", "sweeps"] }),
   });
 }
 

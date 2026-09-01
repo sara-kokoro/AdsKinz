@@ -33,6 +33,9 @@ export const STATUS_TONE: Record<string, StatusTone> = {
   paid: "success",
   awaiting_confirmation: "bounty",
   confirmed: "success",
+  in_progress: "bounty",
+  swept: "success",
+  failed: "danger",
 };
 
 export function StatusPill({ status, className }: { status: string; className?: string }) {
