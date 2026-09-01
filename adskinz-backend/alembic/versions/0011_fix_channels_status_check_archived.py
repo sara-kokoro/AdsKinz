@@ -3,7 +3,7 @@ mini_apps status check constraint but forgot to do the same for channels,
 even though it added channels.archived_at in the same migration. Archiving
 a channel currently fails with a CheckViolationError.
 
-Revision ID: 0011_fix_channels_status_check_archived
+Revision ID: 0011_fix_channels_archived
 Revises: 0010_admin_login_code
 Create Date: 2026-09-01
 """
@@ -15,7 +15,9 @@ from collections.abc import Sequence
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0011_fix_channels_status_check_archived"
+# NOTE: keep this id <= 32 chars -- it's stored in alembic_version.version_num,
+# which is a VARCHAR(32) column.
+revision: str = "0011_fix_channels_archived"
 down_revision: str | Sequence[str] | None = "0010_admin_login_code"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
