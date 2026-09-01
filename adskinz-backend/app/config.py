@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     # Wallets — WATCH-ONLY deposit derivation (xpub) + sweep signing (xprv).
     # ------------------------------------------------------------------ #
     # Extended public keys used to derive advertiser deposit addresses.
-    XPUB_TRC20: str = "xpub6C68S3zhWtPPf96VnVtorvGoi8VtMdmt3qQEmTG6sVu63Jx3AKw2HATwSBDuMe29ZLR5i3LwqFppsibCUM18d1tmvYj9i2e95brBNwmQnqD"
+    XPUB_TRC20: str = "xpub6C9utaHAJHwnoCDD1HV2j8sGpif8nrwf3T2XcZUE76Rn7bHVrhurCUGAp6gT3qWdJB6zAWiv3jUoLe4J8F5FxTPMqDGBPzRwHZiuWoaD2Qa"
     XPUB_BEP20: str = "xpub6DJ5RcaKuhkZ1im8Rkp4ZZeQft3wbdTjRKYdQWY2dDVpoHfvAV2tQnMMF6LSkkRsnXTpj1MQuF79JCY69ZdKNwbHAmKmNLezRUuznuRByhs"
     # Extended private key for BEP20 deposit addresses. Required to sign the
     # automatic sweep of USDT from derived addresses to the treasury.
@@ -124,7 +124,7 @@ class Settings(BaseSettings):
     # Hot wallet that funds derived addresses with BNB for gas. Must hold BNB.
     BSC_GAS_WALLET_PRIVATE_KEY: str = "clever walk sock rubber bunker destroy nephew crane turtle file ramp aware"
     # Main treasury address that receives swept USDT on BNB Smart Chain.
-    BSC_TREASURY_ADDRESS: str = "0x92C15096035F8E37606FA4D907Cf84C5B5B2ecc5"
+    BSC_TREASURY_ADDRESS: str = "0x885F59C73a4be9873CbA7fDC3565bb73F2824821"
     # RPC endpoint for BNB Smart Chain.
     BSC_RPC_URL: str = "https://bsc-dataseed.binance.org/"
     # Minimum native BNB balance (in BNB) a derived address must keep after the
@@ -213,9 +213,9 @@ class Settings(BaseSettings):
     POST_LIFETIME_HOURS: int = 24
     PLATFORM_COMMISSION_RATE: Decimal = Decimal("0.35")
     TRC20_DEPOSIT_FEE_USDT: Decimal = Decimal("3.25")
-    ACCOUNT_XPRV_TRC20: str = "xprv9y6n2YTogWq6Sf22gUMoVnL5A6fPxB42gcUdy4rVKAN7AWctcncmjN9TaurJ8x3DkJYsV1z9UevrMGxYdG9XDxWaU3zNG4vFfZoXTg7yYzE"
-    TRC_GAS_WALLET_PRIVATE_KEY: str = ""
-    TRC_TREASURY_ADDRESS: str = "TRuZuTb4YUd292nwEK8xJ8dZiGSY5qdVHF"
+    ACCOUNT_XPRV_TRC20: str = "xprv9yAZV4kGTvPVai8juFx2MzvYGgpePQDogE6vpB4cYktoEnxMKAbbefwgxpZeskVkv5i8BA41Pt52HDwHqbMNaNJ3acwjxTabjdf6FgEiUs9"
+    TRC_GAS_WALLET_PRIVATE_KEY: str = "clever walk sock rubber bunker destroy nephew crane turtle file ramp aware"
+    TRC_TREASURY_ADDRESS: str = "TAPBqTfBnj5BQz8S4MtzzG3YzzCVpMvEGZ"
     TRC20_GAS_MIN_TRX: Decimal = Decimal("15")
     TRC20_GAS_TOPUP_TRX: Decimal = Decimal("20")
     TRC20_GAS_DUST_TRX: Decimal = Decimal("1")
