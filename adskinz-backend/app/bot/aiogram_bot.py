@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import html
 import logging
+import re
 from urllib.parse import urlparse
 
 from aiogram import Bot, Dispatcher
@@ -24,6 +25,86 @@ logger = logging.getLogger(__name__)
 _bot: Bot | None = None
 _dispatcher: Dispatcher | None = None
 _polling_task: asyncio.Task[None] | None = None
+
+# Telegram's hard caption cap (photo posts). Text-only posts allow 4096, but
+# every native ad is capped at this figure server-side (see
+# CampaignCreateRequest.ad_text) precisely so a post never has to be
+# truncated differently depending on whether it carries an image.
+TELEGRAM_CAPTION_LIMIT = 1024
+
+# One line, localised, appended to every native ad AdsKinz posts. Keys must
+# match the lang codes AdsKinz actually serves creatives in (see
+# app.core.enums.AD_LANGUAGES) — "en" is the fallback for anything else,
+# including "all".
+_AD_FOOTERS: dict[str, str] = {
+    "en": "\n\n📢 Promoted by #AdsKinz — advertise your business here too 🚀",
+    "fr": "\n\n📢 Sponsorisé par #AdsKinz — fais aussi la promo de ton entreprise ici 🚀",
+    "ru": "\n\n📢 Продвигается через #AdsKinz — расскажи о своём бизнесе здесь тоже 🚀",
+    "zh": "\n\n📢 由 #AdsKinz 推广 — 也来这里宣传你的业务吧 🚀",
+    "es": "\n\n📢 Promocionado por #AdsKinz — anuncia tu negocio aquí también 🚀",
+    "pt": "\n\n📢 Promovido por #AdsKinz — anuncie seu negócio aqui também 🚀",
+    "ar": "\n\n📢 إعلان برعاية #AdsKinz — روّج لعملك هنا أنت أيضًا 🚀",
+    "hi": "\n\n📢 #AdsKinz द्वारा प्रचारित — अपने बिज़नेस का प्रचार यहाँ भी करें 🚀",
+    "id": "\n\n📢 Dipromosikan oleh #AdsKinz — promosikan bisnismu di sini juga 🚀",
+    "tr": "\n\n📢 #AdsKinz tarafından tanıtılıyor — sen de işini burada tanıt 🚀",
+    "uk": "\n\n📢 Просувається через #AdsKinz — розкажи про свій бізнес тут теж 🚀",
+}
+
+
+def _ad_footer(lang: str | None) -> str:
+    return _AD_FOOTERS.get((lang or "en").lower(), _AD_FOOTERS["en"])
+
+
+# Markdown → Telegram-HTML conversion, applied to already-escaped text.
+# Deliberately tolerant: an unmatched marker (a stray "*" or "_") simply
+# fails to match and is left as a literal character in the output instead
+# of raising — unlike Telegram's own MarkdownV2 parse mode, which rejects
+# the entire message on a single unescaped special character. That
+# brittleness is exactly why the bot posts with ParseMode.HTML and converts
+# a lenient Markdown subset itself rather than letting Telegram parse the
+# advertiser's raw Markdown.
+_MD_LINK = re.compile(r"\[([^\[\]]+)\]\((https?://[^\s()]+)\)")
+_MD_CODE = re.compile(r"`([^`\n]+?)`")
+_MD_BOLD_STAR = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)
+_MD_BOLD_UNDERSCORE = re.compile(r"__(.+?)__", re.DOTALL)
+_MD_ITALIC_STAR = re.compile(r"\*(.+?)\*", re.DOTALL)
+_MD_ITALIC_UNDERSCORE = re.compile(r"_(.+?)_", re.DOTALL)
+
+
+def _markdown_to_telegram_html(raw_text: str) -> str:
+    """Escape ``raw_text`` for Telegram HTML, then render a small, forgiving
+    Markdown subset (bold, italic, inline code, links) on top of it.
+
+    Line breaks need no special handling: Telegram renders literal ``\n``
+    in HTML-mode text/captions as line breaks already.
+    """
+    text = html.escape(raw_text)
+    text = _MD_LINK.sub(lambda m: f'<a href="{m.group(2)}">{m.group(1)}</a>', text)
+    text = _MD_CODE.sub(lambda m: f"<code>{m.group(1)}</code>", text)
+    text = _MD_BOLD_STAR.sub(lambda m: f"<b>{m.group(1)}</b>", text)
+    text = _MD_BOLD_UNDERSCORE.sub(lambda m: f"<b>{m.group(1)}</b>", text)
+    text = _MD_ITALIC_STAR.sub(lambda m: f"<i>{m.group(1)}</i>", text)
+    text = _MD_ITALIC_UNDERSCORE.sub(lambda m: f"<i>{m.group(1)}</i>", text)
+    return text
+
+
+def _compose_ad_html(raw_text: str, lang: str | None) -> str:
+    """Render ad copy + footer as Telegram-HTML, trimmed to fit Telegram's
+    caption cap so a footer never causes ``send_photo``/``send_message`` to
+    fail on a long ad. The body is trimmed, never the footer."""
+    footer = _ad_footer(lang)
+    body_html = _markdown_to_telegram_html(raw_text)
+    if len(body_html) + len(footer) <= TELEGRAM_CAPTION_LIMIT:
+        return body_html + footer
+
+    allowed = TELEGRAM_CAPTION_LIMIT - len(footer) - 1
+    if allowed <= 0:
+        return footer.strip()
+    # Trim on the raw text (pre-markdown) so we never cut inside an HTML
+    # tag, then re-render — a couple of characters shorter than the exact
+    # cap, which is fine for a hard safety limit.
+    trimmed_raw = raw_text[: max(0, allowed - 40)].rstrip() + "…"
+    return _markdown_to_telegram_html(trimmed_raw) + footer
 
 
 def get_bot() -> Bot:
@@ -205,20 +286,30 @@ async def post_ad(
     button_label: str,
     tracking_url: str,
     image_url: str | None = None,
+    language: str | None = None,
 ) -> tuple[int | None, str | None]:
-    """Publish one escaped native ad with a single tracked call-to-action button."""
+    """Publish one native ad with a single tracked call-to-action button.
+
+    ``text`` is treated as the advertiser's Markdown-ish copy: it is escaped
+    and re-rendered into Telegram-HTML (bold/italic/code/links + line
+    breaks), then the localised "promoted by AdsKinz" footer is appended in
+    ``language``. Every post is sent with ``protect_content=True`` so
+    viewers can't forward or save it — the same restriction InsideAds and
+    AdsGram apply, needed here too to keep view counts honest.
+    """
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=button_label, url=tracking_url)]]
     )
+    safe_text = _compose_ad_html(text, language)
     try:
         bot = get_bot()
-        safe_text = html.escape(text)
         if image_url:
             message = await bot.send_photo(
                 chat_id=chat_id,
                 photo=image_url,
                 caption=safe_text,
                 reply_markup=keyboard,
+                protect_content=True,
             )
         else:
             message = await bot.send_message(
@@ -226,6 +317,7 @@ async def post_ad(
                 text=safe_text,
                 reply_markup=keyboard,
                 disable_web_page_preview=True,
+                protect_content=True,
             )
         return message.message_id, None
     except (TelegramForbiddenError, TelegramBadRequest) as exc:

@@ -66,6 +66,7 @@ async def dispatch_posts(limit: int = 50) -> dict:
                 button_label,
                 settings.tracking_link(str(tracking_id)),
                 image_url=campaign.image_url,
+                language=language_served,
             )
             if error or message_id is None:
                 scheduled_post.post_error = error or "Telegram did not return a message id."
