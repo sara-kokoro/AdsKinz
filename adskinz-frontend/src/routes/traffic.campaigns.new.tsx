@@ -17,7 +17,7 @@ export const Route = createFileRoute("/traffic/campaigns/new")({
       { title: "New campaign — AdsKinz traffic" },
       { name: "description", content: "Create a native Telegram campaign: format, creative, targeting, budget and review." },
       { property: "og:title", content: "New campaign — AdsKinz traffic" },
-      { property: "og:description", content: "Launch a native Telegram campaign from $50." },
+      { property: "og:description", content: "Launch a native Telegram campaign from $20." },
     ],
   }),
   component: Wizard,
@@ -69,7 +69,7 @@ function Wizard() {
       if (!/^https:\/\/.+\..+/.test(url)) e["url"] = t("adv.wizard.errUrl");
     }
     if (step === 3) {
-      if (Number(budget) < 50 || !budget) e["budget"] = t("adv.wizard.errMinBudget");
+      if (Number(budget) < 20 || !budget) e["budget"] = t("adv.wizard.errMinBudget");
       if (Number(cpm) < 2 || !cpm) e["cpm"] = t("adv.wizard.errMinCpm");
     }
     setErrors(e);
@@ -81,7 +81,7 @@ function Wizard() {
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
   };
 
-  const budgetTooLow = budget !== "" && Number(budget) < 50;
+  const budgetTooLow = budget !== "" && Number(budget) < 20;
 
   const competitiveness =
     Number(cpm) >= 4.5 ? "compHigh" : Number(cpm) >= 2.8 ? "compMid" : "compLow";
@@ -341,7 +341,7 @@ function Wizard() {
                     inputMode="decimal"
                     value={budget}
                     onChange={(e) => setBudget(e.target.value)}
-                    placeholder="50.00"
+                    placeholder="20.00"
                     aria-invalid={budgetTooLow}
                     className={`num mt-2 ${inputCls(budgetTooLow)}`}
                   />

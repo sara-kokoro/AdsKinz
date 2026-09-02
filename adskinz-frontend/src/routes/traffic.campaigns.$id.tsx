@@ -28,7 +28,7 @@ export const Route = createFileRoute("/traffic/campaigns/$id")({
   component: CampaignDetail,
 });
 
-const MIN_BUDGET = 50;
+const MIN_BUDGET = 20;
 
 function CampaignDetail() {
   useAuthGuard("advertiser");
@@ -151,7 +151,7 @@ function CampaignDetail() {
     }
     setErr(null);
     update.mutate(
-      { budget: budgetTotal + n },
+      { addBudget: n },
       {
         onSuccess: () => { setTopUp(false); setNotice(t("adv.detail.funded")); },
         onError: (e) => setErr(e instanceof ApiError ? e.message : t("common.loadError")),
@@ -168,7 +168,7 @@ function CampaignDetail() {
       title={c.name}
       action={
         <div className="flex flex-wrap gap-2">
-          <Btn tone="bounty" onClick={() => setTopUp(true)}>{t("adv.detail.topUp")}</Btn>
+          <Btn tone="bounty" onClick={() => { setErr(null); setTopUp(true); }}>{t("adv.detail.topUp")}</Btn>
           {["active", "paused"].includes(c.status) && (
             <Btn variant="secondary" onClick={togglePause} disabled={update.isPending}>
               {c.status === "active" ? t("adv.detail.pause") : t("adv.detail.relaunch")}
@@ -392,6 +392,7 @@ function CampaignDetail() {
             <input id="amt" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className={`num ${inputCls(Number(amount) < MIN_BUDGET)}`} />
           </div>
         </Field>
+        {err && <FieldError>{err}</FieldError>}
       </Modal>
     </AdvShell>
   );

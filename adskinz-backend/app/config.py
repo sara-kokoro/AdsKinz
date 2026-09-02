@@ -198,7 +198,10 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Business rules — single source of truth, enforced server-side
     # ------------------------------------------------------------------ #
-    MIN_CAMPAIGN_BUDGET: Decimal = Decimal("50.00")
+    MIN_CAMPAIGN_BUDGET: Decimal = Decimal("20.00")
+    # Per-campaign remaining-budget alert (distinct from LOW_BALANCE_ALERT_RATIO,
+    # which watches the advertiser's overall wallet balance).
+    CAMPAIGN_LOW_BALANCE_THRESHOLD: Decimal = Decimal("5.00")
     MIN_CPM_BID: Decimal = Decimal("2.00")
     MIN_DAILY_BUDGET: Decimal = Decimal("1.80")
     MIN_WITHDRAWAL: Decimal = Decimal("50.00")

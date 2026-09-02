@@ -215,6 +215,7 @@ async def charge_campaign(
                 campaign_id=fresh.id,
             )
 
+        await maybe_send_campaign_low_balance_alert(fresh, advertiser)
         await session.commit()
 
     logger.info(
@@ -543,6 +544,34 @@ async def maybe_send_low_balance_alert(
         balance=q2(advertiser.balance_usd),
         active_budget=committed,
         threshold=threshold,
+    )
+
+
+async def maybe_send_campaign_low_balance_alert(
+    campaign: Campaign, advertiser: Advertiser
+) -> bool:
+    """Warn once when a single campaign's remaining budget drops under the
+    per-campaign threshold (distinct from the advertiser-wide wallet alert).
+
+    Resets automatically the next time the campaign is topped back up above
+    the threshold, so a later dip can alert again. Caller is responsible for
+    committing the session afterwards.
+    """
+    remaining = campaign.remaining_budget
+    if remaining >= settings.CAMPAIGN_LOW_BALANCE_THRESHOLD:
+        if campaign.low_balance_alerted_at is not None:
+            campaign.low_balance_alerted_at = None
+        return False
+
+    if campaign.low_balance_alerted_at is not None:
+        return False
+
+    campaign.low_balance_alerted_at = datetime.now(UTC)
+    return await email_service.send_campaign_low_balance(
+        advertiser.email,
+        campaign_name=campaign.name,
+        remaining=q2(remaining),
+        threshold=q2(settings.CAMPAIGN_LOW_BALANCE_THRESHOLD),
     )
 
 

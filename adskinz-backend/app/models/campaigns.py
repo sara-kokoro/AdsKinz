@@ -44,7 +44,7 @@ class Campaign(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
             name="status_valid",
         ),
         CheckConstraint("cpm_bid >= 2.00", name="cpm_min"),
-        CheckConstraint("total_budget >= 50.00", name="budget_min"),
+        CheckConstraint("total_budget >= 20.00", name="budget_min"),
         CheckConstraint(
             "daily_budget IS NULL OR daily_budget >= 2.00", name="daily_budget_min"
         ),
@@ -99,6 +99,11 @@ class Campaign(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
         Boolean, nullable=False, default=False, server_default="false"
     )
     submitted_ip_hash: Mapped[str | None] = mapped_column(String(64))
+
+    # Set when we email the advertiser that this campaign's remaining budget
+    # dropped under settings.CAMPAIGN_LOW_BALANCE_THRESHOLD; cleared once the
+    # campaign is topped back up above it, so the alert can fire again later.
+    low_balance_alerted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     advertiser: Mapped["Advertiser"] = relationship(back_populates="campaigns", lazy="joined")
     translations: Mapped[list["CampaignTranslation"]] = relationship(

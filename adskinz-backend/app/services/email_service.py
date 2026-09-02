@@ -116,6 +116,22 @@ async def send_campaign_paused_balance(to: str, *, campaign_name: str) -> bool:
     return await send_email(to, "AdsKinz — campaign paused", body)
 
 
+async def send_campaign_low_balance(
+    to: str, *, campaign_name: str, remaining: Any, threshold: Any
+) -> bool:
+    body = _render(
+        "A campaign is about to run out of budget",
+        f'Your campaign "{campaign_name}" has ${remaining} left, below your '
+        f"${threshold} alert threshold.",
+        {
+            "Remaining budget": f"${remaining}",
+            "Alert threshold": f"${threshold}",
+        },
+        "Add budget to this campaign to keep it delivering without interruption.",
+    )
+    return await send_email(to, "AdsKinz — campaign budget running low", body)
+
+
 async def send_channel_approved(to: str, *, channel_name: str) -> bool:
     body = _render(
         "Your channel has been approved",

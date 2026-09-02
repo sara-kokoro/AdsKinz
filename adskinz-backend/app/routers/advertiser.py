@@ -26,7 +26,12 @@ from app.core.deps import (
     generate_rate_limit,
 )
 from app.core.enums import CampaignStatus
-from app.core.errors import BusinessRuleError, ConflictError, NotFoundError
+from app.core.errors import (
+    BusinessRuleError,
+    ConflictError,
+    InsufficientBalanceError,
+    NotFoundError,
+)
 from app.models.campaigns import (
     Campaign,
     CampaignDailySpend,
@@ -134,8 +139,16 @@ async def create_campaign(
 
     The budget is not deducted at creation: the advertiser's balance is shared
     across active campaigns and is only consumed as impressions and clicks are
-    billed.
+    billed. Still, we refuse to set a total_budget the wallet can't cover, so
+    the campaign isn't silently paused for insufficient balance the moment it
+    is approved.
     """
+    if payload.total_budget > Decimal(advertiser.balance_usd):
+        raise InsufficientBalanceError(
+            f"Your wallet balance (${advertiser.balance_usd}) is lower than the "
+            f"${payload.total_budget} budget you're setting. Top up your balance "
+            f"first, or lower the campaign budget."
+        )
     campaign = Campaign(
         advertiser_id=advertiser.id,
         name=payload.name,
@@ -222,12 +235,28 @@ async def update_campaign(
             raise BusinessRuleError(
                 "The new total budget is lower than the amount already spent."
             )
+        if payload.total_budget > Decimal(advertiser.balance_usd):
+            raise InsufficientBalanceError(
+                f"Your wallet balance (${advertiser.balance_usd}) is lower than the "
+                f"${payload.total_budget} budget you're setting. Top up your balance "
+                f"first, or lower the campaign budget."
+            )
         campaign.total_budget = payload.total_budget
+        if campaign.remaining_budget >= settings.CAMPAIGN_LOW_BALANCE_THRESHOLD:
+            campaign.low_balance_alerted_at = None
 
     if payload.add_budget is not None:
+        if payload.add_budget > Decimal(advertiser.balance_usd):
+            raise InsufficientBalanceError(
+                f"Your wallet balance (${advertiser.balance_usd}) is lower than the "
+                f"${payload.add_budget} you're trying to add to this campaign. "
+                f"Top up your balance first."
+            )
         campaign.total_budget = Decimal(campaign.total_budget) + payload.add_budget
         if campaign.status == CampaignStatus.STOPPED.value:
             campaign.status = CampaignStatus.ACTIVE.value
+        if campaign.remaining_budget >= settings.CAMPAIGN_LOW_BALANCE_THRESHOLD:
+            campaign.low_balance_alerted_at = None
 
     if payload.status is not None:
         if payload.status == "paused":

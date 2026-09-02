@@ -11,12 +11,12 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Native ads inside Telegram channels and Mini Apps. Campaigns from $50, 12 languages, USDT payouts for publishers from $50.",
+          "Native ads inside Telegram channels and Mini Apps. Campaigns from $20, 12 languages, USDT payouts for publishers from $50.",
       },
       { property: "og:title", content: "AdsKinz — Native advertising inside Telegram" },
       {
         property: "og:description",
-        content: "Native ads inside Telegram channels and Mini Apps. Campaigns from $50, 12 languages, USDT payouts for publishers from $50.",
+        content: "Native ads inside Telegram channels and Mini Apps. Campaigns from $20, 12 languages, USDT payouts for publishers from $50.",
       },
     ],
   }),

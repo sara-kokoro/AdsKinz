@@ -84,14 +84,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Native ads inside Telegram channels and Mini Apps. Campaigns from $50, 12 languages, USDT payouts for publishers from $50.",
+          "Native ads inside Telegram channels and Mini Apps. Campaigns from $20, 12 languages, USDT payouts for publishers from $50.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:title", content: "AdsKinz — Native advertising inside Telegram" },
       { name: "twitter:title", content: "AdsKinz — Native advertising inside Telegram" },
-      { property: "og:description", content: "Native ads inside Telegram channels and Mini Apps. Campaigns from $50, 12 languages, USDT payouts for publishers from $50." },
-      { name: "twitter:description", content: "Native ads inside Telegram channels and Mini Apps. Campaigns from $50, 12 languages, USDT payouts for publishers from $50." },
+      { property: "og:description", content: "Native ads inside Telegram channels and Mini Apps. Campaigns from $20, 12 languages, USDT payouts for publishers from $50." },
+      { name: "twitter:description", content: "Native ads inside Telegram channels and Mini Apps. Campaigns from $20, 12 languages, USDT payouts for publishers from $50." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/473767d6-6f66-4aec-9bef-d03dfb231b02" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/473767d6-6f66-4aec-9bef-d03dfb231b02" },
     ],
