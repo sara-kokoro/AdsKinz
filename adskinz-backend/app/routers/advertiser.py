@@ -5,6 +5,7 @@
     GET    /advertiser/campaigns/{campaign_id}
     PATCH  /advertiser/campaigns/{campaign_id}
     GET    /advertiser/campaigns/{campaign_id}/translations
+    GET    /advertiser/campaigns/{campaign_id}/recent-placements
     GET    /advertiser/stats
     POST   /advertiser/creatives/generate
 """
@@ -39,6 +40,8 @@ from app.models.campaigns import (
     campaign_format_to_frontend,
     campaign_status_to_frontend,
 )
+from app.models.placements import Channel
+from app.models.tracking import ScheduledPost
 from app.schemas.advertiser import (
     AdvertiserStatsResponse,
     CampaignCreateRequest,
@@ -49,6 +52,8 @@ from app.schemas.advertiser import (
     GenerateCopyRequest,
     GenerateCopyResponse,
     ImageUploadRequest,
+    RecentPlacementItem,
+    RecentPlacementsResponse,
     TranslationItem,
 )
 from app.services import billing_service, groq_service, upload_service
@@ -91,6 +96,26 @@ async def _owned_campaign(
     if campaign is None or campaign.advertiser_id != advertiser_id:
         raise NotFoundError("Campaign not found.")
     return campaign
+
+
+def _post_link(channel: Channel, telegram_message_id: int | None) -> str | None:
+    """Build a clickable Telegram deep link to a specific published post.
+
+    Public channels use the friendly ``t.me/<username>/<id>`` form; a
+    channel without a public username (private) still gets a working link
+    via the ``t.me/c/<internal_id>/<id>`` form, which resolves for anyone
+    who is already a member of that chat.
+    """
+    if telegram_message_id is None:
+        return None
+    if channel.telegram_username:
+        handle = channel.telegram_username.lstrip("@")
+        return f"https://t.me/{handle}/{telegram_message_id}"
+    if channel.telegram_chat_id is not None:
+        raw = str(channel.telegram_chat_id)
+        internal_id = raw[4:] if raw.startswith("-100") else raw.lstrip("-")
+        return f"https://t.me/c/{internal_id}/{telegram_message_id}"
+    return None
 
 
 # --------------------------------------------------------------------------- #
@@ -333,6 +358,53 @@ async def campaign_translations(
                 translated_button_label=row.translated_button_label,
             )
             for row in rows
+        ],
+    )
+
+
+@router.get(
+    "/campaigns/{campaign_id}/recent-placements",
+    response_model=RecentPlacementsResponse,
+    summary="Last 7 channels this campaign's ad was posted into",
+)
+async def campaign_recent_placements(
+    campaign_id: uuid.UUID,
+    advertiser: CurrentAdvertiserDep,
+    session: SessionDep,
+) -> RecentPlacementsResponse:
+    """Most recent 7 native posts of this campaign, one row per post.
+
+    Includes posts that have since been auto-deleted (24h lifetime) — the
+    advertiser still gets to see where their ad ran, only the live "open
+    post" link stops resolving once Telegram has removed the message.
+    """
+    campaign = await _owned_campaign(session, advertiser.id, campaign_id)
+
+    rows = (
+        (
+            await session.execute(
+                select(ScheduledPost, Channel)
+                .join(Channel, Channel.id == ScheduledPost.channel_id)
+                .where(
+                    ScheduledPost.campaign_id == campaign.id,
+                    ScheduledPost.posted_at.is_not(None),
+                )
+                .order_by(ScheduledPost.posted_at.desc())
+                .limit(7)
+            )
+        )
+        .all()
+    )
+
+    return RecentPlacementsResponse(
+        items=[
+            RecentPlacementItem(
+                channelName=channel.name,
+                channelLink=channel.public_link,
+                postLink=_post_link(channel, post.telegram_message_id),
+                postedAt=post.posted_at,
+            )
+            for post, channel in rows
         ],
     )
 

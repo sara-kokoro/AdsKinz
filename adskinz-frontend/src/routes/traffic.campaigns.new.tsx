@@ -5,7 +5,8 @@ import { AdvShell } from "@/components/workspaces";
 import { AutoTextarea, Btn, FieldError, ImageUpload, Panel, Quote, SectionTitle, fmtMoney, inputCls } from "@/components/kit";
 import { TelegramPostPreview } from "@/components/telegram-preview";
 import { IconCheck, IconSparkle, IconChannel, IconApp, IconImage, IconGlobe, IconWallet, IconEye, IconTag } from "@/components/icons";
-import { AD_LANGUAGES, BUTTON_LABELS } from "@/lib/constants";
+import { AD_LANGUAGES, AD_TEXT_MAX_LENGTH, BUTTON_LABELS } from "@/lib/constants";
+import { validateAdMarkdown } from "@/lib/markdown";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { Campaign } from "@/lib/types";
 import { useCreateCampaign, useGenerateCopy } from "@/lib/queries";
@@ -52,6 +53,30 @@ function Wizard() {
   const generateCopy = useGenerateCopy();
   const createCampaign = useCreateCampaign();
 
+  const copyIssue = (value: string): string | null => {
+    if (value.length > AD_TEXT_MAX_LENGTH) {
+      return `${value.length}/${AD_TEXT_MAX_LENGTH} caractères — raccourcis le texte.`;
+    }
+    return validateAdMarkdown(value);
+  };
+
+  const handleCopyChange = (value: string) => {
+    setCopy(value);
+    // Clear a stale error the moment the text becomes valid again; don't
+    // interrupt typing by raising a new one mid-edit — that happens on blur.
+    if (errors["copy"] && !copyIssue(value)) {
+      setErrors((e) => {
+        const { copy: _drop, ...rest } = e;
+        return rest;
+      });
+    }
+  };
+
+  const handleCopyBlur = () => {
+    const issue = copy.trim() ? copyIssue(copy) : null;
+    setErrors((e) => (issue ? { ...e, copy: issue } : e));
+  };
+
   const generate = () => {
     generateCopy.mutate(
       { brief: brief || format, language: lang === "all" ? "en" : lang, tone: "punchy" },
@@ -67,6 +92,11 @@ function Wizard() {
     if (step === 1) {
       if (!bannerTitle.trim()) e["bannerTitle"] = t("adv.wizard.errTitle");
       if (!copy.trim()) e["copy"] = t("adv.wizard.errCopy");
+      else if (copy.length > AD_TEXT_MAX_LENGTH) e["copy"] = `${copy.length}/${AD_TEXT_MAX_LENGTH} caractères — raccourcis le texte.`;
+      else {
+        const markdownError = validateAdMarkdown(copy);
+        if (markdownError) e["copy"] = markdownError;
+      }
       if (!/^https:\/\/.+\..+/.test(url)) e["url"] = t("adv.wizard.errUrl");
     }
     if (step === 3) {
@@ -267,11 +297,23 @@ function Wizard() {
                   id="copy"
                   minRows={4}
                   value={copy}
-                  onChange={setCopy}
+                  onChange={handleCopyChange}
+                  onBlur={handleCopyBlur}
+                  maxLength={AD_TEXT_MAX_LENGTH}
                   invalid={!!errors["copy"]}
                   className="mt-2"
                 />
-                <FieldError>{errors["copy"]}</FieldError>
+                <div className="mt-1.5 flex items-start justify-between gap-2">
+                  <FieldError>{errors["copy"]}</FieldError>
+                  <span
+                    className={cn(
+                      "shrink-0 text-xs tabular-nums",
+                      copy.length > AD_TEXT_MAX_LENGTH * 0.9 ? "text-danger font-semibold" : "text-paper-dim",
+                    )}
+                  >
+                    {copy.length}/{AD_TEXT_MAX_LENGTH}
+                  </span>
+                </div>
               </div>
 
               <div>

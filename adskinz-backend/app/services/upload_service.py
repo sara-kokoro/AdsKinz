@@ -19,6 +19,13 @@ ALLOWED_CONTENT_TYPES = {
     "image/png": "png",
     "image/webp": "webp",
     "image/gif": "gif",
+    # The frontend re-encodes every picked image to JPEG before uploading
+    # (src/lib/image.ts), so these should rarely reach here — but accepting
+    # them as a fallback means a browser where that client-side re-encode
+    # silently fails (e.g. no canvas/createImageBitmap support) still gets
+    # an upload that succeeds instead of a confusing rejection.
+    "image/heic": "heic",
+    "image/heif": "heic",
 }
 
 

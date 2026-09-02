@@ -17,6 +17,11 @@ export type MiniAppStatus = "pending_moderation" | "active" | "suspended";
 export type WithdrawalStatus = "pending" | "approved" | "paid" | "rejected";
 export type DepositStatus = "awaiting_confirmation" | "confirmed";
 
+/** Advertiser ad-copy cap — mirrors AD_TEXT_MAX_LENGTH in the backend's
+ * app/schemas/advertiser.py. Kept well under Telegram's 1024-char photo
+ * caption limit so the localised "#AdsKinz" footer always still fits. */
+export const AD_TEXT_MAX_LENGTH = 900;
+
 export const BUTTON_LABELS = [
   "Open", "View", "Learn more", "Join", "Play", "Shop now", "Download", "Get started",
   "Sign up", "Try now", "Claim now", "Watch", "Read more", "Subscribe", "Install",

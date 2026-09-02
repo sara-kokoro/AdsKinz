@@ -10,7 +10,8 @@ import { UsdtMark } from "@/components/usdt";
 import { ArtFunnel } from "@/components/illustrations";
 import { IconPencil, IconSparkle } from "@/components/icons";
 import { TelegramPostPreview } from "@/components/telegram-preview";
-import { AD_LANGUAGES, BUTTON_LABELS } from "@/lib/constants";
+import { AD_LANGUAGES, AD_TEXT_MAX_LENGTH, BUTTON_LABELS } from "@/lib/constants";
+import { validateAdMarkdown } from "@/lib/markdown";
 import { ApiError, num, trackingUrl } from "@/lib/api";
 import { useCampaign, useCampaignTranslations, useGenerateCopy, useUpdateCampaign } from "@/lib/queries";
 import { useAuthGuard } from "@/lib/auth";
@@ -120,6 +121,15 @@ function CampaignDetail() {
   const saveEdit = () => {
     if (Number(budget) < MIN_BUDGET) {
       setErr(t("adv.wizard.budgetMin"));
+      return;
+    }
+    if (copy.length > AD_TEXT_MAX_LENGTH) {
+      setErr(`${copy.length}/${AD_TEXT_MAX_LENGTH} caractères — raccourcis le texte.`);
+      return;
+    }
+    const markdownError = validateAdMarkdown(copy);
+    if (markdownError) {
+      setErr(markdownError);
       return;
     }
     setErr(null);
@@ -314,7 +324,17 @@ function CampaignDetail() {
                     className={cn("mt-2", inputCls())}
                   />
                 )}
-                <AutoTextarea id="ccopy" minRows={3} value={copy} onChange={setCopy} className="mt-2" />
+                <AutoTextarea id="ccopy" minRows={3} value={copy} onChange={setCopy} maxLength={AD_TEXT_MAX_LENGTH} className="mt-2" />
+                <div className="mt-1.5 flex justify-end">
+                  <span
+                    className={cn(
+                      "text-xs tabular-nums",
+                      copy.length > AD_TEXT_MAX_LENGTH * 0.9 ? "text-danger font-semibold" : "text-paper-dim",
+                    )}
+                  >
+                    {copy.length}/{AD_TEXT_MAX_LENGTH}
+                  </span>
+                </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={t("adv.wizard.buttonLabel")} htmlFor="cbtn">

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode, type TextareaHTMLAttribute
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { uploadCreativeImage } from "@/lib/api";
+import { normalizeImageForUpload } from "@/lib/image";
 import { IconAlert, IconCheck, IconEmptyBox, IconImage, IconX } from "@/components/icons";
 
 /* ---------- status system: single source of truth for colour + label ---------- */
@@ -480,7 +481,13 @@ export function ImageUpload({
     setErr("");
     setBusy(true);
     try {
-      const uploaded = await uploadCreativeImage(file);
+      // Always re-encode to JPEG client-side first: normalises formats the
+      // backend doesn't accept for direct upload (HEIC/HEIF straight off
+      // an Android or iPhone camera) and shrinks the payload for slow
+      // connections — both silently produced this exact "upload failed"
+      // symptom before.
+      const normalized = await normalizeImageForUpload(file);
+      const uploaded = await uploadCreativeImage(normalized);
       onChange(uploaded);
     } catch (e) {
       console.error("Image upload failed:", e);
@@ -576,7 +583,8 @@ export function LogoUpload({
     setErr("");
     setBusy(true);
     try {
-      const uploaded = await uploader(file);
+      const normalized = await normalizeImageForUpload(file);
+      const uploaded = await uploader(normalized);
       onChange(uploaded.url);
     } catch (e) {
       console.error("Logo upload failed:", e);

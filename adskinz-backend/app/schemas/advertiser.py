@@ -12,7 +12,14 @@ from pydantic import Field, HttpUrl, computed_field, field_validator
 
 from app.config import settings
 from app.core.enums import AD_LANGUAGES, BUTTON_LABELS
+from app.core.markdown import validate_ad_markdown
 from app.schemas.common import APIModel, RequestModel
+
+# Advertiser-facing ad-copy cap. Kept comfortably under Telegram's 1024-char
+# photo-caption hard limit so the localised "#AdsKinz" footer
+# (app.bot.aiogram_bot._AD_FOOTERS, longest ~90 chars) always still fits
+# without ever having to truncate the advertiser's own text at post time.
+AD_TEXT_MAX_LENGTH = 900
 
 FrontendFormat = Literal["channel", "interstitial", "pop"]
 FrontendStatus = Literal[
@@ -46,7 +53,7 @@ class CampaignCreateRequest(RequestModel):
     format: FrontendFormat = "channel"
     title: str | None = Field(default=None, min_length=3, max_length=56)
     brand_name: str | None = Field(default=None, max_length=40, alias="brandName")
-    ad_text: str = Field(min_length=10, max_length=1024, alias="copy")
+    ad_text: str = Field(min_length=10, max_length=AD_TEXT_MAX_LENGTH, alias="copy")
     button_label: str = Field(max_length=40, alias="buttonLabel")
     destination_url: str = Field(alias="destinationUrl")
     target_language: str = Field(default="all", alias="language")
@@ -59,6 +66,12 @@ class CampaignCreateRequest(RequestModel):
     ai_generated: bool = False
 
     _check_url = field_validator("destination_url")(_validate_destination)
+
+    @field_validator("ad_text")
+    @classmethod
+    def _valid_markdown(cls, value: str) -> str:
+        validate_ad_markdown(value)
+        return value
 
     @field_validator("button_label")
     @classmethod
@@ -108,7 +121,7 @@ class CampaignUpdateRequest(RequestModel):
     name: str | None = Field(default=None, min_length=3, max_length=160)
     title: str | None = Field(default=None, min_length=3, max_length=56)
     brand_name: str | None = Field(default=None, max_length=40, alias="brandName")
-    ad_text: str | None = Field(default=None, min_length=10, max_length=1024, alias="copy")
+    ad_text: str | None = Field(default=None, min_length=10, max_length=AD_TEXT_MAX_LENGTH, alias="copy")
     button_label: str | None = Field(default=None, max_length=40, alias="buttonLabel")
     destination_url: str | None = Field(default=None, alias="destinationUrl")
     target_language: str | None = Field(default=None, alias="language")
@@ -127,6 +140,13 @@ class CampaignUpdateRequest(RequestModel):
     @classmethod
     def _check_url(cls, value: str | None) -> str | None:
         return _validate_destination(value) if value else None
+
+    @field_validator("ad_text")
+    @classmethod
+    def _valid_markdown(cls, value: str | None) -> str | None:
+        if value is not None:
+            validate_ad_markdown(value)
+        return value
 
     @field_validator("button_label")
     @classmethod
@@ -247,3 +267,16 @@ class CampaignTranslationsResponse(APIModel):
     source_language: str
     generated: bool
     translations: list[TranslationItem]
+
+
+class RecentPlacementItem(APIModel):
+    """One channel this campaign's ad was recently posted into."""
+
+    channelName: str
+    channelLink: str
+    postLink: str | None = None
+    postedAt: datetime
+
+
+class RecentPlacementsResponse(APIModel):
+    items: list[RecentPlacementItem]
