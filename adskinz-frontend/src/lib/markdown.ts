@@ -1,6 +1,7 @@
 /**
  * Validation (not rendering) of the lenient Markdown subset AdsKinz accepts
- * in ad copy: **bold**/__bold__, *italic*/_italic_, `code`, [label](url).
+ * in ad copy: bold (** or __), italic (* or _), inline code (backticks),
+ * and [label](url) links.
  *
  * This mirrors app/core/markdown.py on the backend so the advertiser gets
  * the exact same "here's what's wrong" message before they even submit,
