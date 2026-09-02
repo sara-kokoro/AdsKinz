@@ -88,6 +88,8 @@ class LedgerEntryType(StrEnum):
     """Double-entry style movement log for every balance mutation."""
 
     DEPOSIT_CREDIT = "deposit_credit"
+    CAMPAIGN_TOPUP = "campaign_topup"
+    CAMPAIGN_REFUND = "campaign_refund"
     CAMPAIGN_SPEND = "campaign_spend"
     PUBLISHER_EARNING = "publisher_earning"
     WITHDRAWAL_HOLD = "withdrawal_hold"

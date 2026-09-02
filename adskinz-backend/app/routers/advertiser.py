@@ -29,7 +29,6 @@ from app.core.enums import CampaignStatus
 from app.core.errors import (
     BusinessRuleError,
     ConflictError,
-    InsufficientBalanceError,
     NotFoundError,
 )
 from app.models.campaigns import (
@@ -135,20 +134,13 @@ async def create_campaign(
     session: SessionDep,
     ip_hash: ClientIPHashDep,
 ) -> CampaignResponse:
-    """A new campaign is always ``pending_review``.
+    """A new campaign is always ``pending_review`` and starts with $0 budget.
 
-    The budget is not deducted at creation: the advertiser's balance is shared
-    across active campaigns and is only consumed as impressions and clicks are
-    billed. Still, we refuse to set a total_budget the wallet can't cover, so
-    the campaign isn't silently paused for insufficient balance the moment it
-    is approved.
+    The campaign's budget is an isolated pot, separate from the wallet. No
+    money moves at creation — the advertiser funds the campaign afterwards
+    with a top-up (``PATCH .../campaigns/{id}`` with ``add_budget``), which is
+    the only moment money actually leaves the wallet.
     """
-    if payload.total_budget > Decimal(advertiser.balance_usd):
-        raise InsufficientBalanceError(
-            f"Your wallet balance (${advertiser.balance_usd}) is lower than the "
-            f"${payload.total_budget} budget you're setting. Top up your balance "
-            f"first, or lower the campaign budget."
-        )
     campaign = Campaign(
         advertiser_id=advertiser.id,
         name=payload.name,
@@ -163,7 +155,7 @@ async def create_campaign(
         button_label=payload.button_label,
         destination_url=payload.destination_url,
         cpm_bid=payload.cpm_bid,
-        total_budget=payload.total_budget,
+        total_budget=Decimal("0.00"),
         daily_budget=payload.daily_budget,
         submitted_ip_hash=ip_hash,
     )
@@ -235,24 +227,28 @@ async def update_campaign(
             raise BusinessRuleError(
                 "The new total budget is lower than the amount already spent."
             )
-        if payload.total_budget > Decimal(advertiser.balance_usd):
-            raise InsufficientBalanceError(
-                f"Your wallet balance (${advertiser.balance_usd}) is lower than the "
-                f"${payload.total_budget} budget you're setting. Top up your balance "
-                f"first, or lower the campaign budget."
+        delta = payload.total_budget - Decimal(campaign.total_budget)
+        if delta > 0:
+            # Growing the budget this way still moves real money out of the
+            # wallet, same as a top-up.
+            await billing_service.fund_campaign(
+                session, advertiser=advertiser, campaign=campaign, amount=delta
             )
-        campaign.total_budget = payload.total_budget
+        elif delta < 0:
+            # Shrinking it returns the difference — it was never spent.
+            await billing_service.refund_campaign(
+                session, advertiser=advertiser, campaign=campaign, amount=-delta
+            )
         if campaign.remaining_budget >= settings.CAMPAIGN_LOW_BALANCE_THRESHOLD:
             campaign.low_balance_alerted_at = None
 
     if payload.add_budget is not None:
-        if payload.add_budget > Decimal(advertiser.balance_usd):
-            raise InsufficientBalanceError(
-                f"Your wallet balance (${advertiser.balance_usd}) is lower than the "
-                f"${payload.add_budget} you're trying to add to this campaign. "
-                f"Top up your balance first."
-            )
-        campaign.total_budget = Decimal(campaign.total_budget) + payload.add_budget
+        # The only "recharge" action: moves money out of the wallet into this
+        # campaign's isolated budget. Raises InsufficientBalanceError itself
+        # if the wallet can't cover it.
+        await billing_service.fund_campaign(
+            session, advertiser=advertiser, campaign=campaign, amount=payload.add_budget
+        )
         if campaign.status == CampaignStatus.STOPPED.value:
             campaign.status = CampaignStatus.ACTIVE.value
         if campaign.remaining_budget >= settings.CAMPAIGN_LOW_BALANCE_THRESHOLD:
@@ -260,8 +256,18 @@ async def update_campaign(
 
     if payload.status is not None:
         if payload.status == "paused":
+            # Pausing keeps the reserved money in the campaign — it isn't
+            # refunded, since the advertiser may resume at any time.
             campaign.status = CampaignStatus.PAUSED.value
         elif payload.status == "stopped":
+            # Stopping is final: whatever is left of this campaign's isolated
+            # budget goes back to the wallet.
+            await billing_service.refund_campaign(
+                session,
+                advertiser=advertiser,
+                campaign=campaign,
+                amount=campaign.remaining_budget,
+            )
             campaign.status = CampaignStatus.STOPPED.value
         elif payload.status == "active":
             if campaign.status not in (

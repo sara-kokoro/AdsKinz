@@ -16,7 +16,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from app.config import settings
 from app.redis_client import distributed_lock
 
-from .budget import budget_allocation_check, low_balance_alert, spend_flush
+from .budget import spend_flush
 from .channels import bot_admin_check, channel_trust_expiry, refresh_channel_subscribers
 from .deposits import deposit_watcher
 from .fraud import fraud_scan
@@ -105,8 +105,10 @@ def _register_jobs(scheduler: AsyncIOScheduler) -> None:
         coalesce=True,
         misfire_grace_time=300,
     )
-    _add_interval_job(scheduler, "low_balance_alert", low_balance_alert, 60)
-    _add_interval_job(scheduler, "budget_allocation_check", budget_allocation_check, 10)
+    # Wallet-level low-balance pausing and cross-campaign balance allocation
+    # are retired: each campaign's budget is now isolated money reserved at
+    # top-up time, so the shared wallet balance can no longer starve a
+    # running campaign mid-flight.
     _add_interval_job(scheduler, "post_dispatch", post_dispatch, 10)
     _add_interval_job(scheduler, "spend_flush", spend_flush, 1)
     _add_interval_job(scheduler, "fraud_scan", fraud_scan, 30)

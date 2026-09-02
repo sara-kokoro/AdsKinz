@@ -1,68 +1,18 @@
-"""Jobs that supervise advertiser balances and flush deferred spend."""
+"""Jobs that flush deferred campaign spend.
+
+Wallet-level low-balance pausing and cross-campaign balance allocation used
+to live here, but both relied on the wallet balance funding active campaigns
+in real time. Now that a campaign's budget is isolated money reserved at
+top-up time (see billing_service.fund_campaign), neither job has anything
+left to do: a running campaign can only ever be stopped by exhausting its
+own reserved budget, never by the wallet balance moving underneath it.
+"""
 
 from __future__ import annotations
 
-from sqlalchemy import select
-
-from app.core.enums import CampaignStatus
+from app.redis_client import drain_spend_buffer
 from app.database import session_scope
-from app.models.accounts import Advertiser
-from app.models.campaigns import Campaign
-from app.redis_client import cache_delete_pattern, drain_spend_buffer
 from app.services import billing_service
-
-
-async def _advertisers_with_active_campaigns(
-    session, *, include_paused_insufficient: bool = False
-) -> list[Advertiser]:
-    statuses = [CampaignStatus.ACTIVE.value]
-    if include_paused_insufficient:
-        # Include these in allocation checks so a top-up can automatically
-        # resume campaigns that were paused by a previous allocation run.
-        statuses.append(CampaignStatus.PAUSED_INSUFFICIENT_BALANCE.value)
-    return (
-        (
-            await session.execute(
-                select(Advertiser)
-                .join(Campaign, Campaign.advertiser_id == Advertiser.id)
-                .where(Campaign.status.in_(statuses))
-                .distinct()
-            )
-        )
-        .scalars()
-        .unique()
-        .all()
-    )
-
-
-async def low_balance_alert() -> dict:
-    """Send at most one low-balance alert per advertiser in its 24-hour window."""
-    summary = {"advertisers_checked": 0, "alerts_sent": 0}
-    async with session_scope() as session:
-        advertisers = await _advertisers_with_active_campaigns(session)
-        summary["advertisers_checked"] = len(advertisers)
-        for advertiser in advertisers:
-            if await billing_service.maybe_send_low_balance_alert(session, advertiser):
-                summary["alerts_sent"] += 1
-    return summary
-
-
-async def budget_allocation_check() -> dict:
-    """Keep only the advertiser's highest-CPM campaigns covered by its balance."""
-    summary = {"advertisers_checked": 0, "campaigns_changed": 0}
-    async with session_scope() as session:
-        advertisers = await _advertisers_with_active_campaigns(
-            session, include_paused_insufficient=True
-        )
-        summary["advertisers_checked"] = len(advertisers)
-        for advertiser in advertisers:
-            changed = await billing_service.enforce_balance_allocation(session, advertiser)
-            summary["campaigns_changed"] += len(changed)
-
-    if summary["campaigns_changed"]:
-        # Campaign status is part of every cached auction result.
-        await cache_delete_pattern("adsel:*")
-    return summary
 
 
 async def spend_flush() -> dict:

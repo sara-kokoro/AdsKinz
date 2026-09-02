@@ -70,7 +70,7 @@ const en = {
     heroSub_native: "native",
     heroSub_mid:
       " ads inside Telegram channels and Mini Apps — same shape, same rhythm as the content around them. Campaigns start from ",
-    heroSub_amount: "$20",
+    heroSub_amount: "$10",
     heroSub_post: ".",
     stats: {
       languages: "Languages supported",
@@ -115,7 +115,7 @@ const en = {
     audience: {
       advTitle: "Advertisers",
       advSub: "Reach your audience where it already is.",
-      advB1: "Budgets from $20 per campaign",
+      advB1: "Fund campaigns yourself, $10 minimum per top-up",
       advB2: "Native channel posts or Mini App placements",
       advB3: "AI-written ad copy in one click",
       pubTitle: "Publishers",
@@ -127,7 +127,7 @@ const en = {
     faq: {
       title: "Questions",
       q1: "What is the minimum campaign budget?",
-      a1: "A campaign needs a total budget of at least $20. Depositing to your balance has no minimum — you can top up $5 and grow from there.",
+      a1: "None. A campaign is created with a $0 budget, then you fund it yourself from your wallet — $10 minimum per top-up.",
       q2: "How many subscribers do I need to monetize a channel?",
       a2: "500 subscribers. Mini Apps have no subscriber requirement at all.",
       q3: "How are publishers paid?",
@@ -195,7 +195,7 @@ const en = {
       saved: "Changes saved — the campaign returns to review.",
       topUp: "Top up budget",
       topUpTitle: "Add budget",
-      topUpSub: "Adding budget restarts a campaign paused for insufficient funds.",
+      topUpSub: "Moves funds from your wallet into this campaign's budget, and relaunches it if it was stopped.",
       amount: "Amount to add",
       addFunds: "Add funds",
       funded: "Budget added — campaign relaunched.",
@@ -226,7 +226,7 @@ const en = {
       review:
         "Every creative is reviewed by a human before it goes live. Expect a few hours, not a few days.",
       depositMin:
-        "Deposits have no minimum, campaigns do: $20. Top up small, launch when you reach the campaign threshold.",
+        "Deposits have no minimum. Funding a campaign does: $10 minimum per top-up.",
       memo:
         "On TON, the memo tag is what links the transfer to your account. A deposit sent without it has to be recovered manually.",
     },
@@ -278,21 +278,21 @@ const en = {
       submitReview: "Submit for review",
       submitted: "Your campaign is now pending review. This usually takes a few hours.",
       editNotice: "Editing an active campaign sends it back to Pending review.",
-      errMinBudget: "Total budget must be at least $20.",
+      errMinBudget: "Add at least $10 to fund this campaign.",
       errMinCpm: "CPM must be at least $2.00.",
       errUrl: "Enter a valid destination URL starting with https://",
       errTitle: "Banner title cannot be empty.",
       errCopy: "Ad copy cannot be empty.",
-      budgetTooLow: "Below the $20 minimum",
-      budgetOk: "Meets the $20 minimum",
+      budgetTooLow: "Below the $10 minimum",
+      budgetOk: "Meets the $10 minimum",
       budgetQuote:
-        "A campaign cannot be submitted below $20 in total budget. The field stays red until the minimum is reached.",
+        "Your campaign starts at $0 — this is how much you'll fund it with right after creation, $10 minimum.",
       creativeQuote:
         "The image and copy you send here are published as a real Telegram post. Nothing is added around them.",
     },
     deposits: {
       title: "Deposits",
-      noMinimum: "Deposits have no minimum. The $20 minimum applies per campaign, not per deposit.",
+      noMinimum: "Deposits have no minimum. The $10 minimum applies per campaign top-up, not per deposit.",
       method: "Payment method",
       ton: "USDT TON",
       trc: "USDT TRC20",
@@ -687,7 +687,7 @@ const fr: Dict = {
     heroSub_native: "natives",
     heroSub_mid:
       " dans les canaux et Mini Apps Telegram — même forme, même rythme que le contenu autour. Les campagnes démarrent à ",
-    heroSub_amount: "20 $",
+    heroSub_amount: "10 $",
     heroSub_post: ".",
     stats: {
       languages: "Langues prises en charge",
@@ -732,7 +732,7 @@ const fr: Dict = {
     audience: {
       advTitle: "Annonceurs",
       advSub: "Touchez votre audience là où elle se trouve déjà.",
-      advB1: "Budgets à partir de 20 $ par campagne",
+      advB1: "Financez vos campagnes vous-même, minimum 10 $ par recharge",
       advB2: "Posts natifs en canal ou emplacements Mini App",
       advB3: "Texte publicitaire rédigé par IA en un clic",
       pubTitle: "Publishers",
@@ -744,7 +744,7 @@ const fr: Dict = {
     faq: {
       title: "Questions",
       q1: "Quel est le budget minimum d'une campagne ?",
-      a1: "Une campagne exige un budget total d'au moins 20 $. Le dépôt sur votre solde n'a aucun minimum — vous pouvez recharger 5 $ et progresser ensuite.",
+      a1: "Aucun. Une campagne est créée avec un budget de 0 $, puis vous la financez vous-même depuis votre portefeuille — minimum 10 $ par recharge.",
       q2: "Combien d'abonnés faut-il pour monétiser un canal ?",
       a2: "500 abonnés. Les Mini Apps n'ont aucune exigence d'abonnés.",
       q3: "Comment les publishers sont-ils payés ?",
@@ -812,7 +812,7 @@ const fr: Dict = {
       saved: "Modifications enregistrées — la campagne repasse en revue.",
       topUp: "Recharger le budget",
       topUpTitle: "Ajouter du budget",
-      topUpSub: "Ajouter du budget relance une campagne mise en pause faute de fonds.",
+      topUpSub: "Déplace des fonds de votre portefeuille vers le budget de cette campagne, et la relance si elle était arrêtée.",
       amount: "Montant à ajouter",
       addFunds: "Ajouter des fonds",
       funded: "Budget ajouté — campagne relancée.",
@@ -843,7 +843,7 @@ const fr: Dict = {
       review:
         "Chaque création est relue par un humain avant diffusion. Comptez quelques heures, pas quelques jours.",
       depositMin:
-        "Les dépôts n'ont pas de minimum, les campagnes si : 20 $. Rechargez petit, lancez une fois le seuil atteint.",
+        "Les dépôts n'ont pas de minimum. Financer une campagne, si : 10 $ minimum par recharge.",
       memo:
         "Sur TON, le memo tag est ce qui relie le transfert à votre compte. Un dépôt envoyé sans memo doit être récupéré manuellement.",
     },
@@ -895,21 +895,21 @@ const fr: Dict = {
       submitReview: "Soumettre à la revue",
       submitted: "Votre campagne est en attente de revue. Cela prend généralement quelques heures.",
       editNotice: "Modifier une campagne active la remet en attente de revue.",
-      errMinBudget: "Le budget total doit être d'au moins 20 $.",
+      errMinBudget: "Ajoutez au moins 10 $ pour financer cette campagne.",
       errMinCpm: "Le CPM doit être d'au moins 2,00 $.",
       errUrl: "Saisissez une URL de destination valide commençant par https://",
       errTitle: "Le titre de la bannière ne peut pas être vide.",
       errCopy: "Le texte de la publicité ne peut pas être vide.",
-      budgetTooLow: "Sous le minimum de 20 $",
-      budgetOk: "Minimum de 20 $ atteint",
+      budgetTooLow: "Sous le minimum de 10 $",
+      budgetOk: "Minimum de 10 $ atteint",
       budgetQuote:
-        "Une campagne ne peut pas être soumise sous 20 $ de budget total. Le champ reste rouge tant que le minimum n'est pas atteint.",
+        "Votre campagne démarre à 0 $ — c'est ce montant que vous ajouterez juste après sa création, 10 $ minimum.",
       creativeQuote:
         "L'image et le texte envoyés ici sont publiés tels quels comme un vrai post Telegram. Rien n'est ajouté autour.",
     },
     deposits: {
       title: "Dépôts",
-      noMinimum: "Les dépôts n'ont aucun minimum. Le minimum de 20 $ s'applique par campagne, pas par dépôt.",
+      noMinimum: "Les dépôts n'ont aucun minimum. Le minimum de 10 $ s'applique par recharge de campagne, pas par dépôt.",
       method: "Moyen de paiement",
       ton: "USDT TON",
       trc: "USDT TRC20",
@@ -1299,7 +1299,7 @@ const ru: Dict = {
     heroSub_native: "нативную",
     heroSub_mid:
       " рекламу в каналах и Mini Apps Telegram — в той же форме и ритме, что и контент вокруг. Кампании от ",
-    heroSub_amount: "$20",
+    heroSub_amount: "$10",
     heroSub_post: ".",
     stats: {
       languages: "Поддерживаемые языки",
@@ -1344,7 +1344,7 @@ const ru: Dict = {
     audience: {
       advTitle: "Рекламодатели",
       advSub: "Обращайтесь к аудитории там, где она уже есть.",
-      advB1: "Бюджеты от $20 за кампанию",
+      advB1: "Пополняйте кампании сами, минимум $10 за раз",
       advB2: "Нативные посты в каналах или размещения в Mini Apps",
       advB3: "Текст объявления от ИИ в один клик",
       pubTitle: "Паблишеры",
@@ -1356,7 +1356,7 @@ const ru: Dict = {
     faq: {
       title: "Вопросы",
       q1: "Каков минимальный бюджет кампании?",
-      a1: "Кампании нужен общий бюджет не менее $20. У пополнения баланса минимума нет — можно внести $5 и расти дальше.",
+      a1: "Никакого. Кампания создаётся с бюджетом $0, а пополняете вы её сами из кошелька — минимум $10 за пополнение.",
       q2: "Сколько подписчиков нужно для монетизации канала?",
       a2: "500 подписчиков. Для Mini Apps требований по подписчикам нет вовсе.",
       q3: "Как получают выплаты паблишеры?",
@@ -1424,7 +1424,7 @@ const ru: Dict = {
       saved: "Изменения сохранены — кампания отправлена на проверку.",
       topUp: "Пополнить бюджет",
       topUpTitle: "Добавить бюджет",
-      topUpSub: "Пополнение бюджета возобновляет кампанию, остановленную из-за нехватки средств.",
+      topUpSub: "Переводит средства из кошелька в бюджет этой кампании и перезапускает её, если она была остановлена.",
       amount: "Сумма пополнения",
       addFunds: "Добавить средства",
       funded: "Бюджет добавлен — кампания перезапущена.",
@@ -1455,7 +1455,7 @@ const ru: Dict = {
       review:
         "Каждый креатив проверяет человек до запуска. Это несколько часов, а не дней.",
       depositMin:
-        "У пополнений минимума нет, у кампаний есть: $20. Пополняйте понемногу и запускайте при достижении порога.",
+        "У пополнений кошелька минимума нет. У пополнения кампании есть: минимум $10 за раз.",
       memo:
         "В сети TON memo-тег связывает перевод с вашим аккаунтом. Депозит без него приходится восстанавливать вручную.",
     },
@@ -1505,22 +1505,22 @@ const ru: Dict = {
       submitReview: "Отправить на проверку",
       submitted: "Кампания отправлена на проверку. Обычно это занимает несколько часов.",
       editNotice: "Редактирование активной кампании возвращает её на проверку.",
-      errMinBudget: "Общий бюджет должен быть не менее $20.",
+      errMinBudget: "Добавьте минимум $10, чтобы профинансировать кампанию.",
       errMinCpm: "CPM должен быть не менее $2.00.",
       errUrl: "Введите корректный URL, начинающийся с https://",
       errTitle: "Заголовок баннера не может быть пустым.",
       errCopy: "Текст объявления не может быть пустым.",
-      budgetTooLow: "Ниже минимума $20",
-      budgetOk: "Минимум $20 достигнут",
+      budgetTooLow: "Ниже минимума $10",
+      budgetOk: "Минимум $10 достигнут",
       budgetQuote:
-        "Кампанию нельзя отправить с бюджетом меньше $20. Поле остаётся красным, пока минимум не достигнут.",
+        "Ваша кампания начинается с $0 — именно на эту сумму вы пополните её сразу после создания, минимум $10.",
       creativeQuote:
         "Изображение и текст публикуются как настоящий пост Telegram. Вокруг них ничего не добавляется.",
     },
     deposits: {
       title: "Пополнения",
       verifyScanFailed: "Не удалось проверить блокчейн сейчас ({{error}}). Это временная проблема на нашей стороне, а не с вашим депозитом — попробуйте снова чуть позже.",
-      noMinimum: "У пополнений нет минимума. Минимум $20 действует для кампании, а не для депозита.",
+      noMinimum: "У пополнений кошелька нет минимума. Минимум $10 действует для пополнения кампании, а не депозита.",
       method: "Способ оплаты",
       ton: "USDT TON",
       trc: "USDT TRC20",
@@ -1902,7 +1902,7 @@ const zh: Dict = {
     heroSub_pre: "AdsKinz 在 Telegram 频道与 Mini App 中投放",
     heroSub_native: "原生",
     heroSub_mid: "广告——与周围内容同样的形态与节奏。广告起投金额为 ",
-    heroSub_amount: "$20",
+    heroSub_amount: "$10",
     heroSub_post: "。",
     stats: {
       languages: "支持语言",
@@ -1943,7 +1943,7 @@ const zh: Dict = {
     audience: {
       advTitle: "广告主",
       advSub: "在受众已经所在的地方触达他们。",
-      advB1: "每个广告预算 $20 起",
+      advB1: "自行为广告充值，每次最低 $10",
       advB2: "频道原生帖子或 Mini App 广告位",
       advB3: "一键生成 AI 广告文案",
       pubTitle: "发布者",
@@ -1955,7 +1955,7 @@ const zh: Dict = {
     faq: {
       title: "常见问题",
       q1: "广告的最低预算是多少？",
-      a1: "单个广告总预算至少 $20。账户充值没有最低限额——可以先充 $5 再逐步增加。",
+      a1: "没有下限。广告创建时预算为 $0，之后由您从钱包自行充值——每次充值最低 $10。",
       q2: "频道变现需要多少订阅者？",
       a2: "500 名订阅者。Mini App 完全没有订阅者要求。",
       q3: "发布者如何收款？",
@@ -2023,7 +2023,7 @@ const zh: Dict = {
       saved: "已保存 — 广告重新进入审核。",
       topUp: "追加预算",
       topUpTitle: "增加预算",
-      topUpSub: "追加预算会重启因余额不足而暂停的广告。",
+      topUpSub: "将资金从您的钱包转入该广告的预算，如果广告已停止，会一并重启。",
       amount: "追加金额",
       addFunds: "确认追加",
       funded: "预算已追加 — 广告已重启。",
@@ -2049,7 +2049,7 @@ const zh: Dict = {
       privacy: "我们绝不透露某次展示来自哪个频道。广告位数据始终按语言与格式聚合。",
       pacing: "广告按日预算允许的节奏消耗。未设日预算时，将按库存允许的速度尽快投放。",
       review: "每个素材上线前都由人工审核，通常只需几小时，而非几天。",
-      depositMin: "充值没有下限，广告有：$20。可以小额充值，达到门槛后再上线。",
+      depositMin: "账户充值没有下限。为广告充值有：每次最低 $10。",
       memo: "在 TON 网络，memo 标签是转账与账户关联的依据。缺少它的充值需要人工找回。",
     },
     wizard: {
@@ -2098,20 +2098,20 @@ const zh: Dict = {
       submitReview: "提交审核",
       submitted: "您的广告已进入审核，通常只需几小时。",
       editNotice: "编辑投放中的广告会使其重新进入待审核状态。",
-      errMinBudget: "总预算至少为 $20。",
+      errMinBudget: "请至少充值 $10 以启动该广告的预算。",
       errMinCpm: "CPM 至少为 $2.00。",
       errUrl: "请输入以 https:// 开头的有效目标网址",
       errTitle: "横幅标题不能为空。",
       errCopy: "广告文案不能为空。",
-      budgetTooLow: "低于 $20 最低要求",
-      budgetOk: "已满足 $20 最低要求",
-      budgetQuote: "总预算低于 $20 时无法提交广告，该输入框会保持红色直到达标。",
+      budgetTooLow: "低于 $10 最低要求",
+      budgetOk: "已满足 $10 最低要求",
+      budgetQuote: "您的广告预算从 $0 开始——创建后您将立即充值这个金额，最低 $10。",
       creativeQuote: "此处的图片与文案会作为真实的 Telegram 帖子发布，四周不会附加任何内容。",
     },
     deposits: {
       title: "充值",
       verifyScanFailed: "暂时无法扫描链上数据（{{error}}）。这是我们这边的临时问题，不是你的充值出了问题——请稍后重试。",
-      noMinimum: "充值没有最低限额。$20 的门槛针对单个广告，而非单次充值。",
+      noMinimum: "账户充值没有最低限额。$10 的门槛针对单次广告充值，而非账户充值。",
       method: "支付方式",
       ton: "USDT TON",
       trc: "USDT TRC20",

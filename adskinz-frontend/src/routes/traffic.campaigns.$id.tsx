@@ -28,7 +28,7 @@ export const Route = createFileRoute("/traffic/campaigns/$id")({
   component: CampaignDetail,
 });
 
-const MIN_BUDGET = 20;
+const MIN_BUDGET = 10;
 
 function CampaignDetail() {
   useAuthGuard("advertiser");

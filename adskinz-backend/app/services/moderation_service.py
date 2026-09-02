@@ -211,6 +211,18 @@ async def reject_campaign(
     campaign.rejection_reason = reason
     campaign.reviewed_by_admin_id = admin_id
 
+    advertiser = await session.get(Advertiser, campaign.advertiser_id)
+
+    # A rejected campaign never ran, so whatever was reserved for it (its
+    # isolated budget) goes straight back to the advertiser's wallet.
+    if advertiser is not None and campaign.remaining_budget > 0:
+        await billing_service.refund_campaign(
+            session,
+            advertiser=advertiser,
+            campaign=campaign,
+            amount=campaign.remaining_budget,
+        )
+
     log_action(
         session,
         admin_id=admin_id,
@@ -224,7 +236,6 @@ async def reject_campaign(
     await session.commit()
     await session.refresh(campaign)
 
-    advertiser = await session.get(Advertiser, campaign.advertiser_id)
     if advertiser:
         await email_service.send_campaign_rejected(
             advertiser.email, campaign_name=campaign.name, reason=reason

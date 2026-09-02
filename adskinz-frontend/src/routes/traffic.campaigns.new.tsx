@@ -6,7 +6,8 @@ import { AutoTextarea, Btn, FieldError, ImageUpload, Panel, Quote, SectionTitle,
 import { TelegramPostPreview } from "@/components/telegram-preview";
 import { IconCheck, IconSparkle, IconChannel, IconApp, IconImage, IconGlobe, IconWallet, IconEye, IconTag } from "@/components/icons";
 import { AD_LANGUAGES, BUTTON_LABELS } from "@/lib/constants";
-import { ApiError } from "@/lib/api";
+import { ApiError, apiFetch } from "@/lib/api";
+import type { Campaign } from "@/lib/types";
 import { useCreateCampaign, useGenerateCopy } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { useAuthGuard } from "@/lib/auth";
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/traffic/campaigns/new")({
       { title: "New campaign — AdsKinz traffic" },
       { name: "description", content: "Create a native Telegram campaign: format, creative, targeting, budget and review." },
       { property: "og:title", content: "New campaign — AdsKinz traffic" },
-      { property: "og:description", content: "Launch a native Telegram campaign from $20." },
+      { property: "og:description", content: "Launch a native Telegram campaign from $10." },
     ],
   }),
   component: Wizard,
@@ -69,7 +70,7 @@ function Wizard() {
       if (!/^https:\/\/.+\..+/.test(url)) e["url"] = t("adv.wizard.errUrl");
     }
     if (step === 3) {
-      if (Number(budget) < 20 || !budget) e["budget"] = t("adv.wizard.errMinBudget");
+      if (Number(budget) < 10 || !budget) e["budget"] = t("adv.wizard.errMinBudget");
       if (Number(cpm) < 2 || !cpm) e["cpm"] = t("adv.wizard.errMinCpm");
     }
     setErrors(e);
@@ -81,7 +82,7 @@ function Wizard() {
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
   };
 
-  const budgetTooLow = budget !== "" && Number(budget) < 20;
+  const budgetTooLow = budget !== "" && Number(budget) < 10;
 
   const competitiveness =
     Number(cpm) >= 4.5 ? "compHigh" : Number(cpm) >= 2.8 ? "compMid" : "compLow";
@@ -98,14 +99,28 @@ function Wizard() {
         button_label: label,
         destinationUrl: url,
         language: lang,
-        budget: Number(budget),
         dailyBudget: daily ? Number(daily) : null,
         cpm: Number(cpm),
         imageUrl: image?.url ?? null,
         ai_generated: generateCopy.isSuccess,
       },
       {
-        onSuccess: (campaign) => {
+        onSuccess: async (campaign) => {
+          // Campaigns are created with an isolated $0 budget; funding it is a
+          // separate step that actually moves money out of the wallet.
+          const amount = Number(budget);
+          if (amount > 0) {
+            try {
+              await apiFetch<Campaign>(`/advertiser/campaigns/${campaign.id}`, {
+                method: "PATCH",
+                body: { addBudget: amount },
+              });
+            } catch (err) {
+              // The campaign exists either way — surface the funding error but
+              // still take the advertiser to it so they can retry the top-up.
+              setSubmitError(err instanceof ApiError ? err.message : t("common.loadError"));
+            }
+          }
           void navigate({ to: "/traffic/campaigns/$id", params: { id: campaign.id } });
         },
         onError: (err) => setSubmitError(err instanceof ApiError ? err.message : t("common.loadError")),
@@ -341,7 +356,7 @@ function Wizard() {
                     inputMode="decimal"
                     value={budget}
                     onChange={(e) => setBudget(e.target.value)}
-                    placeholder="20.00"
+                    placeholder="10.00"
                     aria-invalid={budgetTooLow}
                     className={`num mt-2 ${inputCls(budgetTooLow)}`}
                   />

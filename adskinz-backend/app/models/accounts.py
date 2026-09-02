@@ -196,7 +196,7 @@ class LedgerEntry(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         Index("ix_ledger_ref", "reference_type", "reference_id"),
     )
 
-    account_type: Mapped[str] = mapped_column(String(20), nullable=False)  # advertiser | publisher | platform
+    account_type: Mapped[str] = mapped_column(String(20), nullable=False)  # advertiser | publisher | campaign | platform
     account_id: Mapped[uuid.UUID | None] = mapped_column()
     entry_type: Mapped[str] = mapped_column(String(40), nullable=False)
     # Positive credits the account, negative debits it.

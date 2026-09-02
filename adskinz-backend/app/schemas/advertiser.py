@@ -8,7 +8,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import Field, HttpUrl, computed_field, field_validator, model_validator
+from pydantic import Field, HttpUrl, computed_field, field_validator
 
 from app.config import settings
 from app.core.enums import AD_LANGUAGES, BUTTON_LABELS
@@ -50,7 +50,9 @@ class CampaignCreateRequest(RequestModel):
     button_label: str = Field(max_length=40, alias="buttonLabel")
     destination_url: str = Field(alias="destinationUrl")
     target_language: str = Field(default="all", alias="language")
-    total_budget: Decimal = Field(alias="budget")
+    # No budget field: every campaign is created with an isolated balance of
+    # $0. Funding happens afterwards through the top-up ("add_budget") flow,
+    # which is what actually moves money out of the advertiser's wallet.
     daily_budget: Decimal | None = Field(default=None, alias="dailyBudget")
     cpm_bid: Decimal = Field(alias="cpm")
     image_url: str | None = Field(default=None, alias="imageUrl")
@@ -83,13 +85,6 @@ class CampaignCreateRequest(RequestModel):
             raise ValueError("Unsupported target language.")
         return resolved
 
-    @field_validator("total_budget")
-    @classmethod
-    def _min_budget(cls, value: Decimal) -> Decimal:
-        if value < settings.MIN_CAMPAIGN_BUDGET:
-            raise ValueError(f"Total budget must be at least ${settings.MIN_CAMPAIGN_BUDGET}.")
-        return value.quantize(Decimal("0.01"))
-
     @field_validator("cpm_bid")
     @classmethod
     def _min_cpm(cls, value: Decimal) -> Decimal:
@@ -105,12 +100,6 @@ class CampaignCreateRequest(RequestModel):
         if value < settings.MIN_DAILY_BUDGET:
             raise ValueError(f"Daily budget must be at least ${settings.MIN_DAILY_BUDGET}.")
         return value.quantize(Decimal("0.01"))
-
-    @model_validator(mode="after")
-    def _daily_not_above_total(self) -> "CampaignCreateRequest":
-        if self.daily_budget is not None and self.daily_budget > self.total_budget:
-            raise ValueError("Daily budget cannot exceed the total budget.")
-        return self
 
 
 class CampaignUpdateRequest(RequestModel):
@@ -129,7 +118,9 @@ class CampaignUpdateRequest(RequestModel):
     image_url: str | None = Field(default=None, alias="imageUrl")
     # Only 'paused' and 'stopped' may be set by the advertiser.
     status: Literal["paused", "active", "stopped"] | None = None
-    # Adds budget on top of the current total (the "Top up" button).
+    # Moves money out of the advertiser's wallet into this campaign's isolated
+    # balance (the "Top up" / "Recharger" button). This is the only way a
+    # campaign's budget actually increases.
     add_budget: Decimal | None = Field(default=None, alias="addBudget", gt=0)
 
     @field_validator("destination_url")
@@ -146,9 +137,16 @@ class CampaignUpdateRequest(RequestModel):
 
     @field_validator("total_budget")
     @classmethod
-    def _min_budget(cls, value: Decimal | None) -> Decimal | None:
-        if value is not None and value < settings.MIN_CAMPAIGN_BUDGET:
-            raise ValueError(f"Total budget must be at least ${settings.MIN_CAMPAIGN_BUDGET}.")
+    def _budget_not_negative(cls, value: Decimal | None) -> Decimal | None:
+        if value is not None and value < 0:
+            raise ValueError("Total budget cannot be negative.")
+        return value
+
+    @field_validator("add_budget")
+    @classmethod
+    def _min_topup(cls, value: Decimal | None) -> Decimal | None:
+        if value is not None and value < settings.MIN_CAMPAIGN_TOPUP:
+            raise ValueError(f"A top-up must be at least ${settings.MIN_CAMPAIGN_TOPUP}.")
         return value
 
     @field_validator("cpm_bid")

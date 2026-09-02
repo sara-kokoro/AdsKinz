@@ -198,7 +198,10 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Business rules — single source of truth, enforced server-side
     # ------------------------------------------------------------------ #
-    MIN_CAMPAIGN_BUDGET: Decimal = Decimal("20.00")
+    # Campaigns start with an isolated balance of $0; this is the minimum
+    # amount an advertiser can move from their wallet into a campaign in a
+    # single recharge (there is no minimum for the wallet deposit itself).
+    MIN_CAMPAIGN_TOPUP: Decimal = Decimal("10.00")
     # Per-campaign remaining-budget alert (distinct from LOW_BALANCE_ALERT_RATIO,
     # which watches the advertiser's overall wallet balance).
     CAMPAIGN_LOW_BALANCE_THRESHOLD: Decimal = Decimal("5.00")

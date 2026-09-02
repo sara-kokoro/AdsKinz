@@ -92,6 +92,77 @@ def add_ledger_entry(
 
 
 # --------------------------------------------------------------------------- #
+# Funding / refunding a campaign's isolated budget
+# --------------------------------------------------------------------------- #
+async def fund_campaign(
+    session: AsyncSession,
+    *,
+    advertiser: Advertiser,
+    campaign: Campaign,
+    amount: Decimal,
+) -> None:
+    """Move ``amount`` out of the wallet into this campaign's isolated budget.
+
+    This is the only place a campaign's ``total_budget`` grows. Once funded,
+    that money is reserved for this campaign alone — ``charge_campaign`` never
+    touches ``advertiser.balance_usd`` again.
+    """
+    amount = q2(amount)
+    if amount <= 0:
+        return
+    if amount > Decimal(advertiser.balance_usd):
+        raise InsufficientBalanceError(
+            f"Your wallet balance (${advertiser.balance_usd}) is lower than the "
+            f"${amount} you're trying to add to this campaign. Top up your "
+            f"wallet first."
+        )
+    advertiser.balance_usd = q2(Decimal(advertiser.balance_usd) - amount)
+    campaign.total_budget = q2(Decimal(campaign.total_budget) + amount)
+    add_ledger_entry(
+        session,
+        account_type="advertiser",
+        account_id=advertiser.id,
+        entry_type=LedgerEntryType.CAMPAIGN_TOPUP.value,
+        amount=-amount,
+        balance_after=advertiser.balance_usd,
+        reference_type="campaign",
+        reference_id=campaign.id,
+        description=f"Funded campaign {campaign.name}",
+    )
+
+
+async def refund_campaign(
+    session: AsyncSession,
+    *,
+    advertiser: Advertiser,
+    campaign: Campaign,
+    amount: Decimal,
+) -> None:
+    """Return unspent, isolated campaign budget to the advertiser's wallet.
+
+    Used when a campaign is rejected, manually stopped, or has its budget
+    reduced — never on a plain pause, which keeps the reserved money in place
+    in case the campaign resumes.
+    """
+    amount = q2(amount)
+    if amount <= 0:
+        return
+    advertiser.balance_usd = q2(Decimal(advertiser.balance_usd) + amount)
+    campaign.total_budget = q2(Decimal(campaign.total_budget) - amount)
+    add_ledger_entry(
+        session,
+        account_type="advertiser",
+        account_id=advertiser.id,
+        entry_type=LedgerEntryType.CAMPAIGN_REFUND.value,
+        amount=amount,
+        balance_after=advertiser.balance_usd,
+        reference_type="campaign",
+        reference_id=campaign.id,
+        description=f"Refunded unspent budget from {campaign.name}",
+    )
+
+
+# --------------------------------------------------------------------------- #
 # Charging a campaign
 # --------------------------------------------------------------------------- #
 async def charge_campaign(
@@ -132,8 +203,11 @@ async def charge_campaign(
         if advertiser is None:
             return ChargeResult(Decimal("0"), Decimal("0"), Decimal("0"), 0, False, "no_advertiser")
 
+        # The campaign's budget is isolated money, already moved out of the
+        # wallet when it was funded — the wallet balance plays no part in how
+        # much can be billed here anymore.
         remaining_total = q6(fresh.total_budget - fresh.spent_usd)
-        billable = min(amount, remaining_total, q6(advertiser.balance_usd))
+        billable = min(amount, remaining_total)
 
         # Daily cap, when the advertiser set one.
         if fresh.daily_budget:
@@ -166,7 +240,8 @@ async def charge_campaign(
         publisher_share = q6(billable - commission)
 
         fresh.spent_usd = q6(fresh.spent_usd + billable)
-        advertiser.balance_usd = q2(advertiser.balance_usd - billable)
+        # Wallet balance is untouched here — it already left the wallet when
+        # the campaign was funded. Only lifetime stats move.
         advertiser.lifetime_spend_usd = q2(advertiser.lifetime_spend_usd + billable)
 
         if event_type == "impression":
@@ -194,11 +269,14 @@ async def charge_campaign(
         )
         add_ledger_entry(
             session,
-            account_type="advertiser",
-            account_id=advertiser.id,
+            # Spend now mutates the campaign's own isolated pot, not the
+            # wallet — so this entry is logged against the campaign account,
+            # with balance_after reflecting what's left of *that* pot.
+            account_type="campaign",
+            account_id=fresh.id,
             entry_type=LedgerEntryType.CAMPAIGN_SPEND.value,
             amount=-billable,
-            balance_after=advertiser.balance_usd,
+            balance_after=q6(fresh.total_budget - fresh.spent_usd),
             reference_type="campaign",
             reference_id=fresh.id,
             description=f"{event_type} x{billed_units} on {fresh.name}",
@@ -444,10 +522,11 @@ async def settle_withdrawal(
 # Budget supervision
 # --------------------------------------------------------------------------- #
 async def committed_active_budget(session: AsyncSession, advertiser_id: uuid.UUID) -> Decimal:
-    """Sum of remaining budget across an advertiser's active campaigns.
+    """Sum of remaining isolated budget across an advertiser's active campaigns.
 
-    The balance is shared, so this is what the advertiser has committed but not
-    yet spent.
+    This money has already left the wallet (it was reserved when each
+    campaign was funded) — this is purely informational: how much is
+    currently locked up and still spendable by running campaigns.
     """
     total = (
         await session.execute(
@@ -455,96 +534,11 @@ async def committed_active_budget(session: AsyncSession, advertiser_id: uuid.UUI
                 func.coalesce(func.sum(Campaign.total_budget - Campaign.spent_usd), 0)
             ).where(
                 Campaign.advertiser_id == advertiser_id,
-                Campaign.status.in_(
-                    [CampaignStatus.ACTIVE.value, CampaignStatus.PAUSED_INSUFFICIENT_BALANCE.value]
-                ),
+                Campaign.status == CampaignStatus.ACTIVE.value,
             )
         )
     ).scalar_one()
     return q2(Decimal(total or 0))
-
-
-async def enforce_balance_allocation(
-    session: AsyncSession, advertiser: Advertiser
-) -> list[Campaign]:
-    """Pause the lowest-CPM campaigns until the balance covers what is left.
-
-    Called by the ``budget_allocation_check`` job. Campaigns are paused in
-    ascending CPM order so the advertiser's most valuable campaigns keep running.
-    Paused campaigns are resumed automatically once the balance recovers.
-    """
-    campaigns = (
-        (
-            await session.execute(
-                select(Campaign)
-                .where(
-                    Campaign.advertiser_id == advertiser.id,
-                    Campaign.status.in_(
-                        [
-                            CampaignStatus.ACTIVE.value,
-                            CampaignStatus.PAUSED_INSUFFICIENT_BALANCE.value,
-                        ]
-                    ),
-                )
-                .order_by(Campaign.cpm_bid.desc())
-            )
-        )
-        .scalars()
-        .unique()
-        .all()
-    )
-
-    balance = Decimal(advertiser.balance_usd)
-    changed: list[Campaign] = []
-    running_total = Decimal("0")
-
-    # Highest CPM first: keep a campaign active while the balance still covers
-    # the cumulated remaining budget of everything kept before it.
-    for campaign in campaigns:
-        need = q2(Decimal(campaign.total_budget) - Decimal(campaign.spent_usd))
-        if need <= 0:
-            if campaign.status != CampaignStatus.STOPPED.value:
-                campaign.status = CampaignStatus.STOPPED.value
-                changed.append(campaign)
-            continue
-
-        if running_total + need <= balance:
-            running_total += need
-            if campaign.status == CampaignStatus.PAUSED_INSUFFICIENT_BALANCE.value:
-                campaign.status = CampaignStatus.ACTIVE.value
-                changed.append(campaign)
-        else:
-            if campaign.status == CampaignStatus.ACTIVE.value:
-                campaign.status = CampaignStatus.PAUSED_INSUFFICIENT_BALANCE.value
-                changed.append(campaign)
-
-    return changed
-
-
-async def maybe_send_low_balance_alert(
-    session: AsyncSession, advertiser: Advertiser
-) -> bool:
-    """Warn once per 24h when the balance drops under 10% of committed budget."""
-    committed = await committed_active_budget(session, advertiser.id)
-    if committed <= 0:
-        return False
-
-    threshold = q2(committed * settings.LOW_BALANCE_ALERT_RATIO)
-    if Decimal(advertiser.balance_usd) >= threshold:
-        return False
-
-    now = datetime.now(UTC)
-    last = advertiser.low_balance_alerted_at
-    if last is not None and now - last < timedelta(hours=24):
-        return False
-
-    advertiser.low_balance_alerted_at = now
-    return await email_service.send_low_balance_alert(
-        advertiser.email,
-        balance=q2(advertiser.balance_usd),
-        active_budget=committed,
-        threshold=threshold,
-    )
 
 
 async def maybe_send_campaign_low_balance_alert(

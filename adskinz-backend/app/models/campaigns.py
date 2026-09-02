@@ -44,7 +44,10 @@ class Campaign(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
             name="status_valid",
         ),
         CheckConstraint("cpm_bid >= 2.00", name="cpm_min"),
-        CheckConstraint("total_budget >= 20.00", name="budget_min"),
+        # total_budget is an isolated pot funded from the advertiser's wallet.
+        # A brand-new campaign starts at $0 and is funded via a top-up
+        # (min settings.MIN_CAMPAIGN_TOPUP per top-up), so 0 is a valid state.
+        CheckConstraint("total_budget >= 0.00", name="budget_min"),
         CheckConstraint(
             "daily_budget IS NULL OR daily_budget >= 2.00", name="daily_budget_min"
         ),
@@ -79,7 +82,12 @@ class Campaign(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
 
     # Economics
     cpm_bid: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
-    total_budget: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    # Isolated budget actually reserved for this campaign, moved out of the
+    # advertiser's wallet balance on creation (starts at 0) and on every
+    # top-up. Never touched by the shared wallet again once reserved.
+    total_budget: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2), nullable=False, default=Decimal("0.00"), server_default="0"
+    )
     daily_budget: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     spent_usd: Mapped[Decimal] = mapped_column(
         Numeric(10, 2), nullable=False, default=Decimal("0.00"), server_default="0"

@@ -17,7 +17,6 @@ import {
   fmtInt,
   fmtMoney,
 } from "@/components/kit";
-import { IconAlert } from "@/components/icons";
 import { ArtCampaignBroadcast, ArtCampaignEmpty } from "@/components/illustrations";
 import { useAdvertiserStats, useCampaigns } from "@/lib/queries";
 import { num } from "@/lib/api";
@@ -70,9 +69,6 @@ function AdvDashboard() {
   const campaignsQ = useCampaigns();
 
   const s = stats.data;
-  const balance = num(s?.balance);
-  const activeBudget = num(s?.activeBudget);
-  const lowBalance = Boolean(s) && activeBudget > 0 && balance < activeBudget * 0.1;
 
   const kpis = s
     ? [
@@ -97,17 +93,6 @@ function AdvDashboard() {
       }
     >
       <div className="space-y-5">
-        {lowBalance && (
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-seam bg-bounty-soft px-4 py-3 text-sm">
-            <IconAlert className="text-bounty" width={16} height={16} />
-            <span className="font-semibold text-bounty">{t("adv.lowBalance")}</span>
-            <Link to="/traffic/deposits" className="ml-auto">
-              <Btn tone="bounty" className="min-h-9 px-3 text-xs">
-                {t("adv.topUp")}
-              </Btn>
-            </Link>
-          </div>
-        )}
 
         {stats.isError ? (
           <ErrorBanner onRetry={() => stats.refetch()} message={(stats.error as Error)?.message} />

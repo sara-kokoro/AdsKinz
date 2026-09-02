@@ -106,7 +106,6 @@ export type CampaignCreateBody = {
   button_label: string;
   destinationUrl: string;
   language: string;
-  budget: number;
   dailyBudget?: number | null | undefined;
   cpm: number;
   imageUrl?: string | null | undefined;
