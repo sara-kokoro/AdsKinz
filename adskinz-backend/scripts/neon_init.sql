@@ -198,7 +198,7 @@ CREATE TABLE campaigns (
     submitted_ip_hash VARCHAR(64),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ck_campaigns_budget_min CHECK (total_budget >= 50.00),
+    CONSTRAINT ck_campaigns_budget_min CHECK (total_budget >= 0.00),
     CONSTRAINT ck_campaigns_cpm_min CHECK (cpm_bid >= 2.00),
     CONSTRAINT ck_campaigns_daily_budget_min CHECK (daily_budget IS NULL OR daily_budget >= 2.00),
     CONSTRAINT ck_campaigns_format_valid CHECK (format IN ('native_post', 'interstitial', 'pop_interstitial')),
