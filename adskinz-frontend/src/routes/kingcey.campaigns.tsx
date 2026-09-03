@@ -38,6 +38,7 @@ type QueueCampaign = {
   createdAt: string | null;
   advertiserEmail?: string | null;
   advertiserId?: string | null;
+  imageUrl?: string | null;
 };
 
 function Row({ k, v }: { k: string; v: string }) {
@@ -121,7 +122,12 @@ function ModCampaigns() {
 
               <Panel>
                 <p className="mb-3 text-xs font-semibold text-paper-dim">{t("adv.preview")}</p>
-                <TelegramPostPreview copy={item.copy ?? ""} buttonLabel={item.buttonLabel ?? ""} channel={item.name} />
+                <TelegramPostPreview
+                  copy={item.copy ?? ""}
+                  buttonLabel={item.buttonLabel ?? ""}
+                  channel={item.name}
+                  imageUrl={item.imageUrl ?? null}
+                />
               </Panel>
 
               <Panel className="flex flex-wrap items-center gap-3">

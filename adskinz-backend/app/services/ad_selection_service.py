@@ -95,7 +95,16 @@ async def resolve_creative(
 # Eligibility
 # --------------------------------------------------------------------------- #
 def _eligible_query(*, formats: list[str], lang: str | None):
-    """Base query for campaigns that may currently be served."""
+    """Base query for campaigns that may currently be served.
+
+    Deliberately does NOT check ``Advertiser.balance_usd`` — a campaign's
+    ``total_budget`` is an isolated pot already funded out of that wallet
+    (see billing_service.fund_campaign). Once funded, the wallet can
+    legitimately sit at $0 while the campaign still has budget left to
+    spend; gating on wallet balance here would silently stop serving a
+    fully-funded campaign for no real reason. ``spent_usd < total_budget``
+    is the only budget check that actually matters at serving time.
+    """
     stmt = (
         select(Campaign)
         .join(Advertiser, Advertiser.id == Campaign.advertiser_id)
@@ -104,7 +113,6 @@ def _eligible_query(*, formats: list[str], lang: str | None):
             Campaign.format.in_(formats),
             Campaign.spent_usd < Campaign.total_budget,
             Advertiser.is_blocked.is_(False),
-            Advertiser.balance_usd > 0,
         )
     )
     if lang:
@@ -230,7 +238,7 @@ async def select_for_channel(
         (
             await session.execute(
                 _eligible_query(
-                    formats=[CampaignFormat.CHANNEL_NATIVE.value],
+                    formats=[CampaignFormat.NATIVE_POST.value],
                     lang=channel.declared_language,
                 )
             )
