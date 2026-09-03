@@ -62,6 +62,34 @@ from app.services import bep20_sweep_service, billing_service, moderation_servic
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+@router.post(
+    "/debug/run-post-dispatch",
+    summary="Manually trigger the native-post dispatch job right now",
+)
+async def debug_run_post_dispatch(admin: CurrentAdminDep) -> dict:
+    """Runs exactly what the 10-minute scheduler runs (app.jobs.posts.post_dispatch),
+    synchronously, and returns either its summary dict or the full exception
+    traceback in the response body — so a broken dispatch pipeline can be
+    diagnosed from one HTTP call instead of digging through host logs.
+
+    This performs real writes (it can actually publish ads) — it is not a
+    dry run. Restricted to admins for that reason.
+    """
+    import traceback
+
+    from app.bot.poster import dispatch_posts
+
+    try:
+        summary = await dispatch_posts()
+        return {"ok": True, "summary": summary}
+    except Exception as exc:  # noqa: BLE001 - deliberately surfacing the full error to the admin
+        return {
+            "ok": False,
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+
+
 # --------------------------------------------------------------------------- #
 # Queue counts
 # --------------------------------------------------------------------------- #
