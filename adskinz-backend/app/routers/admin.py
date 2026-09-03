@@ -21,6 +21,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.deps import ClientIPHashDep, CurrentAdminDep, PaginationDep, SessionDep
+from app.config import settings
 from app.core.enums import (
     AuditAction,
     CampaignStatus,
@@ -60,6 +61,30 @@ from app.schemas.common import MessageResponse
 from app.services import bep20_sweep_service, billing_service, moderation_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+@router.get(
+    "/debug/scheduler-status",
+    summary="Whether the background scheduler is actually running, and its registered jobs",
+)
+async def debug_scheduler_status(admin: CurrentAdminDep) -> dict:
+    """Read-only: does not touch app.config in any way. Just inspects the
+    live, process-wide APScheduler instance this specific container is
+    running (app.jobs.scheduler.get_scheduler())."""
+    from app.jobs.scheduler import get_scheduler
+
+    scheduler = get_scheduler()
+    return {
+        "enabled_in_settings": settings.ENABLE_SCHEDULER,
+        "scheduler_running": scheduler.running,
+        "jobs": [
+            {
+                "id": job.id,
+                "next_run_time": str(job.next_run_time) if job.next_run_time else None,
+            }
+            for job in scheduler.get_jobs()
+        ],
+    }
 
 
 @router.post(
