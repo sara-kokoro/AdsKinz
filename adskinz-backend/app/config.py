@@ -113,7 +113,7 @@ class Settings(BaseSettings):
     OPENROUTER_TIMEOUT_SECONDS: float = 30.0
     # OpenRouter asks integrators to send these two so usage shows up
     # attributed to the app in their dashboard; purely informational.
-    OPENROUTER_SITE_URL: str = "https://adskinz.me"
+    OPENROUTER_SITE_URL: str = "https://ads-kinz.vercel.app"
     OPENROUTER_SITE_NAME: str = "AdsKinz"
 
     # ------------------------------------------------------------------ #
