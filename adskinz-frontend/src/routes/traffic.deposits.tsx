@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdvShell } from "@/components/workspaces";
-import { Btn, EmptyState, ErrorBanner, Panel, RowSkeleton, SectionTitle, StatusPill, fmtDate, fmtMoney } from "@/components/kit";
+import { Btn, EmptyState, ErrorBanner, Modal, Panel, RowSkeleton, SectionTitle, StatusPill, fmtDateTime, fmtMoney } from "@/components/kit";
 import { IconAlert, IconCopy, IconList, IconWallet, IconShield } from "@/components/icons";
 import { NetworkUsdtMark, UsdtMark } from "@/components/usdt";
 import { useDepositAddress, useDeposits, useVerifyDeposit } from "@/lib/queries";
@@ -38,6 +38,8 @@ function Deposits() {
   const deposits = useDeposits(page, PAGE_SIZE);
   const addr = useDepositAddress(net);
   const [copied, setCopied] = useState(false);
+  const [memoCopied, setMemoCopied] = useState(false);
+  const [showReminder, setShowReminder] = useState(false);
   const verify = useVerifyDeposit();
   const [verifyNotice, setVerifyNotice] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
@@ -77,7 +79,19 @@ function Deposits() {
     try {
       await navigator.clipboard.writeText(addr.data.address);
       setCopied(true);
+      setShowReminder(true);
       setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
+  const copyMemo = async () => {
+    if (!addr.data?.memo) return;
+    try {
+      await navigator.clipboard.writeText(addr.data.memo);
+      setMemoCopied(true);
+      setTimeout(() => setMemoCopied(false), 1500);
     } catch {
       /* clipboard unavailable */
     }
@@ -147,7 +161,17 @@ function Deposits() {
             {addr.data?.memo && (
               <div className="mt-4 rounded-xl border border-bounty/60 bg-bounty-soft p-3">
                 <p className="text-xs font-bold text-bounty">{t("adv.deposits.memo")}</p>
-                <p className="num mt-1.5 text-sm font-bold">{addr.data.memo}</p>
+                <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-bounty/40 bg-transparent p-2.5">
+                  <span className="num flex-1 text-sm font-bold break-all">{addr.data.memo}</span>
+                  <button
+                    aria-label={t("adv.deposits.copyMemo")}
+                    onClick={copyMemo}
+                    className="text-bounty hover:text-paper"
+                  >
+                    <IconCopy width={16} height={16} />
+                  </button>
+                </div>
+                {memoCopied && <p className="mt-1.5 text-xs font-semibold text-bounty">{t("common.copied", "Copied")}</p>}
                 {addr.data.memo_required && (
                   <p className="mt-2 flex gap-2 text-xs text-bounty">
                     <IconAlert width={14} height={14} />
@@ -198,7 +222,7 @@ function Deposits() {
                   <div>
                     <p className="num font-bold text-bounty">{fmtMoney(num(d.amount))}</p>
                     <p className="text-xs text-paper-dim">
-                      {d.networkLabel || d.network} · {fmtDate(d.createdAt)}
+                      {d.networkLabel || d.network} · {fmtDateTime(d.createdAt)}
                     </p>
                   </div>
                   <div className="ml-auto flex items-center gap-3">
@@ -244,6 +268,16 @@ function Deposits() {
           {t("common.retry")}
         </Btn>
       </div>
+
+      <Modal
+        open={showReminder}
+        onClose={() => setShowReminder(false)}
+        title={t("adv.deposits.copyReminderTitle")}
+        sub={t("adv.deposits.copyReminderBody")}
+        footer={<Btn variant="primary" tone="ink" className="w-full" onClick={() => setShowReminder(false)}>{t("common.ok", "OK")}</Btn>}
+      >
+        <div />
+      </Modal>
     </AdvShell>
   );
 }

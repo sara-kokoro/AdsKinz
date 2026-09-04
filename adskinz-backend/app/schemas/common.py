@@ -16,7 +16,11 @@ class APIModel(BaseModel):
 
     ``from_attributes`` lets routers build responses straight from ORM objects,
     and Decimals are serialised as JSON numbers so the frontend's
-    ``fmtMoney``/``num`` helpers receive real numbers, not strings.
+    ``fmtMoney``/``num`` helpers receive real numbers, not strings. Datetimes
+    are serialised explicitly as ISO 8601 strings (rather than relying on
+    pydantic's implicit default) so a wildcard serializer that returns the
+    raw value for anything that isn't a Decimal can never accidentally hand
+    the frontend something it parses as a Unix-epoch number.
     """
 
     model_config = ConfigDict(
@@ -31,6 +35,8 @@ class APIModel(BaseModel):
     def _serialize_decimal(self, value):  # noqa: ANN001, ANN202
         if isinstance(value, Decimal):
             return float(value)
+        if isinstance(value, datetime):
+            return value.isoformat()
         return value
 
 

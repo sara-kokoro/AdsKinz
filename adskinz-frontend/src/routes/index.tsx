@@ -2,7 +2,65 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Trans, useTranslation } from "react-i18next";
 import { LanguageSelect, ThemeToggle } from "@/components/controls";
 import { Logo } from "@/components/dashboard-shell";
-import { IconApp, IconChannel, IconSparkle } from "@/components/icons";
+import { IconSparkle } from "@/components/icons";
+
+/* Hand-drawn format icons — each traces the actual UI shape it represents
+ * (a channel message with a button, a full-screen frame, a floating card)
+ * rather than a generic outline icon, so the icon itself explains the
+ * format before the label does. */
+function IconFormatNative({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 40 40" className={className} width="28" height="28" fill="none" aria-hidden>
+      <rect x="4" y="6" width="32" height="20" rx="6" stroke="currentColor" strokeWidth="2" />
+      <line x1="9" y1="13" x2="27" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <line x1="9" y1="18" x2="21" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <rect x="9" y="29" width="22" height="6" rx="3" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+function IconFormatInterstitial({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 40 40" className={className} width="28" height="28" fill="none" aria-hidden>
+      <rect x="8" y="3" width="24" height="34" rx="5" stroke="currentColor" strokeWidth="2" />
+      <rect x="12" y="9" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2" />
+      <line x1="12" y1="29" x2="24" y2="29" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <line x1="12" y1="32.5" x2="20" y2="32.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconFormatPop({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 40 40" className={className} width="28" height="28" fill="none" aria-hidden>
+      <rect x="6" y="5" width="22" height="30" rx="4" stroke="currentColor" strokeWidth="2" opacity="0.45" />
+      <rect x="15" y="17" width="19" height="14" rx="4" stroke="currentColor" strokeWidth="2" fill="var(--color-ink)" />
+      <line x1="19" y1="22" x2="30" y2="22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <line x1="19" y1="26" x2="26" y2="26" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/* Static decorative accent behind the hero mockup: a loose orbit of dots
+ * connected by lines, evoking a channel's ad-selection pass without
+ * literally illustrating it. No motion — the animation budget on this
+ * page goes entirely to the feed reveal below. */
+function HeroOrbit() {
+  return (
+    <svg
+      viewBox="0 0 400 400"
+      className="pointer-events-none absolute -top-10 right-0 -z-10 h-[420px] w-[420px] text-signal opacity-[0.14] sm:opacity-20"
+      aria-hidden
+    >
+      <circle cx="200" cy="200" r="160" stroke="currentColor" strokeWidth="1" fill="none" />
+      <circle cx="200" cy="200" r="110" stroke="currentColor" strokeWidth="1" fill="none" />
+      <circle cx="200" cy="40" r="5" fill="currentColor" />
+      <circle cx="352" cy="240" r="4" fill="currentColor" />
+      <circle cx="70" cy="290" r="6" fill="currentColor" />
+      <circle cx="120" cy="90" r="3" fill="currentColor" />
+      <line x1="200" y1="40" x2="200" y2="90" stroke="currentColor" strokeWidth="1" />
+      <line x1="352" y1="240" x2="310" y2="200" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -71,10 +129,10 @@ function TelegramMock() {
         </div>
       </div>
       <p className={bubble}>{t("landing.mock.msg1")}</p>
-      <div className={bubble}>
+      <div className={`${bubble} animate-ad-reveal`}>
         <div className="flex items-start gap-2">
           <p className="flex-1">{t("landing.mock.msg2")}</p>
-          <span className="animate-ad-reveal rounded-md border border-seam px-1.5 py-0.5 text-[10px] font-semibold text-paper-dim">
+          <span className="rounded-md border border-seam px-1.5 py-0.5 text-[10px] font-semibold text-paper-dim">
             {t("landing.mock.adTag")}
           </span>
         </div>
@@ -100,7 +158,7 @@ function Landing() {
   const formats = [
     {
       tag: t("landing.formats.channel"),
-      icon: <IconChannel className="text-signal" />,
+      icon: <IconFormatNative className="text-signal" />,
       title: t("landing.formats.nativeTitle"),
       desc: t("landing.formats.nativeDesc"),
       s1: [t("landing.formats.statCpm"), "$2.00"],
@@ -108,7 +166,7 @@ function Landing() {
     },
     {
       tag: t("landing.formats.miniapp"),
-      icon: <IconApp className="text-signal" />,
+      icon: <IconFormatInterstitial className="text-signal" />,
       title: t("landing.formats.interstitialTitle"),
       desc: t("landing.formats.interstitialDesc"),
       s1: [t("landing.formats.statIntegration"), t("landing.formats.statIntegrationValue")],
@@ -116,7 +174,7 @@ function Landing() {
     },
     {
       tag: t("landing.formats.miniapp"),
-      icon: <IconApp className="text-signal" />,
+      icon: <IconFormatPop className="text-signal" />,
       title: t("landing.formats.popTitle"),
       desc: t("landing.formats.popDesc"),
       s1: [t("landing.formats.statIntegration"), t("landing.formats.statIntegrationValue")],
@@ -137,53 +195,50 @@ function Landing() {
       <Nav />
       <main>
         {/* Hero */}
-        <section className="mx-auto max-w-6xl px-4 pt-14 pb-10 text-center sm:pt-20">
-          <p className="text-xs font-bold tracking-[0.18em] text-signal uppercase">{t("landing.eyebrow")}</p>
-          <h1 className="mx-auto mt-5 max-w-3xl font-display text-4xl leading-[1.05] font-extrabold tracking-tight sm:text-6xl">
-            {t("landing.heroLine1")}
-            <br />
-            {t("landing.heroLine2")}
-          </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-base text-paper-dim sm:text-lg">
-            {t("landing.heroSub_pre")}
-            <strong className="font-extrabold text-paper">{t("landing.heroSub_native")}</strong>
-            {t("landing.heroSub_mid")}
-            <strong className="num font-bold text-bounty">{t("landing.heroSub_amount")}</strong>
-            {t("landing.heroSub_post")}
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              to="/traffic/campaigns/new"
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-signal px-6 text-sm font-bold text-white transition-all hover:brightness-110 sm:w-auto"
-            >
-              {t("common.launchCampaign")}
-            </Link>
-            <Link
-              to="/login"
-              search={{ intent: "addAccount", role: "publisher" }}
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-seam px-6 text-sm font-semibold transition-colors hover:bg-panel sm:w-auto"
-            >
-              {t("common.becomePublisher")}
-            </Link>
-          </div>
-
-          <div className="mt-12">
-            <TelegramMock />
-          </div>
-
-          <div className="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-px overflow-hidden rounded-2xl border border-seam bg-seam sm:grid-cols-4">
-            {stats.map((s) => (
-              <div key={s.label} className="bg-ink px-4 py-5">
-                <p className="num font-display text-2xl font-bold">{s.value}</p>
-                <p className="mt-1 text-xs font-semibold text-paper-dim">{s.label}</p>
+        <section className="mx-auto max-w-6xl px-4 pt-14 pb-10 sm:pt-20">
+          <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-6">
+            <div className="text-center lg:text-left">
+              <h1 className="mx-auto max-w-xl font-display text-4xl leading-[1.08] font-extrabold tracking-tight sm:text-5xl lg:mx-0 lg:text-6xl">
+                {t("landing.heroTitle")}
+              </h1>
+              <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-paper-dim sm:text-lg lg:mx-0">
+                {t("landing.heroSub")}
+              </p>
+              <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
+                <Link
+                  to="/traffic/campaigns/new"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-signal px-6 text-sm font-bold text-white transition-all hover:brightness-110 sm:w-auto"
+                >
+                  {t("common.launchCampaign")}
+                </Link>
+                <Link
+                  to="/login"
+                  search={{ intent: "addAccount", role: "publisher" }}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-seam px-6 text-sm font-semibold transition-colors hover:bg-panel sm:w-auto"
+                >
+                  {t("common.becomePublisher")}
+                </Link>
               </div>
-            ))}
+              <div className="mx-auto mt-10 grid max-w-md grid-cols-2 gap-px overflow-hidden rounded-2xl border border-seam bg-seam sm:grid-cols-4 lg:mx-0 lg:max-w-none">
+                {stats.map((s) => (
+                  <div key={s.label} className="bg-ink px-3 py-4 text-center lg:text-left">
+                    <p className="num font-display text-xl font-bold sm:text-2xl">{s.value}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-paper-dim">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative">
+              <HeroOrbit />
+              <TelegramMock />
+            </div>
           </div>
         </section>
 
         {/* Formats */}
         <section id="formats" className="mx-auto max-w-6xl px-4 py-16">
-          <h2 className="font-display text-3xl font-extrabold tracking-tight">{t("landing.formats.title")}</h2>
+          <h2 className="max-w-xl font-display text-3xl font-extrabold tracking-tight">{t("landing.formats.title")}</h2>
           <p className="mt-2 max-w-2xl text-paper-dim">{t("landing.formats.subtitle")}</p>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             {formats.map((f) => (
@@ -290,7 +345,7 @@ function Landing() {
         <section className="mx-auto max-w-6xl px-4 pb-20">
           <div className="surface flex flex-wrap items-center gap-4 p-6">
             <IconSparkle className="text-signal" />
-            <p className="font-display text-lg font-bold">{t("landing.eyebrow")}</p>
+            <p className="font-display text-lg font-bold">{t("landing.finalCta")}</p>
             <Link
               to="/traffic/campaigns/new"
               className="ml-auto inline-flex min-h-11 items-center rounded-xl bg-signal px-5 text-sm font-bold text-white"

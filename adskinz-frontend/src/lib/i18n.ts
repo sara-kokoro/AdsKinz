@@ -63,15 +63,10 @@ const en = {
     docs: "Docs",
   },
   landing: {
-    eyebrow: "100% native Telegram advertising",
-    heroLine1: "Advertising that lives",
-    heroLine2: "inside the conversation",
-    heroSub_pre: "AdsKinz places ",
-    heroSub_native: "native",
-    heroSub_mid:
-      " ads inside Telegram channels and Mini Apps — same shape, same rhythm as the content around them. Campaigns start from ",
-    heroSub_amount: "$10",
-    heroSub_post: ".",
+    heroTitle: "Your ad, published like a real Telegram post.",
+    heroSub:
+      "In channels, AdsKinz posts through the channel's own admin bot — same layout, same rhythm as everything else in the feed. In Mini Apps, the Kinz-ID SDK drops the same native format between two actions. Campaigns start at $10, reviewed within a few hours.",
+    finalCta: "Ready to put your first ad in front of a real feed?",
     stats: {
       languages: "Languages supported",
       cpm: "Minimum CPM",
@@ -304,7 +299,10 @@ const en = {
       trc: "USDT TRC20",
       bnb: "USDT BNB",
       address: "Deposit address",
+      copyReminderTitle: "Come back after sending it",
+      copyReminderBody: "Once the transfer is sent, come back here within 30 minutes and tap \"Verify now\" to confirm your deposit.",
       memo: "Memo tag (required)",
+      copyMemo: "Copy memo tag",
       memoWarning:
         "A memo tag is required for TON deposits. Deposits without a correct memo cannot be credited.",
       verify: "Verify now",
@@ -686,15 +684,10 @@ const fr: Dict = {
   },
   nav: { advertisers: "Annonceurs", publishers: "Publishers", sdk: "SDK Kinz-ID", docs: "Docs" },
   landing: {
-    eyebrow: "Publicité Telegram 100% native",
-    heroLine1: "Une publicité qui vit",
-    heroLine2: "dans la conversation",
-    heroSub_pre: "AdsKinz diffuse des publicités ",
-    heroSub_native: "natives",
-    heroSub_mid:
-      " dans les canaux et Mini Apps Telegram — même forme, même rythme que le contenu autour. Les campagnes démarrent à ",
-    heroSub_amount: "10 $",
-    heroSub_post: ".",
+    heroTitle: "Ta pub, publiée comme un vrai post Telegram.",
+    heroSub:
+      "Dans les canaux, AdsKinz publie l'annonce via le bot administrateur du canal — même mise en page, même rythme que le reste du fil. Dans les Mini Apps, le SDK Kinz-ID insère le même format natif entre deux actions. Campagnes dès 10 $, revue en quelques heures.",
+    finalCta: "Prêt à voir ta pub se fondre dans un vrai fil ?",
     stats: {
       languages: "Langues prises en charge",
       cpm: "CPM minimum",
@@ -927,7 +920,10 @@ const fr: Dict = {
       trc: "USDT TRC20",
       bnb: "USDT BNB",
       address: "Adresse de dépôt",
+      copyReminderTitle: "Reviens après l'envoi",
+      copyReminderBody: "Une fois le transfert envoyé, reviens ici dans les 30 minutes qui suivent et appuie sur \"Vérifier maintenant\" pour confirmer ton dépôt.",
       memo: "Memo tag (obligatoire)",
+      copyMemo: "Copier le memo tag",
       memoWarning:
         "Un memo tag est obligatoire pour les dépôts TON. Un dépôt sans memo correct ne peut pas être crédité.",
       verify: "Vérifier maintenant",
@@ -1304,15 +1300,10 @@ const ru: Dict = {
   },
   nav: { advertisers: "Рекламодателям", publishers: "Паблишерам", sdk: "Kinz-ID SDK", docs: "Документация" },
   landing: {
-    eyebrow: "100% нативная реклама в Telegram",
-    heroLine1: "Реклама, которая живёт",
-    heroLine2: "внутри разговора",
-    heroSub_pre: "AdsKinz размещает ",
-    heroSub_native: "нативную",
-    heroSub_mid:
-      " рекламу в каналах и Mini Apps Telegram — в той же форме и ритме, что и контент вокруг. Кампании от ",
-    heroSub_amount: "$10",
-    heroSub_post: ".",
+    heroTitle: "Твоя реклама — как настоящий пост в Telegram.",
+    heroSub:
+      "В каналах AdsKinz публикует объявление через бота-администратора канала — тот же вид, тот же ритм, что и остальная лента. В Mini Apps SDK Kinz-ID показывает тот же нативный формат между двумя действиями. Кампании — от $10, модерация в течение нескольких часов.",
+    finalCta: "Готовы увидеть свою рекламу в настоящей ленте?",
     stats: {
       languages: "Поддерживаемые языки",
       cpm: "Минимальный CPM",
@@ -1544,7 +1535,10 @@ const ru: Dict = {
       trc: "USDT TRC20",
       bnb: "USDT BNB",
       address: "Адрес пополнения",
+      copyReminderTitle: "Вернитесь после отправки",
+      copyReminderBody: "После отправки перевода вернитесь сюда в течение 30 минут и нажмите «Проверить сейчас», чтобы подтвердить депозит.",
       memo: "Memo-тег (обязательно)",
+      copyMemo: "Скопировать memo-тег",
       memoWarning:
         "Для депозитов в TON memo-тег обязателен. Без корректного memo средства не зачисляются.",
       trcWarning:
@@ -1914,14 +1908,10 @@ const zh: Dict = {
   },
   nav: { advertisers: "广告主", publishers: "发布者", sdk: "Kinz-ID SDK", docs: "文档" },
   landing: {
-    eyebrow: "100% 原生 Telegram 广告",
-    heroLine1: "让广告生长在",
-    heroLine2: "对话之中",
-    heroSub_pre: "AdsKinz 在 Telegram 频道与 Mini App 中投放",
-    heroSub_native: "原生",
-    heroSub_mid: "广告——与周围内容同样的形态与节奏。广告起投金额为 ",
-    heroSub_amount: "$10",
-    heroSub_post: "。",
+    heroTitle: "你的广告，就是一条真实的 Telegram 帖子。",
+    heroSub:
+      "在频道里，AdsKinz 通过该频道自己的管理员机器人发布广告——排版和节奏与频道其他内容完全一致。在 Mini App 中，Kinz-ID SDK 会在两个操作之间插入同样的原生广告形式。广告预算最低 10 美元，审核通常在几小时内完成。",
+    finalCta: "准备好让你的广告融入真实的信息流了吗？",
     stats: {
       languages: "支持语言",
       cpm: "最低 CPM",
@@ -2141,7 +2131,10 @@ const zh: Dict = {
       trc: "USDT TRC20",
       bnb: "USDT BNB",
       address: "充值地址",
+      copyReminderTitle: "转账后请回来确认",
+      copyReminderBody: "转账发出后，请在 30 分钟内回到此页面，点击"立即验证"以确认你的充值。",
       memo: "Memo 标签（必填）",
+      copyMemo: "复制 memo 标签",
       memoWarning: "TON 充值必须填写 memo 标签。缺少正确 memo 的充值无法入账。",
       trcWarning:
         "仅可使用 USD₮ TRON/TRC20。当前 TRON 网络转账手续费为 3.25 USD₮，将从充值金额中扣除。",

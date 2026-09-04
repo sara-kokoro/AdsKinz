@@ -93,11 +93,40 @@ export const fmtMoney = (n: number, d = 2) =>
  * unlike a bare `.slice(0, 10)` call, which assumes the value is always a
  * string and crashes the whole render if it isn't.
  */
+/** Accepts an ISO string, a Date, or a numeric epoch in either seconds or
+ * milliseconds (auto-detected: anything below ~year-2001-in-ms is treated
+ * as seconds and scaled up) — a defensive parse so a backend that ever
+ * sends epoch seconds by mistake still renders a sane date instead of
+ * silently landing near 1970. */
+const toDate = (value: string | number | Date | null | undefined): Date | null => {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  let n = value;
+  if (typeof value === "string") {
+    const asNum = Number(value);
+    n = Number.isFinite(asNum) && /^-?\d+$/.test(value.trim()) ? asNum : value;
+  }
+  if (typeof n === "number") {
+    // Unix seconds fit in ~10 digits through year 2286; ms timestamps for
+    // any real date are always >= ~1e12. Below that, assume seconds.
+    const ms = Math.abs(n) < 1e12 ? n * 1000 : n;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(n);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
 export const fmtDate = (value: string | number | Date | null | undefined): string => {
-  if (!value) return "—";
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toISOString().slice(0, 10);
+  const d = toDate(value);
+  return d ? d.toISOString().slice(0, 10) : "—";
+};
+
+/** Same as fmtDate but includes the time (UTC, "YYYY-MM-DD HH:MM"). */
+export const fmtDateTime = (value: string | number | Date | null | undefined): string => {
+  const d = toDate(value);
+  if (!d) return "—";
+  return d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 };
 
 /** Count-up used only on the two hero metrics. */
