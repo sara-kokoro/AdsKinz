@@ -29,6 +29,7 @@ import { Route as KingceyDisputesRouteImport } from './routes/kingcey.disputes'
 import { Route as KingceyFinancesRouteImport } from './routes/kingcey.finances'
 import { Route as KingceyMiniAppsRouteImport } from './routes/kingcey.mini-apps'
 import { Route as KingceyOverviewRouteImport } from './routes/kingcey.overview'
+import { Route as KingceySweepsRouteImport } from './routes/kingcey.sweeps'
 import { Route as KingceyUsersRouteImport } from './routes/kingcey.users'
 import { Route as KingceyWithdrawalsRouteImport } from './routes/kingcey.withdrawals'
 import { Route as PartnerIndexRouteImport } from './routes/partner.index'
@@ -143,6 +144,11 @@ const KingceyOverviewRoute = KingceyOverviewRouteImport.update({
   path: '/kingcey/overview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KingceySweepsRoute = KingceySweepsRouteImport.update({
+  id: '/kingcey/sweeps',
+  path: '/kingcey/sweeps',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const KingceyUsersRoute = KingceyUsersRouteImport.update({
   id: '/kingcey/users',
   path: '/kingcey/users',
@@ -228,6 +234,7 @@ export interface FileRoutesByFullPath {
   '/kingcey/finances': typeof KingceyFinancesRoute
   '/kingcey/mini-apps': typeof KingceyMiniAppsRoute
   '/kingcey/overview': typeof KingceyOverviewRoute
+  '/kingcey/sweeps': typeof KingceySweepsRoute
   '/kingcey/users': typeof KingceyUsersRoute
   '/kingcey/withdrawals': typeof KingceyWithdrawalsRoute
   '/partner/channels': typeof PartnerChannelsRoute
@@ -262,6 +269,7 @@ export interface FileRoutesByTo {
   '/kingcey/finances': typeof KingceyFinancesRoute
   '/kingcey/mini-apps': typeof KingceyMiniAppsRoute
   '/kingcey/overview': typeof KingceyOverviewRoute
+  '/kingcey/sweeps': typeof KingceySweepsRoute
   '/kingcey/users': typeof KingceyUsersRoute
   '/kingcey/withdrawals': typeof KingceyWithdrawalsRoute
   '/partner/channels': typeof PartnerChannelsRoute
@@ -298,6 +306,7 @@ export interface FileRoutesById {
   '/kingcey/finances': typeof KingceyFinancesRoute
   '/kingcey/mini-apps': typeof KingceyMiniAppsRoute
   '/kingcey/overview': typeof KingceyOverviewRoute
+  '/kingcey/sweeps': typeof KingceySweepsRoute
   '/kingcey/users': typeof KingceyUsersRoute
   '/kingcey/withdrawals': typeof KingceyWithdrawalsRoute
   '/partner/channels': typeof PartnerChannelsRoute
@@ -335,6 +344,7 @@ export interface FileRouteTypes {
     | '/kingcey/finances'
     | '/kingcey/mini-apps'
     | '/kingcey/overview'
+    | '/kingcey/sweeps'
     | '/kingcey/users'
     | '/kingcey/withdrawals'
     | '/partner/channels'
@@ -369,6 +379,7 @@ export interface FileRouteTypes {
     | '/kingcey/finances'
     | '/kingcey/mini-apps'
     | '/kingcey/overview'
+    | '/kingcey/sweeps'
     | '/kingcey/users'
     | '/kingcey/withdrawals'
     | '/partner/channels'
@@ -404,6 +415,7 @@ export interface FileRouteTypes {
     | '/kingcey/finances'
     | '/kingcey/mini-apps'
     | '/kingcey/overview'
+    | '/kingcey/sweeps'
     | '/kingcey/users'
     | '/kingcey/withdrawals'
     | '/partner/channels'
@@ -433,6 +445,7 @@ export interface RootRouteChildren {
   KingceyFinancesRoute: typeof KingceyFinancesRoute
   KingceyMiniAppsRoute: typeof KingceyMiniAppsRoute
   KingceyOverviewRoute: typeof KingceyOverviewRoute
+  KingceySweepsRoute: typeof KingceySweepsRoute
   KingceyUsersRoute: typeof KingceyUsersRoute
   KingceyWithdrawalsRoute: typeof KingceyWithdrawalsRoute
   PartnerChannelsRoute: typeof PartnerChannelsRoute
@@ -591,6 +604,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KingceyOverviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/kingcey/sweeps': {
+      id: '/kingcey/sweeps'
+      path: '/kingcey/sweeps'
+      fullPath: '/kingcey/sweeps'
+      preLoaderRoute: typeof KingceySweepsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/kingcey/users': {
       id: '/kingcey/users'
       path: '/kingcey/users'
@@ -721,6 +741,7 @@ const rootRouteChildren: RootRouteChildren = {
   KingceyFinancesRoute: KingceyFinancesRoute,
   KingceyMiniAppsRoute: KingceyMiniAppsRoute,
   KingceyOverviewRoute: KingceyOverviewRoute,
+  KingceySweepsRoute: KingceySweepsRoute,
   KingceyUsersRoute: KingceyUsersRoute,
   KingceyWithdrawalsRoute: KingceyWithdrawalsRoute,
   PartnerChannelsRoute: PartnerChannelsRoute,
