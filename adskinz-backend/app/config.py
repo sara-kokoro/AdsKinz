@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     ENABLE_API_DOCS: bool = True
     API_BASE_URL: str = "competent-rebekkah-davelam-58380a6b.koyeb.app"
     PUBLIC_BASE_URL: str = "https://ads-kinz.vercel.app"
-    CORS_ORIGINS: str = "http://localhost:3000,https://adskinz.io,https://kingcey.adskinz.io,https://ads-kinz.vercel.app"
+    CORS_ORIGINS: str = "http://adskinz.me,https://adskinz.me,https://kingcey.adskinz.me,https://ads-kinz.vercel.app"
     CORS_ORIGIN_REGEX: str = ""
     # Comma-separated Host header allowlist. Empty disables the check, which is
     # the right default behind a platform proxy that already filters hosts.
@@ -104,13 +104,17 @@ class Settings(BaseSettings):
     ENABLE_MTPROTO: bool = True
     ENABLE_SCHEDULER: bool = True
 
+# ------------------------------------------------------------------ #
+    # OpenRouter (ad copy generation + translations)
     # ------------------------------------------------------------------ #
-    # Groq (ad copy generation + translations)
-    # ------------------------------------------------------------------ #
-    GROQ_API_KEY: str = "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"
-    GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
-    GROQ_MODEL: str = "openai/gpt-oss-120b"
-    GROQ_TIMEOUT_SECONDS: float = 30.0
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENROUTER_MODEL: str = "openai/gpt-oss-120b"
+    OPENROUTER_TIMEOUT_SECONDS: float = 30.0
+    # OpenRouter asks integrators to send these two so usage shows up
+    # attributed to the app in their dashboard; purely informational.
+    OPENROUTER_SITE_URL: str = "https://adskinz.me"
+    OPENROUTER_SITE_NAME: str = "AdsKinz"
 
     # ------------------------------------------------------------------ #
     # Wallets — WATCH-ONLY deposit derivation (xpub) + sweep signing (xprv).
@@ -121,10 +125,10 @@ class Settings(BaseSettings):
     # Extended private key for BEP20 deposit addresses. Required to sign the
     # automatic sweep of USDT from derived addresses to the treasury.
     ACCOUNT_XPRV: str = "xprv9zJj273S5LCFoEgfKjH4CRhg7rDTCAjt46d2c88R4sxqvVLmcwidrz2sPntTXP2dLGR3wJemPNrMYFQfeU9E48qQaJjp1VbqFUBu3Fkumzo"
-    # Hot wallet that funds derived addresses with BNB for gas. Must hold BNB.
+    # Hot wallet that funds derived addresses with BNB for gas. Must hold BNB. #AdsKinz Gas Wallet Tonkeeper
     BSC_GAS_WALLET_PRIVATE_KEY: str = "0x06fa8ac35b2fe5c9da2e0f29a8f5ff090672c758c0a9a85ababa72f792f2d5c3"
     # Main treasury address that receives swept USDT on BNB Smart Chain.
-    BSC_TREASURY_ADDRESS: str = "0x885F59C73a4be9873CbA7fDC3565bb73F2824821"
+    BSC_TREASURY_ADDRESS: str = "0x7D4C4a0398eac6a796eC71C658278a8F20e182FF"
     # RPC endpoint for BNB Smart Chain.
     BSC_RPC_URL: str = "https://bsc-dataseed.binance.org/"
     # Minimum native BNB balance (in BNB) a derived address must keep after the
@@ -166,7 +170,7 @@ class Settings(BaseSettings):
     # requests that don't actually come from TonAPI.
     TON_WEBHOOK_TOKEN: str = "x7Kp9UkakaUu181mQ2vL4wR8tN5yZ141hquUjtUuZvX"
     
-    TON_DEPOSIT_ADDRESS: str = "UQCTEfgy5MouZG3gcLzTFvi8JoPDWCVfU4HTx4Lukoo8Lcou"
+    TON_DEPOSIT_ADDRESS: str = "UQCnV7ridLgpX5ijC9nUezc5Xj9aqz5qvdpLuycpVLAIwe7d"
 
     USDT_TRC20_CONTRACT: str = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
     USDT_BEP20_CONTRACT: str = "0x55d398326f99059fF775485246999027B3197955"
@@ -198,10 +202,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Business rules — single source of truth, enforced server-side
     # ------------------------------------------------------------------ #
-    # Campaigns start with an isolated balance of $0; this is the minimum
-    # amount an advertiser can move from their wallet into a campaign in a
-    # single recharge (there is no minimum for the wallet deposit itself).
-    MIN_CAMPAIGN_TOPUP: Decimal = Decimal("10.00")
+    MIN_CAMPAIGN_BUDGET: Decimal = Decimal("20.00")
     # Per-campaign remaining-budget alert (distinct from LOW_BALANCE_ALERT_RATIO,
     # which watches the advertiser's overall wallet balance).
     CAMPAIGN_LOW_BALANCE_THRESHOLD: Decimal = Decimal("5.00")
@@ -220,8 +221,8 @@ class Settings(BaseSettings):
     PLATFORM_COMMISSION_RATE: Decimal = Decimal("0.35")
     TRC20_DEPOSIT_FEE_USDT: Decimal = Decimal("3.25")
     ACCOUNT_XPRV_TRC20: str = "xprv9yAZV4kGTvPVai8juFx2MzvYGgpePQDogE6vpB4cYktoEnxMKAbbefwgxpZeskVkv5i8BA41Pt52HDwHqbMNaNJ3acwjxTabjdf6FgEiUs9"
-    TRC_GAS_WALLET_PRIVATE_KEY: str = "clever walk sock rubber bunker destroy nephew crane turtle file ramp aware"
-    TRC_TREASURY_ADDRESS: str = "TAPBqTfBnj5BQz8S4MtzzG3YzzCVpMvEGZ"
+    TRC_GAS_WALLET_PRIVATE_KEY: str = "26c89b4995b976a834b334f229da623a33b6a9250f980668373bd9fbaca85bbe"
+    TRC_TREASURY_ADDRESS: str = "TGuwVYkbp4GEG85cmHFc3FtpHRTfHcnBRh"
     TRC20_GAS_MIN_TRX: Decimal = Decimal("15")
     TRC20_GAS_TOPUP_TRX: Decimal = Decimal("20")
     TRC20_GAS_DUST_TRX: Decimal = Decimal("1")
@@ -243,7 +244,7 @@ class Settings(BaseSettings):
     LOW_BALANCE_ALERT_RATIO: Decimal = Decimal("0.10")
     FRAUD_SCORE_BILLING_THRESHOLD: Decimal = Decimal("0.70")
     SUPPORTED_TRANSLATION_LANGS: str = "en,fr,ru,zh"
-    DEFAULT_WITHDRAWAL_MEMO: str = "AdsKinz"
+    DEFAULT_WITHDRAWAL_MEMO: str = " Adsversite with AdsKinz"
 
     # ------------------------------------------------------------------ #
     # Job intervals (minutes unless stated)

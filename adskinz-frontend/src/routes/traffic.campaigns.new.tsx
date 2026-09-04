@@ -1,12 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdvShell } from "@/components/workspaces";
-import { AutoTextarea, Btn, FieldError, ImageUpload, Panel, Quote, SectionTitle, fmtMoney, inputCls } from "@/components/kit";
+import { AutoTextarea, Btn, FieldError, HtmlFormatToolbar, ImageUpload, Panel, Quote, SectionTitle, fmtMoney, inputCls } from "@/components/kit";
 import { TelegramPostPreview } from "@/components/telegram-preview";
 import { IconCheck, IconSparkle, IconChannel, IconApp, IconImage, IconGlobe, IconWallet, IconEye, IconTag } from "@/components/icons";
 import { AD_LANGUAGES, AD_TEXT_MAX_LENGTH, BUTTON_LABELS } from "@/lib/constants";
-import { validateAdMarkdown } from "@/lib/markdown";
+import { validateAdHtml } from "@/lib/html-format";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { Campaign } from "@/lib/types";
 import { useCreateCampaign, useGenerateCopy } from "@/lib/queries";
@@ -39,6 +39,7 @@ function Wizard() {
   const [bannerTitle, setBannerTitle] = useState("");
   const [brandName, setBrandName] = useState("");
   const [copy, setCopy] = useState("");
+  const copyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [brief, setBrief] = useState("");
   const [briefOpen, setBriefOpen] = useState(false);
   const [label, setLabel] = useState("Learn more");
@@ -57,7 +58,7 @@ function Wizard() {
     if (value.length > AD_TEXT_MAX_LENGTH) {
       return `${value.length}/${AD_TEXT_MAX_LENGTH} caractères — raccourcis le texte.`;
     }
-    return validateAdMarkdown(value);
+    return validateAdHtml(value);
   };
 
   const handleCopyChange = (value: string) => {
@@ -94,8 +95,8 @@ function Wizard() {
       if (!copy.trim()) e["copy"] = t("adv.wizard.errCopy");
       else if (copy.length > AD_TEXT_MAX_LENGTH) e["copy"] = `${copy.length}/${AD_TEXT_MAX_LENGTH} caractères — raccourcis le texte.`;
       else {
-        const markdownError = validateAdMarkdown(copy);
-        if (markdownError) e["copy"] = markdownError;
+        const htmlError = validateAdHtml(copy);
+        if (htmlError) e["copy"] = htmlError;
       }
       if (!/^https:\/\/.+\..+/.test(url)) e["url"] = t("adv.wizard.errUrl");
     }
@@ -293,7 +294,9 @@ function Wizard() {
                     className="mt-2 w-full rounded-xl border border-seam bg-transparent p-3 text-sm"
                   />
                 )}
+                <HtmlFormatToolbar textareaRef={copyTextareaRef} value={copy} onChange={handleCopyChange} />
                 <AutoTextarea
+                  ref={copyTextareaRef}
                   id="copy"
                   minRows={4}
                   value={copy}
@@ -301,7 +304,7 @@ function Wizard() {
                   onBlur={handleCopyBlur}
                   maxLength={AD_TEXT_MAX_LENGTH}
                   invalid={!!errors["copy"]}
-                  className="mt-2"
+                  className="mt-1.5"
                 />
                 <div className="mt-1.5 flex items-start justify-between gap-2">
                   <FieldError>{errors["copy"]}</FieldError>

@@ -56,7 +56,7 @@ from app.schemas.advertiser import (
     RecentPlacementsResponse,
     TranslationItem,
 )
-from app.services import billing_service, groq_service, upload_service
+from app.services import billing_service, openrouter_service, upload_service
 
 router = APIRouter(prefix="/advertiser", tags=["advertiser"])
 
@@ -487,7 +487,7 @@ async def generate_creative(
     payload: GenerateCopyRequest,
     advertiser: CurrentAdvertiserDep,
 ) -> GenerateCopyResponse:
-    text, model, tokens = await groq_service.generate_ad_copy(
+    text, model, tokens = await openrouter_service.generate_ad_copy(
         payload.brief, language=payload.language, tone=payload.tone
     )
     return GenerateCopyResponse(copy=text, model=model, tokens_used=tokens)

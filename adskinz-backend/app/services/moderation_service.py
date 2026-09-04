@@ -31,7 +31,7 @@ from app.models.finance import Withdrawal
 from app.models.placements import Channel, MiniApp
 from app.models.tracking import AuditLog
 from app.redis_client import cache_delete_pattern
-from app.services import billing_service, email_service, groq_service
+from app.services import billing_service, email_service, openrouter_service
 
 logger = logging.getLogger(__name__)
 
@@ -69,17 +69,17 @@ def log_action(
 async def generate_translations(session: AsyncSession, campaign: Campaign) -> int:
     """Translate an approved campaign into every other supported language.
 
-    One Groq call per language. Existing translations are replaced, which is
+    One OpenRouter call per language. Existing translations are replaced, which is
     what happens when a campaign is edited and re-approved. A failure on one
     language does not abort the others — the ad simply falls back to the
     original copy for that language.
     """
-    if not groq_service.is_configured():
-        logger.warning("translations.skipped campaign=%s reason=groq_not_configured", campaign.id)
+    if not openrouter_service.is_configured():
+        logger.warning("translations.skipped campaign=%s reason=openrouter_not_configured", campaign.id)
         return 0
 
     source_lang = campaign.target_language if campaign.target_language != "all" else "en"
-    targets = groq_service.target_languages(source_lang)
+    targets = openrouter_service.target_languages(source_lang)
     if not targets:
         return 0
 
@@ -100,10 +100,10 @@ async def generate_translations(session: AsyncSession, campaign: Campaign) -> in
 
     async def _one(lang: str) -> tuple[str, str, str] | None:
         try:
-            text = await groq_service.translate_text(
+            text = await openrouter_service.translate_text(
                 campaign.ad_text, target_lang=lang, source_lang=source_lang
             )
-            label = await groq_service.translate_button_label(
+            label = await openrouter_service.translate_button_label(
                 campaign.button_label, target_lang=lang
             )
             return lang, text, label
@@ -126,7 +126,7 @@ async def generate_translations(session: AsyncSession, campaign: Campaign) -> in
                 lang_code=lang,
                 translated_text=text,
                 translated_button_label=label,
-                source="groq",
+                source="openrouter",
             )
         )
         created += 1

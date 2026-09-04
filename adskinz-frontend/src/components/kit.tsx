@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from "react";
+import { forwardRef, useEffect, useRef, useState, type ReactNode, type RefObject, type TextareaHTMLAttributes } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { uploadCreativeImage } from "@/lib/api";
 import { normalizeImageForUpload } from "@/lib/image";
+import { applyToolbarFormat, type ToolbarFormat } from "@/lib/html-toolbar";
 import { IconAlert, IconCheck, IconEmptyBox, IconImage, IconX } from "@/components/icons";
 
 /* ---------- status system: single source of truth for colour + label ---------- */
@@ -416,26 +417,24 @@ export const inputCls = (invalid = false) =>
  * fixed-height box (the old `rows={3}` boxes needed an internal scroll to
  * read a full ad copy, which isn't reachable by drag-resize on mobile).
  * Keeps a sensible max-height with its own scrollbar past that point. */
-export function AutoTextarea({
-  value,
-  onChange,
-  minRows = 3,
-  maxHeight = 320,
-  invalid,
-  className,
-  ...rest
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  minRows?: number;
-  maxHeight?: number;
-  invalid?: boolean;
-  className?: string;
-} & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange" | "className">) {
-  const ref = useRef<HTMLTextAreaElement>(null);
+export const AutoTextarea = forwardRef<
+  HTMLTextAreaElement,
+  {
+    value: string;
+    onChange: (v: string) => void;
+    minRows?: number;
+    maxHeight?: number;
+    invalid?: boolean;
+    className?: string;
+  } & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange" | "className">
+>(function AutoTextarea(
+  { value, onChange, minRows = 3, maxHeight = 320, invalid, className, ...rest },
+  forwardedRef,
+) {
+  const innerRef = useRef<HTMLTextAreaElement>(null);
 
   const resize = () => {
-    const el = ref.current;
+    const el = innerRef.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
@@ -446,7 +445,11 @@ export function AutoTextarea({
   return (
     <textarea
       {...rest}
-      ref={ref}
+      ref={(el) => {
+        innerRef.current = el;
+        if (typeof forwardedRef === "function") forwardedRef(el);
+        else if (forwardedRef) forwardedRef.current = el;
+      }}
       rows={minRows}
       value={value}
       onChange={(e) => {
@@ -456,6 +459,67 @@ export function AutoTextarea({
       className={cn(inputCls(invalid), "resize-y overflow-y-auto leading-relaxed", className)}
       style={{ maxHeight }}
     />
+  );
+});
+
+/** Formatting toolbar for an ad-copy textarea: select text, click a button,
+ * it wraps the selection in the matching Telegram-HTML tag (or toggles it
+ * off if already applied). Needs a ref to the underlying <textarea> — pass
+ * the same ref given to AutoTextarea. */
+export function HtmlFormatToolbar({
+  textareaRef,
+  value,
+  onChange,
+}: {
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const { t } = useTranslation();
+
+  const apply = (format: ToolbarFormat) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const { value: newValue, selectionStart, selectionEnd } = applyToolbarFormat(
+      value,
+      el.selectionStart ?? value.length,
+      el.selectionEnd ?? value.length,
+      format,
+    );
+    onChange(newValue);
+    // Restore focus + selection after React re-renders the new value.
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(selectionStart, selectionEnd);
+    });
+  };
+
+  const buttons: Array<{ format: ToolbarFormat; label: string; title: string; className?: string }> = [
+    { format: "bold", label: "B", title: t("adv.wizard.fmtBold"), className: "font-bold" },
+    { format: "italic", label: "I", title: t("adv.wizard.fmtItalic"), className: "italic" },
+    { format: "blockquote", label: "❝", title: t("adv.wizard.fmtQuote") },
+    { format: "spoiler", label: "◐", title: t("adv.wizard.fmtSpoiler") },
+  ];
+
+  return (
+    <div className="flex gap-1.5" role="toolbar" aria-label={t("adv.wizard.fmtToolbar")}>
+      {buttons.map((b) => (
+        <button
+          key={b.format}
+          type="button"
+          title={b.title}
+          aria-label={b.title}
+          onMouseDown={(e) => e.preventDefault()} // keep the textarea selection intact
+          onClick={() => apply(b.format)}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg border border-seam text-sm hover:bg-panel-2",
+            b.className,
+          )}
+        >
+          {b.label}
+        </button>
+      ))}
+    </div>
   );
 }
 

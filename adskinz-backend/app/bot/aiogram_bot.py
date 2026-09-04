@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import html
 import logging
-import re
 from urllib.parse import urlparse
 
 from aiogram import Bot, Dispatcher
@@ -19,6 +17,7 @@ from aiogram.types import (
 )
 
 from app.config import settings
+from app.core.html_format import sanitize_telegram_html
 
 logger = logging.getLogger(__name__)
 
@@ -28,83 +27,47 @@ _polling_task: asyncio.Task[None] | None = None
 
 # Telegram's hard caption cap (photo posts). Text-only posts allow 4096, but
 # every native ad is capped at this figure server-side (see
-# CampaignCreateRequest.ad_text) precisely so a post never has to be
-# truncated differently depending on whether it carries an image.
+# AD_TEXT_MAX_LENGTH in app/schemas/advertiser.py) precisely so a post never
+# has to be truncated differently depending on whether it carries an image.
 TELEGRAM_CAPTION_LIMIT = 1024
 
-# One line, localised, appended to every native ad AdsKinz posts. Keys must
-# match the lang codes AdsKinz actually serves creatives in (see
-# app.core.enums.AD_LANGUAGES) — "en" is the fallback for anything else,
-# including "all".
-_AD_FOOTERS: dict[str, str] = {
-    "en": "\n\n📢 Promoted by #AdsKinz — advertise your business here too 🚀",
-    "fr": "\n\n📢 Sponsorisé par #AdsKinz — fais aussi la promo de ton entreprise ici 🚀",
-    "ru": "\n\n📢 Продвигается через #AdsKinz — расскажи о своём бизнесе здесь тоже 🚀",
-    "zh": "\n\n📢 由 #AdsKinz 推广 — 也来这里宣传你的业务吧 🚀",
-    "es": "\n\n📢 Promocionado por #AdsKinz — anuncia tu negocio aquí también 🚀",
-    "pt": "\n\n📢 Promovido por #AdsKinz — anuncie seu negócio aqui também 🚀",
-    "ar": "\n\n📢 إعلان برعاية #AdsKinz — روّج لعملك هنا أنت أيضًا 🚀",
-    "hi": "\n\n📢 #AdsKinz द्वारा प्रचारित — अपने बिज़नेस का प्रचार यहाँ भी करें 🚀",
-    "id": "\n\n📢 Dipromosikan oleh #AdsKinz — promosikan bisnismu di sini juga 🚀",
-    "tr": "\n\n📢 #AdsKinz tarafından tanıtılıyor — sen de işini burada tanıt 🚀",
-    "uk": "\n\n📢 Просувається через #AdsKinz — розкажи про свій бізнес тут теж 🚀",
-}
+# Appended to every native ad, unconditionally — not localised, this is the
+# exact markup requested. Telegram HTML mode requires a closed href
+# attribute; the trailing "/" quote is closed here even though it's easy to
+# drop by hand.
+_AD_FOOTER = (
+    "\n\n═══════════════════════\n"
+    '#ad <b><a href="https://adskinz.me/">Adsversite with AdsKinz</a></b>'
+)
 
 
-def _ad_footer(lang: str | None) -> str:
-    return _AD_FOOTERS.get((lang or "en").lower(), _AD_FOOTERS["en"])
+def _compose_ad_html(raw_text: str, language: str | None = None) -> str:
+    """Render ad copy + the fixed AdsKinz footer as Telegram-HTML, trimmed to
+    fit Telegram's caption cap so the footer never causes
+    ``send_photo``/``send_message`` to fail on a long ad. The body is
+    trimmed, never the footer.
 
-
-# Markdown → Telegram-HTML conversion, applied to already-escaped text.
-# Deliberately tolerant: an unmatched marker (a stray "*" or "_") simply
-# fails to match and is left as a literal character in the output instead
-# of raising — unlike Telegram's own MarkdownV2 parse mode, which rejects
-# the entire message on a single unescaped special character. That
-# brittleness is exactly why the bot posts with ParseMode.HTML and converts
-# a lenient Markdown subset itself rather than letting Telegram parse the
-# advertiser's raw Markdown.
-_MD_LINK = re.compile(r"\[([^\[\]]+)\]\((https?://[^\s()]+)\)")
-_MD_CODE = re.compile(r"`([^`\n]+?)`")
-_MD_BOLD_STAR = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)
-_MD_BOLD_UNDERSCORE = re.compile(r"__(.+?)__", re.DOTALL)
-_MD_ITALIC_STAR = re.compile(r"\*(.+?)\*", re.DOTALL)
-_MD_ITALIC_UNDERSCORE = re.compile(r"_(.+?)_", re.DOTALL)
-
-
-def _markdown_to_telegram_html(raw_text: str) -> str:
-    """Escape ``raw_text`` for Telegram HTML, then render a small, forgiving
-    Markdown subset (bold, italic, inline code, links) on top of it.
-
-    Line breaks need no special handling: Telegram renders literal ``\n``
-    in HTML-mode text/captions as line breaks already.
+    ``raw_text`` is expected to already be Telegram-safe HTML — the
+    advertiser-facing editor's toolbar (bold/italic/blockquote/spoiler)
+    writes real HTML tags directly, and app.core.html_format.validate_ad_html
+    rejects anything else at submit time. ``sanitize_telegram_html`` here is
+    a defensive second pass, not the primary safety net.
+    ``language`` is accepted for call-site compatibility (app/bot/poster.py
+    passes ``language_served``) but no longer changes the footer, which is
+    the same for every post regardless of language.
     """
-    text = html.escape(raw_text)
-    text = _MD_LINK.sub(lambda m: f'<a href="{m.group(2)}">{m.group(1)}</a>', text)
-    text = _MD_CODE.sub(lambda m: f"<code>{m.group(1)}</code>", text)
-    text = _MD_BOLD_STAR.sub(lambda m: f"<b>{m.group(1)}</b>", text)
-    text = _MD_BOLD_UNDERSCORE.sub(lambda m: f"<b>{m.group(1)}</b>", text)
-    text = _MD_ITALIC_STAR.sub(lambda m: f"<i>{m.group(1)}</i>", text)
-    text = _MD_ITALIC_UNDERSCORE.sub(lambda m: f"<i>{m.group(1)}</i>", text)
-    return text
+    body_html = sanitize_telegram_html(raw_text)
+    if len(body_html) + len(_AD_FOOTER) <= TELEGRAM_CAPTION_LIMIT:
+        return body_html + _AD_FOOTER
 
-
-def _compose_ad_html(raw_text: str, lang: str | None) -> str:
-    """Render ad copy + footer as Telegram-HTML, trimmed to fit Telegram's
-    caption cap so a footer never causes ``send_photo``/``send_message`` to
-    fail on a long ad. The body is trimmed, never the footer."""
-    footer = _ad_footer(lang)
-    body_html = _markdown_to_telegram_html(raw_text)
-    if len(body_html) + len(footer) <= TELEGRAM_CAPTION_LIMIT:
-        return body_html + footer
-
-    allowed = TELEGRAM_CAPTION_LIMIT - len(footer) - 1
+    allowed = TELEGRAM_CAPTION_LIMIT - len(_AD_FOOTER) - 1
     if allowed <= 0:
-        return footer.strip()
-    # Trim on the raw text (pre-markdown) so we never cut inside an HTML
-    # tag, then re-render — a couple of characters shorter than the exact
+        return _AD_FOOTER.strip()
+    # Trim on the raw text (pre-sanitize) so we never cut inside an HTML
+    # tag, then re-sanitize — a couple of characters shorter than the exact
     # cap, which is fine for a hard safety limit.
     trimmed_raw = raw_text[: max(0, allowed - 40)].rstrip() + "…"
-    return _markdown_to_telegram_html(trimmed_raw) + footer
+    return sanitize_telegram_html(trimmed_raw) + _AD_FOOTER
 
 
 def get_bot() -> Bot:
@@ -290,10 +253,9 @@ async def post_ad(
 ) -> tuple[int | None, str | None]:
     """Publish one native ad with a single tracked call-to-action button.
 
-    ``text`` is treated as the advertiser's Markdown-ish copy: it is escaped
-    and re-rendered into Telegram-HTML (bold/italic/code/links + line
-    breaks), then the localised "promoted by AdsKinz" footer is appended in
-    ``language``. Every post is sent with ``protect_content=True`` so
+    ``text`` is the advertiser's own Telegram-HTML (written via the toolbar
+    in the ad copy editor), sanitised defensively then the fixed AdsKinz
+    footer is appended. Every post is sent with ``protect_content=True`` so
     viewers can't forward or save it — the same restriction InsideAds and
     AdsGram apply, needed here too to keep view counts honest.
     """

@@ -12,13 +12,13 @@ from pydantic import Field, HttpUrl, computed_field, field_validator
 
 from app.config import settings
 from app.core.enums import AD_LANGUAGES, BUTTON_LABELS
-from app.core.markdown import validate_ad_markdown
+from app.core.html_format import validate_ad_html
 from app.schemas.common import APIModel, RequestModel
 
 # Advertiser-facing ad-copy cap. Kept comfortably under Telegram's 1024-char
-# photo-caption hard limit so the localised "#AdsKinz" footer
-# (app.bot.aiogram_bot._AD_FOOTERS, longest ~90 chars) always still fits
-# without ever having to truncate the advertiser's own text at post time.
+# photo-caption hard limit so the fixed "#ad ... AdsKinz" footer
+# (app.bot.aiogram_bot._AD_FOOTER) always still fits without ever having to
+# truncate the advertiser's own text at post time.
 AD_TEXT_MAX_LENGTH = 900
 
 FrontendFormat = Literal["channel", "interstitial", "pop"]
@@ -69,8 +69,8 @@ class CampaignCreateRequest(RequestModel):
 
     @field_validator("ad_text")
     @classmethod
-    def _valid_markdown(cls, value: str) -> str:
-        validate_ad_markdown(value)
+    def _valid_html(cls, value: str) -> str:
+        validate_ad_html(value)
         return value
 
     @field_validator("button_label")
@@ -143,9 +143,9 @@ class CampaignUpdateRequest(RequestModel):
 
     @field_validator("ad_text")
     @classmethod
-    def _valid_markdown(cls, value: str | None) -> str | None:
+    def _valid_html(cls, value: str | None) -> str | None:
         if value is not None:
-            validate_ad_markdown(value)
+            validate_ad_html(value)
         return value
 
     @field_validator("button_label")

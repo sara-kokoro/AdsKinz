@@ -1,9 +1,9 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdvShell } from "@/components/workspaces";
 import {
-  AutoTextarea, BudgetBar, Btn, ErrorBanner, Field, FieldError, ImageUpload, Modal, Panel, Quote, SectionTitle,
+  AutoTextarea, BudgetBar, Btn, ErrorBanner, Field, FieldError, HtmlFormatToolbar, ImageUpload, Modal, Panel, Quote, SectionTitle,
   StatusPill, fmtInt, fmtMoney, inputCls,
 } from "@/components/kit";
 import { UsdtMark } from "@/components/usdt";
@@ -11,7 +11,7 @@ import { ArtFunnel } from "@/components/illustrations";
 import { IconPencil, IconSparkle } from "@/components/icons";
 import { TelegramPostPreview } from "@/components/telegram-preview";
 import { AD_LANGUAGES, AD_TEXT_MAX_LENGTH, BUTTON_LABELS } from "@/lib/constants";
-import { validateAdMarkdown } from "@/lib/markdown";
+import { validateAdHtml } from "@/lib/html-format";
 import { ApiError, num, trackingUrl } from "@/lib/api";
 import { useCampaign, useCampaignTranslations, useGenerateCopy, useUpdateCampaign } from "@/lib/queries";
 import { useAuthGuard } from "@/lib/auth";
@@ -48,6 +48,7 @@ function CampaignDetail() {
   const [budget, setBudget] = useState("");
   const [language, setLanguage] = useState("");
   const [copy, setCopy] = useState("");
+  const copyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [brief, setBrief] = useState("");
   const [briefOpen, setBriefOpen] = useState(false);
   const [buttonLabel, setButtonLabel] = useState("");
@@ -127,9 +128,9 @@ function CampaignDetail() {
       setErr(`${copy.length}/${AD_TEXT_MAX_LENGTH} caractères — raccourcis le texte.`);
       return;
     }
-    const markdownError = validateAdMarkdown(copy);
-    if (markdownError) {
-      setErr(markdownError);
+    const htmlError = validateAdHtml(copy);
+    if (htmlError) {
+      setErr(htmlError);
       return;
     }
     setErr(null);
@@ -324,7 +325,8 @@ function CampaignDetail() {
                     className={cn("mt-2", inputCls())}
                   />
                 )}
-                <AutoTextarea id="ccopy" minRows={3} value={copy} onChange={setCopy} maxLength={AD_TEXT_MAX_LENGTH} className="mt-2" />
+                <HtmlFormatToolbar textareaRef={copyTextareaRef} value={copy} onChange={setCopy} />
+                <AutoTextarea ref={copyTextareaRef} id="ccopy" minRows={3} value={copy} onChange={setCopy} maxLength={AD_TEXT_MAX_LENGTH} className="mt-1.5" />
                 <div className="mt-1.5 flex justify-end">
                   <span
                     className={cn(

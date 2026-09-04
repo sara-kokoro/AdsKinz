@@ -1,4 +1,4 @@
-"""Groq LLM service: ad copy generation and campaign translation.
+"""OpenRouter LLM service: ad copy generation and campaign translation.
 
 Translations are produced **once, at approval time**, and stored in
 ``campaign_translations``. They are never generated while serving an
@@ -53,14 +53,18 @@ _MAX_COPY_CHARS = 900
 
 
 def _client() -> httpx.AsyncClient:
-    if not settings.GROQ_API_KEY:
+    if not settings.OPENROUTER_API_KEY:
         raise ConfigurationError("AI generation is not configured on this instance.")
     return httpx.AsyncClient(
-        base_url=settings.GROQ_BASE_URL,
-        timeout=settings.GROQ_TIMEOUT_SECONDS,
+        base_url=settings.OPENROUTER_BASE_URL,
+        timeout=settings.OPENROUTER_TIMEOUT_SECONDS,
         headers={
-            "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+            "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
             "Content-Type": "application/json",
+            # OpenRouter attributes usage in its dashboard by these two
+            # optional headers; harmless if OpenRouter is ever swapped out.
+            "HTTP-Referer": settings.OPENROUTER_SITE_URL,
+            "X-Title": settings.OPENROUTER_SITE_NAME,
         },
     )
 
@@ -84,7 +88,7 @@ async def _chat(
     max_tokens: int,
 ) -> tuple[str, int | None]:
     payload = {
-        "model": settings.GROQ_MODEL,
+        "model": settings.OPENROUTER_MODEL,
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -108,7 +112,7 @@ async def _chat(
             return _clean(content), usage
         except (httpx.HTTPError, KeyError, IndexError, json.JSONDecodeError) as exc:
             last_error = exc
-            logger.warning("groq.request_failed attempt=%s error=%s", attempt + 1, exc)
+            logger.warning("openrouter.request_failed attempt=%s error=%s", attempt + 1, exc)
             await asyncio.sleep(0.8 * (attempt + 1))
 
     raise UpstreamError(
@@ -135,7 +139,7 @@ async def generate_ad_copy(
     )
     if not text:
         raise UpstreamError("The AI service returned an empty response.")
-    return text, settings.GROQ_MODEL, tokens
+    return text, settings.OPENROUTER_MODEL, tokens
 
 
 async def translate_text(text: str, *, target_lang: str, source_lang: str = "en") -> str:
@@ -187,4 +191,4 @@ def target_languages(source_lang: str) -> list[str]:
 
 
 def is_configured() -> bool:
-    return bool(settings.GROQ_API_KEY)
+    return bool(settings.OPENROUTER_API_KEY)
