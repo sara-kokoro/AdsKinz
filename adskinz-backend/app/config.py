@@ -27,14 +27,14 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Runtime
     # ------------------------------------------------------------------ #
-    ENVIRONMENT: Literal["development", "staging", "production"] = "development"
+    ENVIRONMENT: Literal["development", "staging", "production"] = "production"
     DEBUG: bool = False
     APP_VERSION: str = "1.0.0"
     LOG_LEVEL: str = "INFO"
     ENABLE_API_DOCS: bool = True
     API_BASE_URL: str = "competent-rebekkah-davelam-58380a6b.koyeb.app"
-    PUBLIC_BASE_URL: str = "https://ads-kinz.vercel.app"
-    CORS_ORIGINS: str = "http://adskinz.me,https://adskinz.me,https://kingcey.adskinz.me,https://ads-kinz.vercel.app"
+    PUBLIC_BASE_URL: str = "https://adskinz.me"
+    CORS_ORIGINS: str = "http://adskinz.me,https://adskinz.me,https://kingcey.adskinz.me"
     CORS_ORIGIN_REGEX: str = ""
     # Comma-separated Host header allowlist. Empty disables the check, which is
     # the right default behind a platform proxy that already filters hosts.
@@ -113,7 +113,7 @@ class Settings(BaseSettings):
     OPENROUTER_TIMEOUT_SECONDS: float = 30.0
     # OpenRouter asks integrators to send these two so usage shows up
     # attributed to the app in their dashboard; purely informational.
-    OPENROUTER_SITE_URL: str = "https://ads-kinz.vercel.app"
+    OPENROUTER_SITE_URL: str = "https://adskinz.me"
     OPENROUTER_SITE_NAME: str = "AdsKinz"
 
     # ------------------------------------------------------------------ #
@@ -184,11 +184,9 @@ class Settings(BaseSettings):
     # Email (Resend)
     # ------------------------------------------------------------------ #
     RESEND_API_KEY: str = "re_ixaWFLmD_4MLXCxQ9yZaDJp3ZxP5q8DvP"
-    # No domain purchased/verified yet: falls back to Resend's shared testing
-    # domain, which can only deliver to the address on the Resend account
-    # itself. Switch to "AdsKinz <no-reply@yourdomain.tld>" once a domain is
-    # verified in the Resend dashboard.
-    EMAIL_FROM: str = "AdsKinz <onboarding@resend.dev>"
+    # mail.adskinz.me is verified in the Resend dashboard, so sends go out
+    # from our own domain instead of Resend's shared testing address.
+    EMAIL_FROM: str = "AdsKinz <no-reply@mail.adskinz.me>"
     ADMIN_ALERT_EMAIL: str = "abdoulmadjidkingceymarkouma@gmail.com"
     ENABLE_EMAIL: bool = True
     # Internal console sign-in: click "Ask code" -> an 8-digit one-time code
