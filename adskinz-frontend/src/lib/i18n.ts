@@ -2132,7 +2132,7 @@ const zh: Dict = {
       bnb: "USDT BNB",
       address: "充值地址",
       copyReminderTitle: "转账后请回来确认",
-      copyReminderBody: "转账发出后，请在 30 分钟内回到此页面，点击"立即验证"以确认你的充值。",
+      copyReminderBody: "转账发出后，请在 30 分钟内回到此页面，点击\"立即验证\"以确认你的充值。",
       memo: "Memo 标签（必填）",
       copyMemo: "复制 memo 标签",
       memoWarning: "TON 充值必须填写 memo 标签。缺少正确 memo 的充值无法入账。",

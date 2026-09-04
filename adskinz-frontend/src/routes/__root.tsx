@@ -110,6 +110,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         children: `try{var m=localStorage.getItem('adskinz.theme')||'system';var d=m==='dark'||(m==='system'&&!window.matchMedia('(prefers-color-scheme: light)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light';}catch(e){document.documentElement.classList.add('dark')}`,
       },
+      {
+        // Subdomain → section redirect. kingcey.adskinz.me, partner.adskinz.me
+        // (and its "publisher." alias), and docs.adskinz.me all serve the
+        // exact same build as the apex domain — this just sends a visitor
+        // landing on "/" on one of those hosts straight to its section
+        // instead of the marketing page. Any deep link (e.g.
+        // partner.adskinz.me/channels/123) is left untouched.
+        children: `try{var h=window.location.hostname;var map={'kingcey.adskinz.me':'/kingcey','partner.adskinz.me':'/partner','publisher.adskinz.me':'/partner','docs.adskinz.me':'/docs'};var t=map[h];if(t&&window.location.pathname==='/'){window.location.replace(t);}}catch(e){}`,
+      },
     ],
   }),
   shellComponent: RootShell,
