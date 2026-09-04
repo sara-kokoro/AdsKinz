@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     ENABLE_API_DOCS: bool = True
     API_BASE_URL: str = "competent-rebekkah-davelam-58380a6b.koyeb.app"
     PUBLIC_BASE_URL: str = "https://adskinz.me"
+    # Dedicated short-link host for /+{tracking_id} redirects. Must point at
+    # this API (a CNAME on the domain provider + a custom domain on Koyeb),
+    # never at the frontend, which has no route for it.
+    TRACKING_BASE_URL: str = "https://tr.adskinz.me"
     CORS_ORIGINS: str = "http://adskinz.me,https://adskinz.me,https://kingcey.adskinz.me"
     CORS_ORIGIN_REGEX: str = ""
     # Comma-separated Host header allowlist. Empty disables the check, which is
@@ -296,7 +300,7 @@ class Settings(BaseSettings):
         return self.ENVIRONMENT == "production"
 
     def tracking_link(self, tracking_id: object) -> str:
-        return f"{self.PUBLIC_BASE_URL.rstrip('/')}/t/{tracking_id}"
+        return f"{self.TRACKING_BASE_URL.rstrip('/')}/+{tracking_id}"
 
     def ns(self, *parts: str) -> str:
         """Build a namespaced Redis key."""

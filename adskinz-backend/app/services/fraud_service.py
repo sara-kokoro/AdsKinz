@@ -49,7 +49,7 @@ VELOCITY_EXTREME = 20
 async def score_click(
     session: AsyncSession,
     *,
-    tracking_id: uuid.UUID,
+    tracking_id: str,
     ip_hash: str | None,
     user_agent: str | None,
     referer: str | None = None,

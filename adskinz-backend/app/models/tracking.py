@@ -56,7 +56,9 @@ class ScheduledPost(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     telegram_message_id: Mapped[int | None] = mapped_column(BigInteger)
     telegram_chat_id: Mapped[int | None] = mapped_column(BigInteger)
-    tracking_id: Mapped[uuid.UUID | None] = mapped_column(unique=True, index=True)
+    # Short alphanumeric code (see core.security.generate_tracking_id), not a
+    # UUID — kept at 36 chars so legacy UUID-formatted rows still fit.
+    tracking_id: Mapped[str | None] = mapped_column(String(36), unique=True, index=True)
 
     scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -124,7 +126,7 @@ class Impression(Base, UUIDPrimaryKeyMixin):
     campaign_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False
     )
-    tracking_id: Mapped[uuid.UUID] = mapped_column(unique=True, nullable=False, index=True)
+    tracking_id: Mapped[str] = mapped_column(String(36), unique=True, nullable=False, index=True)
     placement_type: Mapped[str] = mapped_column(String(16), nullable=False)  # miniapp | channel
     placement_id: Mapped[uuid.UUID | None] = mapped_column()
     format: Mapped[str | None] = mapped_column(String(24))
@@ -152,7 +154,7 @@ class Click(Base, UUIDPrimaryKeyMixin):
         Index("ix_clicks_ip_time", "ip_hash", "clicked_at"),
     )
 
-    tracking_id: Mapped[uuid.UUID] = mapped_column(nullable=False, index=True)
+    tracking_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     campaign_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False
     )
@@ -184,12 +186,12 @@ class Click(Base, UUIDPrimaryKeyMixin):
 
 
 class TrackingLink(Base, UUIDPrimaryKeyMixin, TimestampMixin):
-    """Resolves ``/t/{tracking_id}`` to a campaign and its placement context."""
+    """Resolves ``/+{tracking_id}`` to a campaign and its placement context."""
 
     __tablename__ = "tracking_links"
     __table_args__ = (Index("ix_tracking_links_campaign", "campaign_id"),)
 
-    tracking_id: Mapped[uuid.UUID] = mapped_column(unique=True, nullable=False, index=True)
+    tracking_id: Mapped[str] = mapped_column(String(36), unique=True, nullable=False, index=True)
     campaign_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False
     )

@@ -109,6 +109,21 @@ async def start_client_background() -> None:
     _start_task = asyncio.create_task(start_client(), name="adskinz-mtproto-start")
 
 
+async def mtproto_status() -> dict:
+    """Whether the read-only MTProto session used for view-count billing is
+    actually connected, and why it isn't if not. This client is what turns
+    real Telegram views into billed impressions (app/mtproto/views_watcher.py)
+    — if it's disabled, posts keep accumulating real views on Telegram with
+    $0 ever charged or credited, silently, since the polling job just
+    no-ops every cycle instead of raising."""
+    return {
+        "configured": is_configured(),
+        "enable_mtproto_setting": settings.ENABLE_MTPROTO,
+        "started": _started,
+        "disabled_reason": _disabled_reason,
+    }
+
+
 async def stop_client() -> None:
     """Cancel any pending start, then disconnect the shared Kurigram client."""
     global _started, _start_task

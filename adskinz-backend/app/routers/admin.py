@@ -87,6 +87,22 @@ async def debug_scheduler_status(admin: CurrentAdminDep) -> dict:
     }
 
 
+@router.get(
+    "/debug/mtproto-status",
+    summary="Whether the MTProto view-billing session is actually connected",
+)
+async def debug_mtproto_status(admin: CurrentAdminDep) -> dict:
+    """Real Telegram views on a post are only billed (advertiser charged,
+    publisher credited) once app/mtproto/views_watcher.py's poll_views job
+    can read view counts through this session — a bot token cannot do this,
+    only a logged-in Telegram user account (MTProto) can. If this session
+    isn't connected, posts accumulate real views with $0 ever billed,
+    silently, since the polling job no-ops instead of raising."""
+    from app.mtproto.client import mtproto_status
+
+    return await mtproto_status()
+
+
 @router.post(
     "/debug/run-post-dispatch",
     summary="Manually trigger the native-post dispatch job right now",
@@ -106,6 +122,35 @@ async def debug_run_post_dispatch(admin: CurrentAdminDep) -> dict:
 
     try:
         summary = await dispatch_posts()
+        return {"ok": True, "summary": summary}
+    except Exception as exc:  # noqa: BLE001 - deliberately surfacing the full error to the admin
+        return {
+            "ok": False,
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+
+
+@router.post(
+    "/debug/run-views-poll",
+    summary="Manually trigger the MTProto view-billing job right now",
+)
+async def debug_run_views_poll(admin: CurrentAdminDep) -> dict:
+    """Runs exactly what the periodic scheduler runs (app.jobs.views.views_polling),
+    synchronously, and returns its summary or the full exception traceback —
+    the fastest way to see whether real views are actually getting billed,
+    and if not, why (see /admin/debug/mtproto-status for the session state
+    specifically).
+
+    This performs real writes (it can charge advertisers and credit
+    publishers for the views found). Restricted to admins for that reason.
+    """
+    import traceback
+
+    from app.jobs.views import views_polling
+
+    try:
+        summary = await views_polling()
         return {"ok": True, "summary": summary}
     except Exception as exc:  # noqa: BLE001 - deliberately surfacing the full error to the admin
         return {

@@ -192,8 +192,14 @@ def generate_kinz_key(live: bool = False) -> str:
     return f"{prefix}_{secrets.token_hex(4)}"
 
 
-def generate_tracking_id() -> uuid.UUID:
-    return uuid.uuid4()
+# Alphanumeric, mixed-case, no separators — pairs with settings.tracking_link()
+# to produce short links like https://tr.adskinz.me/+HlziUi818Jzka.
+_TRACKING_ID_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+TRACKING_ID_LENGTH = 13
+
+
+def generate_tracking_id() -> str:
+    return "".join(secrets.choice(_TRACKING_ID_ALPHABET) for _ in range(TRACKING_ID_LENGTH))
 
 
 def constant_time_equals(a: str, b: str) -> bool:

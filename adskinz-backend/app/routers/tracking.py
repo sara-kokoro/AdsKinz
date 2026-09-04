@@ -1,8 +1,9 @@
 """Click tracking and redirection.
 
-    GET /t/{tracking_id}   → HTTP 302 to the campaign destination
+    GET /+{tracking_id}   → HTTP 302 to the campaign destination
 
-This endpoint always redirects. Fraud scoring decides whether the click is
+Served from tr.adskinz.me — a dedicated short-link host that points at this
+API, never at the frontend. Fraud scoring decides whether the click is
 billed, never whether the end user reaches the advertiser: blocking a real
 person because a heuristic misfired would be far worse than skipping one
 billable click.
@@ -11,7 +12,7 @@ billable click.
 from __future__ import annotations
 
 import logging
-import uuid
+import re
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request
@@ -20,7 +21,6 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.core.deps import ClientIPHashDep, SessionDep
-from app.core.security import hash_ip
 from app.models.campaigns import Campaign
 from app.models.tracking import Click, TrackingLink
 from app.services import billing_service, fraud_service
@@ -31,10 +31,14 @@ router = APIRouter(tags=["tracking"])
 
 _REDIRECT_STATUS = 302
 _NO_STORE = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
+# The id is a 13-char alphanumeric code (see core.security.generate_tracking_id).
+# The range is kept a little loose so the length can change later without a
+# router edit.
+_TRACKING_ID_RE = re.compile(r"^[A-Za-z0-9]{6,36}$")
 
 
 @router.get(
-    "/t/{tracking_id}",
+    "/+{tracking_id}",
     status_code=_REDIRECT_STATUS,
     response_class=RedirectResponse,
     summary="Track a click and redirect to the advertiser",
@@ -50,14 +54,12 @@ async def track_click(
         url=settings.PUBLIC_BASE_URL, status_code=_REDIRECT_STATUS, headers=_NO_STORE
     )
 
-    try:
-        parsed_id = uuid.UUID(tracking_id)
-    except ValueError:
+    if not _TRACKING_ID_RE.match(tracking_id):
         return fallback
 
     link = (
         await session.execute(
-            select(TrackingLink).where(TrackingLink.tracking_id == parsed_id)
+            select(TrackingLink).where(TrackingLink.tracking_id == tracking_id)
         )
     ).scalar_one_or_none()
     if link is None:
@@ -76,7 +78,7 @@ async def track_click(
         await _record_click(
             session,
             link=link,
-            tracking_id=parsed_id,
+            tracking_id=tracking_id,
             ip_hash=ip_hash,
             user_agent=request.headers.get("user-agent"),
             referer=request.headers.get("referer"),
@@ -92,7 +94,7 @@ async def _record_click(
     session,
     *,
     link: TrackingLink,
-    tracking_id: uuid.UUID,
+    tracking_id: str,
     ip_hash: str | None,
     user_agent: str | None,
     referer: str | None,
@@ -182,7 +184,3 @@ async def health_deep(session: SessionDep) -> dict[str, object]:
 @router.get("/favicon.ico", include_in_schema=False)
 async def favicon() -> RedirectResponse:
     return RedirectResponse(url=f"{settings.PUBLIC_BASE_URL}/favicon.ico", status_code=301)
-
-
-def _client_ip_hash(request: Request) -> str | None:
-    return hash_ip(request.client.host if request.client else None)
