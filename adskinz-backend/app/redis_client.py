@@ -26,7 +26,6 @@ from decimal import Decimal
 from typing import Any
 
 import redis.asyncio as aioredis
-import ssl
 from redis.asyncio.client import Redis
 from redis.exceptions import RedisError
 
@@ -58,13 +57,6 @@ async def init_redis() -> Redis | None:
             socket_timeout=10,
             health_check_interval=30,
             retry_on_timeout=True,
-            # Upstash's TLS endpoint is a known source of "Connection closed
-            # by server" with redis-py's default strict certificate
-            # verification — Upstash's own troubleshooting docs recommend
-            # relaxing it. The connection is still encrypted and still
-            # requires the correct password either way; this only turns off
-            # validating the certificate chain itself.
-            ssl_cert_reqs=ssl.CERT_NONE,
         )
         await _client.ping()
         logger.info("Redis connected")
