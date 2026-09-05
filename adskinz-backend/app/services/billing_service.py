@@ -18,6 +18,7 @@ from decimal import ROUND_DOWN, Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import lazyload
 
 from app.config import settings
 from app.core.enums import CampaignStatus, LedgerEntryType
@@ -198,7 +199,15 @@ async def charge_campaign(
         # every view when Redis wasn't configured (see distributed_lock's
         # own docstring: "the caller must rely on the database-level
         # guarantee instead").
-        fresh = await session.get(Campaign, campaign.id, with_for_update=True)
+        # Campaign.advertiser is lazy="joined" by default, which turns this
+        # into "FROM campaigns LEFT OUTER JOIN advertisers ... FOR UPDATE" —
+        # Postgres refuses to lock the nullable side of an outer join
+        # (asyncpg.exceptions.FeatureNotSupportedError). This call only
+        # needs the Campaign row locked, not the advertiser eager-loaded, so
+        # override the loader strategy just for this fetch.
+        fresh = await session.get(
+            Campaign, campaign.id, with_for_update=True, options=[lazyload(Campaign.advertiser)]
+        )
         if fresh is None:
             return ChargeResult(Decimal("0"), Decimal("0"), Decimal("0"), 0, False, "not_found")
 
