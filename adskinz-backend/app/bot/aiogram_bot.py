@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 from urllib.parse import urlparse
 
 from aiogram import Bot, Dispatcher
@@ -38,6 +39,22 @@ TELEGRAM_CAPTION_LIMIT = 1024
 _AD_FOOTER = (
     "\n\n═══════════════════════\n"
     '#ad <b><a href="https://adskinz.me/">Adsversite with AdsKinz</a></b>'
+)
+
+# Cosmetic-only randomisation of the CTA button on every native ad: a fresh
+# style + custom emoji icon per post, drawn independently of one another so
+# a given campaign doesn't settle into one fixed look across every channel.
+_BUTTON_STYLES = ("primary", "success", "danger")
+_BUTTON_ICON_EMOJI_IDS = (
+    "5172425562634847208",
+    "5210956306952758910",
+    "5415655814079723871",
+    "5424818078833715060",
+    "5440539497383087970",
+    "4983748881977181112",
+    "6276271937693947894",
+    "5267500801240092311",
+    "5915814406490427591",
 )
 
 
@@ -259,34 +276,59 @@ async def post_ad(
     viewers can't forward or save it — the same restriction InsideAds and
     AdsGram apply, needed here too to keep view counts honest.
     """
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=button_label, url=tracking_url)]]
-    )
+    style = random.choice(_BUTTON_STYLES)
+    icon_id = random.choice(_BUTTON_ICON_EMOJI_IDS)
     safe_text = _compose_ad_html(text, language)
     try:
         bot = get_bot()
-        if image_url:
-            message = await bot.send_photo(
-                chat_id=chat_id,
-                photo=image_url,
-                caption=safe_text,
-                reply_markup=keyboard,
-                protect_content=True,
+        try:
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=button_label, url=tracking_url, style=style, icon_custom_emoji_id=icon_id
+                    )
+                ]]
             )
-        else:
-            message = await bot.send_message(
-                chat_id=chat_id,
-                text=safe_text,
-                reply_markup=keyboard,
-                disable_web_page_preview=True,
-                protect_content=True,
-            )
+            message = await _send_ad(bot, chat_id, safe_text, keyboard, image_url)
+        except TelegramBadRequest as exc:
+            # icon_custom_emoji_id on a button requires the bot to have a
+            # Fragment-purchased username or a Premium owner (Bot API 9.4).
+            # Rather than fail the whole post over a cosmetic detail, retry
+            # once with only the (unrestricted) colour style kept.
+            if "custom_emoji" in str(exc).lower() or "emoji" in str(exc).lower():
+                logger.info("bot.post_icon_emoji_rejected chat=%s error=%s", chat_id, exc)
+                keyboard = InlineKeyboardMarkup(
+                    inline_keyboard=[[InlineKeyboardButton(text=button_label, url=tracking_url, style=style)]]
+                )
+                message = await _send_ad(bot, chat_id, safe_text, keyboard, image_url)
+            else:
+                raise
         return message.message_id, None
     except (TelegramForbiddenError, TelegramBadRequest) as exc:
         return None, str(exc)
     except Exception as exc:  # noqa: BLE001 - posting failures are persisted by the scheduler
         logger.warning("bot.post_failed chat=%s error=%s", chat_id, exc)
         return None, str(exc)
+
+
+async def _send_ad(
+    bot: Bot, chat_id: int | str, safe_text: str, keyboard: InlineKeyboardMarkup, image_url: str | None
+):
+    if image_url:
+        return await bot.send_photo(
+            chat_id=chat_id,
+            photo=image_url,
+            caption=safe_text,
+            reply_markup=keyboard,
+            protect_content=True,
+        )
+    return await bot.send_message(
+        chat_id=chat_id,
+        text=safe_text,
+        reply_markup=keyboard,
+        disable_web_page_preview=True,
+        protect_content=True,
+    )
 
 
 async def delete_post(chat_id: int | str, message_id: int) -> tuple[bool, str | None]:
