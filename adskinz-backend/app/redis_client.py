@@ -53,8 +53,8 @@ async def init_redis() -> Redis | None:
             settings.REDIS_URL,
             encoding="utf-8",
             decode_responses=True,
-            socket_connect_timeout=3,
-            socket_timeout=3,
+            socket_connect_timeout=10,
+            socket_timeout=10,
             health_check_interval=30,
             retry_on_timeout=True,
         )
