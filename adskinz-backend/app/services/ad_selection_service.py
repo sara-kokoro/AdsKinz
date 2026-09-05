@@ -279,14 +279,19 @@ async def channel_has_slot(session: AsyncSession, channel: Channel) -> bool:
     if quota <= 0:
         return False
 
-    # Respect the publisher's preferred UTC hours for today's weekday, when
-    # they set any for that day. No entry for today (or an empty list) is
-    # the same "no restriction" convention as before.
+    # Respect the publisher's preferred UTC half-hour slots for today's
+    # weekday, when they set any for that day. No entry for today (or an
+    # empty list) is the same "no restriction" convention as before.
+    # preferred_slots stores UTC minute-of-day on a 30-minute grid (see
+    # app/schemas/publisher.py:validate_preferred_slots) — floor "now" onto
+    # that same grid before comparing, rather than comparing to the raw
+    # hour, which never matches now that slots are half-hour granular.
     if channel.preferred_slots:
         now = datetime.now(UTC)
         weekday_key = WEEKDAY_KEYS[now.weekday()]
-        today_hours = channel.preferred_slots.get(weekday_key)
-        if today_hours and now.hour not in today_hours:
+        today_slots = channel.preferred_slots.get(weekday_key)
+        now_slot = now.hour * 60 + (now.minute // 30) * 30
+        if today_slots and now_slot not in today_slots:
             return False
 
     return await ads_posted_today(session, channel.id) < quota

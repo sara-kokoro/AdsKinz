@@ -746,66 +746,23 @@ export function BotBadge({ ok }: { ok: boolean }) {
   );
 }
 
-/** 24-cell UTC hour picker for "preferred posting hours" — a lighter,
- * touch-friendly stand-in for a full weekly schedule grid (the backend
- * only stores a flat list of UTC hours, not per-weekday slots). */
-export function HourGrid({
-  value,
-  onChange,
-  maxSelectable,
-}: {
-  value: number[];
-  onChange: (hours: number[]) => void;
-  /** Caps how many hours can be picked at once — mirrors the channel's own
-   * daily ad cap, so a publisher can never select more time slots than they
-   * can actually receive ads for. */
-  maxSelectable?: number;
-}) {
-  const capped = typeof maxSelectable === "number" && maxSelectable > 0;
-  const atCap = capped && value.length >= maxSelectable!;
-
-  const toggle = (h: number) => {
-    if (value.includes(h)) {
-      onChange(value.filter((x) => x !== h));
-      return;
-    }
-    if (atCap) return;
-    onChange([...value, h].sort((a, b) => a - b));
-  };
-
-  return (
-    <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-8">
-      {Array.from({ length: 24 }, (_, h) => h).map((h) => {
-        const selected = value.includes(h);
-        const disabled = !selected && atCap;
-        return (
-          <button
-            key={h}
-            type="button"
-            onClick={() => toggle(h)}
-            disabled={disabled}
-            className={cn(
-              "num rounded-lg border py-1.5 text-xs font-semibold transition-colors",
-              selected
-                ? "border-signal bg-signal-soft text-signal"
-                : disabled
-                  ? "cursor-not-allowed border-seam text-paper-dim/40"
-                  : "border-seam text-paper-dim hover:bg-panel-2",
-            )}
-          >
-            {String(h).padStart(2, "0")}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+/** Every UTC half-hour slot in a day, as minute-of-day (0, 30, 60, ...,
+ * 1410) with its "HH:MM" label — the exact grid the backend stores
+ * (app/schemas/publisher.py:validate_preferred_slots). */
+const HALF_HOUR_SLOTS: { minute: number; label: string }[] = Array.from({ length: 48 }, (_, i) => {
+  const minute = i * 30;
+  const h = Math.floor(minute / 60);
+  const m = minute % 60;
+  return { minute, label: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}` };
+});
 
 const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
-/** Per-weekday posting schedule: one collapsible HourGrid per day, each
- * capped by the channel's own daily ad limit. A day with nothing picked
- * means "any hour that day" — same convention as the hour grid itself. */
+/** Per-weekday posting schedule, built the way the publisher actually asked
+ * for it: pick a day from a dropdown, then add UTC half-hour slots one at a
+ * time from a second dropdown (up to the channel's own daily ad cap). Chosen
+ * slots show as removable chips. A day with nothing picked means "any time
+ * that day" — same convention the backend already uses. */
 export function WeekSlotsEditor({
   value,
   onChange,
@@ -813,42 +770,88 @@ export function WeekSlotsEditor({
 }: {
   value: Record<string, number[]>;
   onChange: (v: Record<string, number[]>) => void;
+  /** Caps how many slots can be picked per day — mirrors the channel's own
+   * daily ad cap, so a publisher can never pick more slots than they can
+   * actually receive ads for. */
   maxSelectable?: number;
 }) {
   const { t } = useTranslation();
-  const [openDay, setOpenDay] = useState<string | null>(null);
+  const [day, setDay] = useState<(typeof WEEKDAYS)[number]>("mon");
+  const [pending, setPending] = useState("");
+
+  const dayMinutes = value[day] ?? [];
+  const capped = typeof maxSelectable === "number" && maxSelectable > 0;
+  const atCap = capped && dayMinutes.length >= maxSelectable!;
+  const available = HALF_HOUR_SLOTS.filter((s) => !dayMinutes.includes(s.minute));
+
+  const addSlot = (minute: number) => {
+    if (atCap) return;
+    onChange({ ...value, [day]: [...dayMinutes, minute].sort((a, b) => a - b) });
+    setPending("");
+  };
+  const removeSlot = (minute: number) => {
+    onChange({ ...value, [day]: dayMinutes.filter((m) => m !== minute) });
+  };
 
   return (
-    <div className="space-y-2">
-      {WEEKDAYS.map((day) => {
-        const hours = value[day] ?? [];
-        const isOpen = openDay === day;
-        return (
-          <div key={day} className="overflow-hidden rounded-xl border border-seam">
-            <button
-              type="button"
-              onClick={() => setOpenDay(isOpen ? null : day)}
-              className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-panel-2"
-            >
-              <span className="text-sm font-semibold">{t(`common.weekday.${day}`)}</span>
-              <span className="num text-xs text-paper-dim">
-                {hours.length
-                  ? t("pub.detail.hoursSelected", { count: hours.length })
-                  : t("pub.detail.anyHour")}
-              </span>
-            </button>
-            {isOpen && (
-              <div className="border-t border-seam p-3">
-                <HourGrid
-                  value={hours}
-                  onChange={(h) => onChange({ ...value, [day]: h })}
-                  maxSelectable={maxSelectable}
-                />
-              </div>
-            )}
-          </div>
-        );
-      })}
+    <div className="space-y-3">
+      <div>
+        <label className="text-xs font-semibold text-paper-dim">{t("pub.detail.pickDay")}</label>
+        <select
+          value={day}
+          onChange={(e) => setDay(e.target.value as (typeof WEEKDAYS)[number])}
+          className="mt-1 w-full rounded-xl border border-seam bg-transparent p-2.5 text-sm"
+        >
+          {WEEKDAYS.map((d) => {
+            const count = (value[d] ?? []).length;
+            return (
+              <option key={d} value={d}>
+                {t(`common.weekday.${d}`)}
+                {count ? ` — ${t("pub.detail.hoursSelected", { count })}` : ""}
+              </option>
+            );
+          })}
+        </select>
+      </div>
+
+      {dayMinutes.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {dayMinutes.map((minute) => {
+            const label = HALF_HOUR_SLOTS.find((s) => s.minute === minute)?.label ?? "";
+            return (
+              <button
+                key={minute}
+                type="button"
+                onClick={() => removeSlot(minute)}
+                className="num flex items-center gap-1.5 rounded-lg border border-signal bg-signal-soft px-2.5 py-1 text-xs font-semibold text-signal"
+                title={t("common.remove")}
+              >
+                {label} UTC
+                <IconX width={12} height={12} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div>
+        <label className="text-xs font-semibold text-paper-dim">
+          {atCap ? t("pub.detail.slotCapReached", { max: maxSelectable }) : t("pub.detail.addSlot")}
+        </label>
+        <select
+          value={pending}
+          disabled={atCap}
+          onChange={(e) => e.target.value && addSlot(Number(e.target.value))}
+          className="num mt-1 w-full rounded-xl border border-seam bg-transparent p-2.5 text-sm disabled:opacity-40"
+        >
+          <option value="">{t("pub.detail.anyHour")}</option>
+          {available.map((s) => (
+            <option key={s.minute} value={s.minute}>
+              {s.label} UTC
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }

@@ -102,7 +102,7 @@ function Wizard() {
     }
     if (step === 3) {
       if (Number(budget) < 10 || !budget) e["budget"] = t("adv.wizard.errMinBudget");
-      if (Number(cpm) < 2 || !cpm) e["cpm"] = t("adv.wizard.errMinCpm");
+      if (Number(cpm) < 1.7 || !cpm) e["cpm"] = t("adv.wizard.errMinCpm");
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -419,7 +419,7 @@ function Wizard() {
               </div>
               <div>
                 <label className="text-sm font-semibold" htmlFor="cpm">{t("adv.wizard.cpm")}</label>
-                <input id="cpm" inputMode="decimal" value={cpm} onChange={(e) => setCpm(e.target.value)} placeholder="2.00" className="num mt-2 w-full rounded-xl border border-seam bg-transparent p-3 text-sm" />
+                <input id="cpm" inputMode="decimal" value={cpm} onChange={(e) => setCpm(e.target.value)} placeholder="1.70" className="num mt-2 w-full rounded-xl border border-seam bg-transparent p-3 text-sm" />
                 <p className="mt-1 text-xs text-paper-dim">{t("adv.wizard.cpmHint")}</p>
                 <FieldError>{errors["cpm"]}</FieldError>
                 {cpm && (

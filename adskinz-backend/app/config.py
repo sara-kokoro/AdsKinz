@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # this API (a CNAME on the domain provider + a custom domain on Koyeb),
     # never at the frontend, which has no route for it.
     TRACKING_BASE_URL: str = "https://tr.adskinz.me"
-    CORS_ORIGINS: str = "http://adskinz.me,https://adskinz.me,https://kingcey.adskinz.me"
+    CORS_ORIGINS: str = "http://adskinz.me,https://adskinz.me,https://kingcey.adskinz.me,https://partner.adskinz.me,https://publisher.adskinz.me,https://docs.adskinz.me"
     CORS_ORIGIN_REGEX: str = ""
     # Comma-separated Host header allowlist. Empty disables the check, which is
     # the right default behind a platform proxy that already filters hosts.
@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Redis — cache, distributed locks, rate limiting, fraud dedup
     # ------------------------------------------------------------------ #
-    REDIS_URL: str = "rediss://default:gQAAAAAAAbpkAAIgcDEyOWZlYjY5MWI1YTU0YzMwYWIxNmQ1MWYyNjZmMzhiOQ@informed-iguana-113252.upstash.io:6379"
+    REDIS_URL: str = "redis://default:gQAAAAAAAbpkAAIgcDFiZDdiMDBkNzdlOTM0YTQzYWI0NDUyZTk5OGY2ZjZhZg@informed-iguana-113252.upstash.io:6379"
     REDIS_ENABLED: bool = True
     REDIS_NAMESPACE: str = "adskinz"
     # TTL (seconds) for the ad-selection cache used by /sdk/serve
@@ -208,7 +208,7 @@ class Settings(BaseSettings):
     # Per-campaign remaining-budget alert (distinct from LOW_BALANCE_ALERT_RATIO,
     # which watches the advertiser's overall wallet balance).
     CAMPAIGN_LOW_BALANCE_THRESHOLD: Decimal = Decimal("5.00")
-    MIN_CPM_BID: Decimal = Decimal("2.00")
+    MIN_CPM_BID: Decimal = Decimal("1.70")
     MIN_DAILY_BUDGET: Decimal = Decimal("1.80")
     MIN_WITHDRAWAL: Decimal = Decimal("50.00")
     MIN_CHANNEL_SUBSCRIBERS: int = 500
