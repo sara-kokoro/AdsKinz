@@ -13,7 +13,7 @@ import { TelegramPostPreview } from "@/components/telegram-preview";
 import { AD_LANGUAGES, AD_TEXT_MAX_LENGTH, BUTTON_LABELS } from "@/lib/constants";
 import { validateAdHtml } from "@/lib/html-format";
 import { ApiError, num, trackingUrl } from "@/lib/api";
-import { useCampaign, useCampaignTranslations, useGenerateCopy, useUpdateCampaign } from "@/lib/queries";
+import { useCampaign, useCampaignRecentPlacements, useCampaignTranslations, useGenerateCopy, useUpdateCampaign } from "@/lib/queries";
 import { useAuthGuard } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +37,7 @@ function CampaignDetail() {
   const { id } = useParams({ from: "/traffic/campaigns/$id" });
   const campaignQ = useCampaign(id);
   const translationsQ = useCampaignTranslations(id);
+  const placementsQ = useCampaignRecentPlacements(id);
   const update = useUpdateCampaign(id);
   const generateCopy = useGenerateCopy();
 
@@ -389,6 +390,40 @@ function CampaignDetail() {
                   <p className="text-xs font-semibold text-paper-dim uppercase">{tr.lang_code}</p>
                   <p className="mt-1 text-sm">{tr.translated_text}</p>
                   {tr.translated_button_label && <p className="mt-1 text-xs text-signal">{tr.translated_button_label}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel>
+          <SectionTitle>{t("adv.detail.recentPlacements")}</SectionTitle>
+          {placementsQ.isLoading ? (
+            <div className="h-16 animate-pulse rounded-md bg-panel-2" />
+          ) : placementsQ.isError ? (
+            <ErrorBanner onRetry={() => placementsQ.refetch()} message={(placementsQ.error as Error)?.message} />
+          ) : !placementsQ.data || placementsQ.data.items.length === 0 ? (
+            <p className="text-sm text-paper-dim">{t("adv.detail.noPlacementsYet")}</p>
+          ) : (
+            <ul className="divide-y divide-seam">
+              {placementsQ.data.items.map((p, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <a href={p.channelLink} target="_blank" rel="noreferrer" className="truncate text-sm font-semibold text-signal hover:underline">
+                      {p.channelName}
+                    </a>
+                    <p className="mt-0.5 text-xs text-paper-dim">{new Date(p.postedAt).toLocaleString()}</p>
+                  </div>
+                  {p.postLink && (
+                    <a
+                      href={p.postLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0 rounded-lg border border-seam px-3 py-1.5 text-xs font-semibold hover:bg-panel-2"
+                    >
+                      {t("adv.detail.viewPost")}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>

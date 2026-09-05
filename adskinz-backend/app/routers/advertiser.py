@@ -365,14 +365,14 @@ async def campaign_translations(
 @router.get(
     "/campaigns/{campaign_id}/recent-placements",
     response_model=RecentPlacementsResponse,
-    summary="Last 7 channels this campaign's ad was posted into",
+    summary="Last 10 channels this campaign's ad was posted into",
 )
 async def campaign_recent_placements(
     campaign_id: uuid.UUID,
     advertiser: CurrentAdvertiserDep,
     session: SessionDep,
 ) -> RecentPlacementsResponse:
-    """Most recent 7 native posts of this campaign, one row per post.
+    """Most recent 10 native posts of this campaign, one row per post.
 
     Includes posts that have since been auto-deleted (24h lifetime) — the
     advertiser still gets to see where their ad ran, only the live "open
@@ -390,7 +390,7 @@ async def campaign_recent_placements(
                     ScheduledPost.posted_at.is_not(None),
                 )
                 .order_by(ScheduledPost.posted_at.desc())
-                .limit(7)
+                .limit(10)
             )
         )
         .all()

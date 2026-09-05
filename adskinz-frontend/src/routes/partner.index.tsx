@@ -15,6 +15,7 @@ import {
 } from "@/components/kit";
 import { UsdtMark } from "@/components/usdt";
 import { ArtChannelPayout } from "@/components/illustrations";
+import { LottieAnimation } from "@/components/lottie-animation";
 import { num } from "@/lib/api";
 import { usePublisherStats } from "@/lib/queries";
 import { useAuthGuard } from "@/lib/auth";
@@ -71,6 +72,7 @@ function PubDashboard() {
             <p className="mt-2 flex items-center gap-2 font-display text-4xl font-extrabold text-bounty sm:text-5xl">
               <UsdtMark size={32} />
               {isLoading ? "…" : <CountUp value={lifetime} money />}
+              <LottieAnimation src="/money-bag.json" className="h-10 w-10 shrink-0" />
             </p>
             <p className="num mt-2 text-sm text-paper-dim">
               {t("pub.balance")}: <span className="font-bold text-paper">{fmtMoney(available)}</span>
@@ -88,7 +90,12 @@ function PubDashboard() {
             ? [0, 1, 2, 3, 4, 5].map((i) => <KpiSkeleton key={i} />)
             : kpis.map((k) => (
                 <Panel key={k.label}>
-                  <p className="text-xs font-semibold text-paper-dim">{k.label}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-semibold text-paper-dim">{k.label}</p>
+                    {k.label === t("pub.totalImpressions") && (
+                      <LottieAnimation src="/view.json" className="h-5 w-5 shrink-0" pauseSeconds={8} />
+                    )}
+                  </div>
                   <p className="num mt-2 text-2xl font-bold">{k.value}</p>
                 </Panel>
               ))}

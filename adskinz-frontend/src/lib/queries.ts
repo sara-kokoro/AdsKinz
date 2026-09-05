@@ -97,6 +97,22 @@ export function useCampaignTranslations(id: string, enabled = true) {
   });
 }
 
+export type RecentPlacement = {
+  channelName: string;
+  channelLink: string;
+  postLink: string | null;
+  postedAt: string;
+};
+
+export function useCampaignRecentPlacements(id: string, enabled = true) {
+  return useQuery({
+    queryKey: ["advertiser", "campaign", id, "recent-placements"],
+    queryFn: () =>
+      apiFetch<{ items: RecentPlacement[] }>(`/advertiser/campaigns/${id}/recent-placements`),
+    enabled: Boolean(id) && enabled,
+  });
+}
+
 export type CampaignCreateBody = {
   name: string;
   format: string;
