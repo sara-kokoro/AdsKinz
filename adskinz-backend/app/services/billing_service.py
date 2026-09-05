@@ -188,13 +188,16 @@ async def charge_campaign(
 
     lock_key = f"campaign_charge:{campaign.id}"
     async with distributed_lock(lock_key, timeout=settings.LOCK_TIMEOUT_SECONDS) as acquired:
-        if not acquired:
-            # Another worker is billing the same campaign right now. Skipping is
-            # safer than double charging; the next event will pick it up.
-            return ChargeResult(
-                Decimal("0"), Decimal("0"), Decimal("0"), 0, False, "lock_contention"
-            )
-
+        # `acquired` is only ever False in two cases: Redis is unreachable
+        # (nothing to skip — proceed and rely on the row-level lock below),
+        # or another worker genuinely holds this campaign's lock right now.
+        # Both are handled the same way: `with_for_update=True` on the next
+        # line blocks until it can safely read+write this row, so there is
+        # no correctness gap either way — only a skip-and-hope-the-next-
+        # event-catches-it path here, which is what was silently losing
+        # every view when Redis wasn't configured (see distributed_lock's
+        # own docstring: "the caller must rely on the database-level
+        # guarantee instead").
         fresh = await session.get(Campaign, campaign.id, with_for_update=True)
         if fresh is None:
             return ChargeResult(Decimal("0"), Decimal("0"), Decimal("0"), 0, False, "not_found")

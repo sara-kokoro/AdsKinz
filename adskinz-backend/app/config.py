@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Redis — cache, distributed locks, rate limiting, fraud dedup
     # ------------------------------------------------------------------ #
-    REDIS_URL: str = "redis://default:gQAAAAAAAbpkAAIgcDFiZDdiMDBkNzdlOTM0YTQzYWI0NDUyZTk5OGY2ZjZhZg@informed-iguana-113252.upstash.io:6379"
+    REDIS_URL: str = "rediss://default:gQAAAAAAAbpkAAIgcDEyOWZlYjY5MWI1YTU0YzMwYWIxNmQ1MWYyNjZmMzhiOQ@informed-iguana-113252.upstash.io:6379"
     REDIS_ENABLED: bool = True
     REDIS_NAMESPACE: str = "adskinz"
     # TTL (seconds) for the ad-selection cache used by /sdk/serve
