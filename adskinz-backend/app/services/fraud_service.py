@@ -16,6 +16,7 @@ from decimal import Decimal
 
 from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import lazyload
 
 from app.config import settings
 from app.models.tracking import Anomaly, Click
@@ -208,6 +209,7 @@ async def scan_channel_view_spikes(session: AsyncSession) -> int:
                 Channel,
                 func.coalesce(func.max(ScheduledPost.last_view_count), 0).label("peak"),
             )
+            .options(lazyload(Channel.publisher))
             .join(ScheduledPost, ScheduledPost.channel_id == Channel.id)
             .where(ScheduledPost.posted_at >= since)
             .group_by(Channel.id)

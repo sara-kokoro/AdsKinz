@@ -143,8 +143,8 @@ async def _record_click(
             placement_type=link.placement_type,
             placement_id=link.placement_id,
         )
-        click.billed = result.charged
-        click.billed_amount_usd = result.amount
+        click.billed = result.ok
+        click.billed_amount_usd = result.charged
     else:
         click.billed = False
 
