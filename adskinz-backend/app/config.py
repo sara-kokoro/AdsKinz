@@ -205,6 +205,12 @@ class Settings(BaseSettings):
     # Business rules — single source of truth, enforced server-side
     # ------------------------------------------------------------------ #
     MIN_CAMPAIGN_BUDGET: Decimal = Decimal("20.00")
+    # Minimum amount for a top-up on an *existing* campaign (separate from
+    # MIN_CAMPAIGN_BUDGET, which only gates the initial budget when a
+    # campaign is first created). Set to match the frontend's existing
+    # top-up form (MIN_BUDGET in traffic.campaigns.$id.tsx) — change both
+    # together if you want a different top-up minimum.
+    MIN_CAMPAIGN_TOPUP: Decimal = Decimal("10.00")
     # Per-campaign remaining-budget alert (distinct from LOW_BALANCE_ALERT_RATIO,
     # which watches the advertiser's overall wallet balance).
     CAMPAIGN_LOW_BALANCE_THRESHOLD: Decimal = Decimal("5.00")
