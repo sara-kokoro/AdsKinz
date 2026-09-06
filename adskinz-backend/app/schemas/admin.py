@@ -135,6 +135,49 @@ class QueueResponse(APIModel):
 
 
 # --------------------------------------------------------------------------- #
+# Full catalogs (all statuses, searchable) — distinct from the queues above,
+# which only ever show items awaiting moderation.
+# --------------------------------------------------------------------------- #
+class AdminChannelItem(APIModel):
+    id: str
+    name: str
+    status: str
+    publisherEmail: str
+    publisherId: str
+    subscribers: int
+    publicLink: str | None = None
+    telegramUsername: str | None = None
+    lifetimeEarnings: Decimal
+    createdAt: datetime | None = None
+
+
+class AdminChannelListResponse(APIModel):
+    items: list[AdminChannelItem]
+    total: int
+
+
+class AdminUserItem(APIModel):
+    id: str
+    email: str
+    displayName: str | None = None
+    role: Literal["advertiser", "publisher"]
+    isBlocked: bool
+    blockedReason: str | None = None
+    balance: Decimal
+    lifetimeValue: Decimal
+    createdAt: datetime | None = None
+
+
+class AdminUserListResponse(APIModel):
+    items: list[AdminUserItem]
+    total: int
+
+
+class AdminUserDetailResponse(AdminUserItem):
+    channels: list[AdminChannelItem] = Field(default_factory=list)
+
+
+# --------------------------------------------------------------------------- #
 # Finances
 # --------------------------------------------------------------------------- #
 FinancePeriodLiteral = Literal["today", "week", "month", "year", "custom"]

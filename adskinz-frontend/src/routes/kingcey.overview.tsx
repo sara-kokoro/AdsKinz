@@ -26,17 +26,17 @@ function Overview() {
 
   const cards = data
     ? [
-        { l: t("admin.nav.campaigns"), v: fmtInt(data.pendingCampaigns), to: "/kingcey/campaigns" as const },
-        { l: t("admin.nav.channels"), v: fmtInt(data.pendingChannels), to: "/kingcey/channels" as const },
-        { l: "Pending mini apps", v: fmtInt(data.pendingMiniApps), to: "/kingcey/mini-apps" as const },
-        { l: t("admin.nav.withdrawals"), v: fmtInt(data.pendingWithdrawals), to: "/kingcey/withdrawals" as const },
-        { l: t("admin.nav.anomalies"), v: fmtInt(data.openAnomalies), to: "/kingcey/anomalies" as const },
-        { l: "Active campaigns", v: fmtInt(data.activeCampaigns), to: "/kingcey/campaigns" as const },
-        { l: "Active channels", v: fmtInt(data.activeChannels), to: "/kingcey/channels" as const },
-        { l: "Advertisers", v: fmtInt(data.advertisers), to: "/kingcey/users" as const },
-        { l: "Publishers", v: fmtInt(data.publishers), to: "/kingcey/users" as const },
-        { l: "Owed to publishers", v: fmtMoney(num(data.balanceOwedToPublishers)), to: "/kingcey/finances" as const },
-        { l: "Commission today", v: fmtMoney(num(data.commissionToday)), to: "/kingcey/finances" as const },
+        { l: "Canaux actifs", v: fmtInt(data.activeChannels), to: "/kingcey/channels" as const },
+        { l: "Campagnes actives", v: fmtInt(data.activeCampaigns), to: "/kingcey/campaigns" as const },
+        { l: "Annonceurs", v: fmtInt(data.advertisers), to: "/kingcey/users" as const },
+        { l: "Éditeurs", v: fmtInt(data.publishers), to: "/kingcey/users" as const },
+        { l: "Dû aux éditeurs", v: fmtMoney(num(data.balanceOwedToPublishers)), to: "/kingcey/finances" as const },
+        { l: "Commission aujourd'hui", v: fmtMoney(num(data.commissionToday)), to: "/kingcey/finances" as const },
+        { l: t("admin.overview.campaigns"), v: fmtInt(data.pendingCampaigns), to: "/kingcey/campaigns" as const },
+        { l: t("admin.overview.channels"), v: fmtInt(data.pendingChannels), to: "/kingcey/channels" as const },
+        { l: t("admin.overview.miniApps"), v: fmtInt(data.pendingMiniApps), to: "/kingcey/mini-apps" as const },
+        { l: t("admin.overview.withdrawals"), v: fmtInt(data.pendingWithdrawals), to: "/kingcey/withdrawals" as const },
+        { l: t("admin.overview.anomalies"), v: fmtInt(data.openAnomalies), to: "/kingcey/anomalies" as const },
       ]
     : [];
 

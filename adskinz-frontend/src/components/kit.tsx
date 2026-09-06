@@ -29,6 +29,7 @@ export const STATUS_TONE: Record<string, StatusTone> = {
   approved_not_started: "bounty",
   building_trust: "signal",
   suspended: "danger",
+  blocked: "danger",
   archived: "neutral",
   pending: "bounty",
   approved: "signal",
@@ -852,6 +853,44 @@ export function WeekSlotsEditor({
           ))}
         </select>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Drop at the end of a list; calls onVisible() once whenever it scrolls into
+ * view (e.g. to fetch the next page). Renders a small spinner row while
+ * `loading` is true, nothing once `done` is true.
+ */
+export function LoadMoreSentinel({
+  onVisible,
+  loading,
+  done,
+}: {
+  onVisible: () => void;
+  loading: boolean;
+  done: boolean;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || done) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) onVisible();
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done, onVisible]);
+
+  if (done) return null;
+  return (
+    <div ref={ref} className="flex items-center justify-center py-5">
+      {loading && <div className="h-5 w-5 animate-spin rounded-full border-2 border-seam border-t-signal" />}
     </div>
   );
 }

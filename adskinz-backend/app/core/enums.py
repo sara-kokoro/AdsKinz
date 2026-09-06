@@ -109,6 +109,7 @@ class AuditAction(StrEnum):
     CHANNEL_APPROVED = "channel_approved"
     CHANNEL_REJECTED = "channel_rejected"
     CHANNEL_SUSPENDED = "channel_suspended"
+    CHANNEL_RESUMED = "channel_resumed"
     MINI_APP_APPROVED = "mini_app_approved"
     MINI_APP_REJECTED = "mini_app_rejected"
     WITHDRAWAL_APPROVED = "withdrawal_approved"

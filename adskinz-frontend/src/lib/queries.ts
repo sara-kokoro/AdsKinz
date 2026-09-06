@@ -1,8 +1,11 @@
 /** TanStack Query wiring for every AdsKinz API surface used by the dashboards. */
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./api";
 import type {
+  AdminChannelItem,
   AdminOverview,
+  AdminUserDetail,
+  AdminUserItem,
   AdvertiserStats,
   Anomaly,
   AuditEntry,
@@ -93,22 +96,6 @@ export function useCampaignTranslations(id: string, enabled = true) {
   return useQuery({
     queryKey: ["advertiser", "campaign", id, "translations"],
     queryFn: () => apiFetch<CampaignTranslations>(`/advertiser/campaigns/${id}/translations`),
-    enabled: Boolean(id) && enabled,
-  });
-}
-
-export type RecentPlacement = {
-  channelName: string;
-  channelLink: string;
-  postLink: string | null;
-  postedAt: string;
-};
-
-export function useCampaignRecentPlacements(id: string, enabled = true) {
-  return useQuery({
-    queryKey: ["advertiser", "campaign", id, "recent-placements"],
-    queryFn: () =>
-      apiFetch<{ items: RecentPlacement[] }>(`/advertiser/campaigns/${id}/recent-placements`),
     enabled: Boolean(id) && enabled,
   });
 }
@@ -397,6 +384,62 @@ export function useCreateWithdrawal() {
 
 export function useAdminOverview() {
   return useQuery({ queryKey: ["admin", "overview"], queryFn: () => apiFetch<AdminOverview>("/admin/overview") });
+}
+
+export function useAdminChannelsCatalog(search: string) {
+  return useInfiniteQuery({
+    queryKey: ["admin", "channels", "catalog", search],
+    queryFn: ({ pageParam }: { pageParam: number }) =>
+      apiFetch<Paged<AdminChannelItem>>("/admin/channels", {
+        query: { page: pageParam, page_size: 50, search: search || undefined },
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, pages) => {
+      const loaded = pages.reduce((n, p) => n + p.items.length, 0);
+      return loaded < lastPage.total ? pages.length + 1 : undefined;
+    },
+  });
+}
+
+export function useSuspendChannelAdmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<AdminChannelItem>(`/admin/channels/${id}/suspend`, { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "channels"] }),
+  });
+}
+
+export function useResumeChannelAdmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<AdminChannelItem>(`/admin/channels/${id}/resume`, { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "channels"] }),
+  });
+}
+
+export function useAdminUsersCatalog(role: "advertiser" | "publisher", search: string) {
+  return useInfiniteQuery({
+    queryKey: ["admin", "users", "catalog", role, search],
+    queryFn: ({ pageParam }: { pageParam: number }) =>
+      apiFetch<Paged<AdminUserItem>>("/admin/users", {
+        query: { role, page: pageParam, page_size: 50, search: search || undefined },
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, pages) => {
+      const loaded = pages.reduce((n, p) => n + p.items.length, 0);
+      return loaded < lastPage.total ? pages.length + 1 : undefined;
+    },
+  });
+}
+
+export function useAdminUserDetail(role: "advertiser" | "publisher" | null, id: string | null) {
+  return useQuery({
+    queryKey: ["admin", "users", "detail", role, id],
+    queryFn: () => apiFetch<AdminUserDetail>(`/admin/users/${role}/${id}`),
+    enabled: Boolean(role && id),
+  });
 }
 
 export function useAdminQueue<T = Record<string, unknown>>(

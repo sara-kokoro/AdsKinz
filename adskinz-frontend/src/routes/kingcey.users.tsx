@@ -2,158 +2,234 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdminShell } from "@/components/workspaces";
-import { Btn, ErrorBanner, Field, KpiSkeleton, Panel, Quote, SectionTitle, fmtInt, fmtMoney, inputCls } from "@/components/kit";
-import { useAdminOverview, useAdminFinances, useBlockAccount } from "@/lib/queries";
-import { num, ApiError } from "@/lib/api";
+import {
+  Btn, EmptyState, ErrorBanner, LoadMoreSentinel, Modal, Panel, RowSkeleton, StatusPill, fmtDate, fmtInt, fmtMoney, inputCls,
+} from "@/components/kit";
+import {
+  useAdminUserDetail, useAdminUsersCatalog, useBlockAccount, useResumeChannelAdmin, useSuspendChannelAdmin,
+} from "@/lib/queries";
+import { ApiError, num } from "@/lib/api";
 import { useAuthGuard } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/kingcey/users")({
   head: () => ({
     meta: [
       { title: "Users — AdsKinz admin" },
-      { name: "description", content: "Advertiser and publisher account counts and top accounts, with block/unblock controls." },
+      { name: "description", content: "Search and browse every advertiser and publisher account, with block/unblock and per-channel controls." },
       { property: "og:title", content: "Users — AdsKinz admin" },
-      { property: "og:description", content: "Account summary and blocking controls." },
+      { property: "og:description", content: "Full, searchable account catalog." },
       { name: "robots", content: "noindex" },
     ],
   }),
   component: AdminUsers,
 });
 
+const CAN_SUSPEND = new Set(["active", "building_trust", "approved_not_started"]);
+
+function initials(email: string) {
+  const name = email.split("@")[0] ?? email;
+  return name.slice(0, 2).toUpperCase();
+}
+
 function AdminUsers() {
   useAuthGuard("admin");
   const { t } = useTranslation();
-  const overview = useAdminOverview();
-  const finances = useAdminFinances("30d");
-  const block = useBlockAccount();
-
   const [role, setRole] = useState<"advertiser" | "publisher">("advertiser");
-  const [id, setId] = useState("");
-  const [blocked, setBlocked] = useState(true);
+  const [search, setSearch] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const { data, isLoading, isError, isFetchingNextPage, fetchNextPage, hasNextPage, refetch } =
+    useAdminUsersCatalog(role, search);
+
+  const items = data?.pages.flatMap((p) => p.items) ?? [];
+  const total = data?.pages[0]?.total ?? 0;
+
+  return (
+    <AdminShell title={t("x.admin.users")}>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex gap-1 rounded-xl border border-seam p-1">
+            <button
+              onClick={() => setRole("advertiser")}
+              className={cn("rounded-lg px-4 py-2 text-sm font-semibold", role === "advertiser" ? "bg-panel-2" : "text-paper-dim")}
+            >
+              {t("x.admin.advertiser")}
+            </button>
+            <button
+              onClick={() => setRole("publisher")}
+              className={cn("rounded-lg px-4 py-2 text-sm font-semibold", role === "publisher" ? "bg-panel-2" : "text-paper-dim")}
+            >
+              {t("x.admin.publisher")}
+            </button>
+          </div>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher par email…"
+            className={cn(inputCls(), "max-w-xs flex-1")}
+          />
+        </div>
+
+        {!isLoading && (
+          <p className="text-xs text-paper-dim">
+            {fmtInt(items.length)} / {fmtInt(total)} utilisateurs
+          </p>
+        )}
+
+        {isError && <ErrorBanner onRetry={refetch} />}
+        {isLoading ? (
+          <Panel className="p-0"><RowSkeleton rows={6} /></Panel>
+        ) : items.length === 0 ? (
+          <Panel className="p-0"><EmptyState title="Aucun utilisateur" sub="Aucun compte ne correspond à cette recherche." /></Panel>
+        ) : (
+          <Panel className="p-0">
+            <ul className="divide-y divide-seam">
+              {items.map((u) => (
+                <li key={u.id}>
+                  <button onClick={() => setOpenId(u.id)} className="flex w-full items-center gap-3 p-4 text-left hover:bg-panel-2">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-signal-soft text-sm font-bold text-signal">
+                      {initials(u.email)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">{u.email}</span>
+                      {u.displayName && <span className="block truncate text-xs text-paper-dim">{u.displayName}</span>}
+                    </span>
+                    <span className="num shrink-0 text-right text-sm font-bold">{fmtMoney(num(u.balance))}</span>
+                    <span className="shrink-0"><StatusPill status={u.isBlocked ? "blocked" : "active"} /></span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <LoadMoreSentinel
+              onVisible={() => hasNextPage && !isFetchingNextPage && fetchNextPage()}
+              loading={isFetchingNextPage}
+              done={!hasNextPage}
+            />
+          </Panel>
+        )}
+      </div>
+
+      <UserDetailModal role={role} id={openId} onClose={() => setOpenId(null)} />
+    </AdminShell>
+  );
+}
+
+function UserDetailModal({
+  role,
+  id,
+  onClose,
+}: {
+  role: "advertiser" | "publisher";
+  id: string | null;
+  onClose: () => void;
+}) {
+  const { data, isLoading, isError, refetch } = useAdminUserDetail(id ? role : null, id);
+  const block = useBlockAccount();
+  const suspend = useSuspendChannelAdmin();
+  const resume = useResumeChannelAdmin();
   const [reason, setReason] = useState("");
-  const [result, setResult] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const toggleBlock = () => {
+    if (!data) return;
     setErr(null);
-    setResult(null);
-    if (!id.trim()) {
-      setErr("Account id is required.");
-      return;
-    }
-    if (blocked && !reason.trim()) {
-      setErr("A reason is required when blocking an account.");
+    if (!data.isBlocked && !reason.trim()) {
+      setErr("Un motif est requis pour bloquer ce compte.");
       return;
     }
     block.mutate(
-      { role, id: id.trim(), blocked, reason: reason.trim() },
-      {
-        onSuccess: (r) => setResult(r.message ?? "Done."),
-        onError: (e2) => setErr(e2 instanceof ApiError ? e2.message : "Action failed."),
-      },
+      { role, id: data.id, blocked: !data.isBlocked, reason: reason.trim() },
+      { onSuccess: () => setReason(""), onError: (e) => setErr(e instanceof ApiError ? e.message : "Action échouée.") },
     );
   };
 
   return (
-    <AdminShell title={t("x.admin.users")}>
-      <div className="space-y-5">
-        <Quote tone="bounty" label="Limitation">
-          The AdsKinz API does not expose a full account listing endpoint. This page shows the counts and top
-          accounts that are available, plus a direct block/unblock action by account id — it does not fabricate a
-          user table.
-        </Quote>
-
-        {(overview.isError || finances.isError) && (
-          <ErrorBanner onRetry={() => { overview.refetch(); finances.refetch(); }} />
-        )}
-
-        {overview.isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <KpiSkeleton />
-            <KpiSkeleton />
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Panel>
-              <p className="text-xs font-semibold text-paper-dim">{t("x.admin.advertiser")}s</p>
-              <p className="num mt-2 text-3xl font-bold">{fmtInt(overview.data?.advertisers ?? 0)}</p>
-            </Panel>
-            <Panel>
-              <p className="text-xs font-semibold text-paper-dim">{t("x.admin.publisher")}s</p>
-              <p className="num mt-2 text-3xl font-bold">{fmtInt(overview.data?.publishers ?? 0)}</p>
-            </Panel>
-          </div>
-        )}
-
-        <div className="grid gap-5 lg:grid-cols-2">
-          <Panel className="p-0">
-            <div className="p-5 pb-0"><SectionTitle>Top advertisers (30d)</SectionTitle></div>
-            {finances.isLoading ? (
-              <div className="p-5"><KpiSkeleton /></div>
-            ) : (finances.data?.topAdvertisers.length ?? 0) === 0 ? (
-              <p className="px-5 pb-5 text-sm text-paper-dim">No data.</p>
-            ) : (
-              <ul className="divide-y divide-seam">
-                {finances.data?.topAdvertisers.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
-                    <span className="min-w-0 truncate font-semibold">{a.label}</span>
-                    <span className="num shrink-0 font-bold text-bounty">{fmtMoney(num(a.amount))}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-          <Panel className="p-0">
-            <div className="p-5 pb-0"><SectionTitle>Top publishers (30d)</SectionTitle></div>
-            {finances.isLoading ? (
-              <div className="p-5"><KpiSkeleton /></div>
-            ) : (finances.data?.topPublishers.length ?? 0) === 0 ? (
-              <p className="px-5 pb-5 text-sm text-paper-dim">No data.</p>
-            ) : (
-              <ul className="divide-y divide-seam">
-                {finances.data?.topPublishers.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
-                    <span className="min-w-0 truncate font-semibold">{p.label}</span>
-                    <span className="num shrink-0 font-bold text-bounty">{fmtMoney(num(p.amount))}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-        </div>
-
-        <Panel>
-          <SectionTitle sub="Block or unblock an advertiser or publisher account by id.">Block / unblock account</SectionTitle>
-          <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-            <Field label="Role">
-              <select className={inputCls()} value={role} onChange={(e) => setRole(e.target.value as "advertiser" | "publisher")}>
-                <option value="advertiser">{t("x.admin.advertiser")}</option>
-                <option value="publisher">{t("x.admin.publisher")}</option>
-              </select>
-            </Field>
-            <Field label="Account id">
-              <input className={inputCls()} value={id} onChange={(e) => setId(e.target.value)} placeholder="uuid" />
-            </Field>
-            <Field label="Action">
-              <select className={inputCls()} value={blocked ? "block" : "unblock"} onChange={(e) => setBlocked(e.target.value === "block")}>
-                <option value="block">{t("x.admin.block")}</option>
-                <option value="unblock">{t("x.admin.unblock")}</option>
-              </select>
-            </Field>
-            <Field label="Reason" hint={blocked ? "Required when blocking." : "Optional."}>
-              <input className={inputCls()} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("common.reason")} />
-            </Field>
-            <div className="sm:col-span-2 flex items-center gap-3">
-              <Btn tone={blocked ? "danger" : "bounty"} type="submit" disabled={block.isPending}>
-                {block.isPending ? "Working…" : blocked ? t("x.admin.block") : t("x.admin.unblock")}
-              </Btn>
-              {result && <p className="text-sm font-semibold text-signal">{result}</p>}
-              {err && <p className="text-sm font-semibold text-danger">{err}</p>}
+    <Modal open={Boolean(id)} onClose={onClose} title={data?.email ?? "…"} wide>
+      {isError && <ErrorBanner onRetry={refetch} />}
+      {isLoading || !data ? (
+        <Panel className="p-0"><RowSkeleton rows={4} /></Panel>
+      ) : (
+        <div className="space-y-5">
+          <Panel>
+            <div className="grid gap-x-8 gap-y-1 md:grid-cols-2">
+              <div className="flex justify-between border-b border-seam py-2 text-sm">
+                <span className="text-paper-dim">Statut</span>
+                <StatusPill status={data.isBlocked ? "blocked" : "active"} />
+              </div>
+              <div className="flex justify-between border-b border-seam py-2 text-sm">
+                <span className="text-paper-dim">Solde</span>
+                <span className="num font-semibold">{fmtMoney(num(data.balance))}</span>
+              </div>
+              <div className="flex justify-between border-b border-seam py-2 text-sm">
+                <span className="text-paper-dim">{role === "advertiser" ? "Dépensé (total)" : "Gagné (total)"}</span>
+                <span className="num font-semibold">{fmtMoney(num(data.lifetimeValue))}</span>
+              </div>
+              <div className="flex justify-between border-b border-seam py-2 text-sm">
+                <span className="text-paper-dim">Inscrit le</span>
+                <span className="num font-semibold">{data.createdAt ? fmtDate(data.createdAt) : "—"}</span>
+              </div>
+              {data.isBlocked && data.blockedReason && (
+                <div className="flex justify-between py-2 text-sm md:col-span-2">
+                  <span className="text-paper-dim">Motif du blocage</span>
+                  <span className="max-w-[70%] text-right font-semibold">{data.blockedReason}</span>
+                </div>
+              )}
             </div>
-          </form>
-        </Panel>
-      </div>
-    </AdminShell>
+          </Panel>
+
+          <Panel className="flex flex-wrap items-center gap-3">
+            {!data.isBlocked && (
+              <input
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Motif du blocage…"
+                className="min-h-11 flex-1 rounded-xl border border-seam bg-transparent px-3 text-sm"
+              />
+            )}
+            <Btn tone={data.isBlocked ? "bounty" : "danger"} disabled={block.isPending} onClick={toggleBlock}>
+              {block.isPending ? "…" : data.isBlocked ? "Débloquer" : "Bloquer"}
+            </Btn>
+            {err && <p className="w-full text-sm font-semibold text-danger">{err}</p>}
+          </Panel>
+
+          {role === "publisher" && (
+            <Panel className="p-0">
+              <div className="p-4 pb-0"><h3 className="font-display font-bold">Canaux ({data.channels.length})</h3></div>
+              {data.channels.length === 0 ? (
+                <p className="p-4 text-sm text-paper-dim">Aucun canal.</p>
+              ) : (
+                <ul className="divide-y divide-seam">
+                  {data.channels.map((c) => (
+                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                      <div className="min-w-0">
+                        <p className="truncate font-bold">{c.name}</p>
+                        {c.publicLink && <p className="truncate text-xs text-signal">{c.publicLink}</p>}
+                        <p className="num text-xs text-paper-dim">{c.id}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-3">
+                          <StatusPill status={c.status} />
+                          <span className="num text-xs text-paper-dim">{fmtInt(c.subscribers)} abonnés</span>
+                        </div>
+                      </div>
+                      <div className="shrink-0">
+                        {c.status === "suspended" ? (
+                          <Btn tone="bounty" disabled={resume.isPending} onClick={() => resume.mutate(c.id)}>
+                            {resume.isPending ? "…" : "Reprendre"}
+                          </Btn>
+                        ) : CAN_SUSPEND.has(c.status) ? (
+                          <Btn tone="danger" disabled={suspend.isPending} onClick={() => suspend.mutate(c.id)}>
+                            {suspend.isPending ? "…" : "Suspendre"}
+                          </Btn>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }

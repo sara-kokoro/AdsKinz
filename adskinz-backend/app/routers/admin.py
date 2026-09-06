@@ -5,6 +5,10 @@
     POST /admin/queue/channels/{id}/approve|reject
     POST /admin/queue/mini-apps/{id}/approve|reject
     POST /admin/queue/withdrawals/{id}/approve|reject
+    GET  /admin/channels?search=&page=            — full channel catalog, any status
+    POST /admin/channels/{id}/suspend|resume
+    GET  /admin/users?role=&search=&page=          — full advertiser/publisher catalog
+    GET  /admin/users/{role}/{id}                  — one account, publishers include channels
     GET  /admin/finances?period=today|week|month|year|custom&date=YYYY-MM-DD
     GET  /admin/anomalies
     GET  /admin/audit
@@ -17,7 +21,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Query
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.core.deps import ClientIPHashDep, CurrentAdminDep, PaginationDep, SessionDep
@@ -37,7 +41,12 @@ from app.models.finance import Bep20Sweep, Deposit, PlatformRevenue, WalletAddre
 from app.models.placements import Channel, MiniApp
 from app.models.tracking import Anomaly, AuditLog
 from app.schemas.admin import (
+    AdminChannelItem,
+    AdminChannelListResponse,
     AdminOverviewResponse,
+    AdminUserDetailResponse,
+    AdminUserItem,
+    AdminUserListResponse,
     AnomalyItem,
     AnomalyListResponse,
     ApproveRequest,
@@ -340,6 +349,120 @@ async def queue_channels(
     return QueueResponse(
         items=items, total=len(items), counts=await _queue_counts(session)
     )
+
+
+def _channel_catalog_item(row: Channel) -> AdminChannelItem:
+    return AdminChannelItem(
+        id=str(row.id),
+        name=row.name,
+        status=row.status_for_frontend(),
+        publisherEmail=row.publisher.email,
+        publisherId=str(row.publisher_id),
+        subscribers=row.subscriber_count,
+        publicLink=row.public_link,
+        telegramUsername=row.telegram_username,
+        lifetimeEarnings=row.lifetime_earnings_usd,
+        createdAt=row.created_at,
+    )
+
+
+@router.get(
+    "/channels",
+    response_model=AdminChannelListResponse,
+    summary="Full channel catalog (every status, searchable) — not just the pending-review queue",
+)
+async def list_channels(
+    admin: CurrentAdminDep,
+    session: SessionDep,
+    page: PaginationDep,
+    search: str | None = Query(default=None, description="Match against channel name, @username, or public link"),
+) -> AdminChannelListResponse:
+    stmt = select(Channel).options(selectinload(Channel.publisher))
+    count_stmt = select(func.count(Channel.id))
+    if search and search.strip():
+        needle = f"%{search.strip()}%"
+        clause = or_(
+            Channel.name.ilike(needle),
+            Channel.telegram_username.ilike(needle),
+            Channel.public_link.ilike(needle),
+        )
+        stmt = stmt.where(clause)
+        count_stmt = count_stmt.where(clause)
+
+    total = (await session.execute(count_stmt)).scalar_one()
+    rows = (
+        (
+            await session.execute(
+                stmt.order_by(Channel.created_at.desc()).offset(page.offset).limit(page.limit)
+            )
+        )
+        .scalars()
+        .unique()
+        .all()
+    )
+    return AdminChannelListResponse(items=[_channel_catalog_item(row) for row in rows], total=total)
+
+
+@router.post(
+    "/channels/{channel_id}/suspend",
+    response_model=AdminChannelItem,
+    summary="Suspend a channel (stop new ads without deleting it)",
+)
+async def admin_suspend_channel(
+    channel_id: uuid.UUID, admin: CurrentAdminDep, session: SessionDep, ip_hash: ClientIPHashDep
+) -> AdminChannelItem:
+    channel = await session.get(Channel, channel_id, options=[selectinload(Channel.publisher)])
+    if channel is None:
+        raise NotFoundError("Channel not found.")
+    if channel.status == ChannelStatus.ARCHIVED.value:
+        raise ValidationError("This channel is archived and can't be suspended.")
+    channel.status = ChannelStatus.SUSPENDED.value
+    channel.suspended_at = datetime.now(UTC)
+    moderation_service.log_action(
+        session,
+        admin_id=admin.id,
+        action=AuditAction.CHANNEL_SUSPENDED.value,
+        target_type="channel",
+        target_id=channel.id,
+        target_label=channel.name,
+        details={},
+        ip_hash=ip_hash,
+    )
+    await session.commit()
+    await session.refresh(channel)
+    return _channel_catalog_item(channel)
+
+
+@router.post(
+    "/channels/{channel_id}/resume",
+    response_model=AdminChannelItem,
+    summary="Resume a channel an admin previously suspended",
+)
+async def admin_resume_channel(
+    channel_id: uuid.UUID, admin: CurrentAdminDep, session: SessionDep, ip_hash: ClientIPHashDep
+) -> AdminChannelItem:
+    channel = await session.get(Channel, channel_id, options=[selectinload(Channel.publisher)])
+    if channel is None:
+        raise NotFoundError("Channel not found.")
+    if channel.status != ChannelStatus.SUSPENDED.value:
+        raise ValidationError("Only a suspended channel can be resumed.")
+    channel.status = (
+        ChannelStatus.ACTIVE.value if channel.approved_at else ChannelStatus.APPROVED_NOT_STARTED.value
+    )
+    channel.suspended_at = None
+    moderation_service.log_action(
+        session,
+        admin_id=admin.id,
+        action=AuditAction.CHANNEL_RESUMED.value,
+        target_type="channel",
+        target_id=channel.id,
+        target_label=channel.name,
+        details={},
+        ip_hash=ip_hash,
+    )
+    await session.commit()
+    await session.refresh(channel)
+    return _channel_catalog_item(channel)
 
 
 @router.get("/queue/mini-apps", response_model=QueueResponse, summary="Mini App queue")
@@ -1068,6 +1191,99 @@ async def audit(
         ],
         total=len(rows),
     )
+
+
+def _user_item(account: Advertiser | Publisher, role: str) -> AdminUserItem:
+    if role == "advertiser":
+        balance = account.balance_usd
+        lifetime_value = account.lifetime_spend_usd
+    else:
+        balance = account.available_balance_usd
+        lifetime_value = account.lifetime_earnings_usd
+    return AdminUserItem(
+        id=str(account.id),
+        email=account.email,
+        displayName=account.display_name,
+        role=role,
+        isBlocked=account.is_blocked,
+        blockedReason=account.blocked_reason,
+        balance=balance,
+        lifetimeValue=lifetime_value,
+        createdAt=account.created_at,
+    )
+
+
+@router.get(
+    "/users",
+    response_model=AdminUserListResponse,
+    summary="Full advertiser/publisher catalog, searchable by email",
+)
+async def list_users(
+    admin: CurrentAdminDep,
+    session: SessionDep,
+    page: PaginationDep,
+    role: str = Query(description="'advertiser' or 'publisher'"),
+    search: str | None = Query(default=None, description="Match against email or display name"),
+) -> AdminUserListResponse:
+    if role not in ("advertiser", "publisher"):
+        raise ValidationError("Role must be 'advertiser' or 'publisher'.")
+    model = Advertiser if role == "advertiser" else Publisher
+
+    stmt = select(model)
+    count_stmt = select(func.count(model.id))
+    if search and search.strip():
+        needle = f"%{search.strip()}%"
+        clause = or_(model.email.ilike(needle), model.display_name.ilike(needle))
+        stmt = stmt.where(clause)
+        count_stmt = count_stmt.where(clause)
+
+    total = (await session.execute(count_stmt)).scalar_one()
+    rows = (
+        (
+            await session.execute(
+                stmt.order_by(model.created_at.desc()).offset(page.offset).limit(page.limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return AdminUserListResponse(items=[_user_item(row, role) for row in rows], total=total)
+
+
+@router.get(
+    "/users/{role}/{account_id}",
+    response_model=AdminUserDetailResponse,
+    summary="One account's full profile — publishers include their channels",
+)
+async def get_user_detail(
+    role: str, account_id: uuid.UUID, admin: CurrentAdminDep, session: SessionDep
+) -> AdminUserDetailResponse:
+    if role not in ("advertiser", "publisher"):
+        raise ValidationError("Role must be 'advertiser' or 'publisher'.")
+    model = Advertiser if role == "advertiser" else Publisher
+    account = await session.get(model, account_id)
+    if account is None:
+        raise NotFoundError("Account not found.")
+
+    channels: list[AdminChannelItem] = []
+    if role == "publisher":
+        rows = (
+            (
+                await session.execute(
+                    select(Channel)
+                    .options(selectinload(Channel.publisher))
+                    .where(Channel.publisher_id == account.id)
+                    .order_by(Channel.created_at.desc())
+                )
+            )
+            .scalars()
+            .unique()
+            .all()
+        )
+        channels = [_channel_catalog_item(row) for row in rows]
+
+    base = _user_item(account, role)
+    return AdminUserDetailResponse(**base.model_dump(), channels=channels)
 
 
 # --------------------------------------------------------------------------- #

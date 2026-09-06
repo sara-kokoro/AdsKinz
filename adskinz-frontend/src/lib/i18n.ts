@@ -8,6 +8,13 @@ import { extra } from "./i18n-extra";
  */
 
 const en = {
+  x: {
+    admin: {
+      users: "Users",
+      advertiser: "Advertiser",
+      publisher: "Publisher",
+    },
+  },
   common: {
     brand: "AdsKinz",
     login: "Login",
@@ -146,6 +153,7 @@ const en = {
   status: {
     pending_review: "Pending review",
     active: "Active",
+    blocked: "Blocked",
     paused: "Paused",
     paused_balance: "Paused — insufficient balance",
     stopped: "Stopped",
@@ -561,6 +569,7 @@ const en = {
     overview: {
       campaigns: "Campaigns to moderate",
       channels: "Channels to moderate",
+      miniApps: "Mini apps to moderate",
       withdrawals: "Withdrawals pending",
       withdrawalsAmount: "Total amount pending",
       anomalies: "Anomalies flagged",
@@ -638,6 +647,13 @@ const en = {
 type Dict = typeof en;
 
 const fr: Dict = {
+  x: {
+    admin: {
+      users: "Utilisateurs",
+      advertiser: "Annonceur",
+      publisher: "Éditeur",
+    },
+  },
   common: {
     brand: "AdsKinz",
     login: "Connexion",
@@ -771,6 +787,7 @@ const fr: Dict = {
   status: {
     pending_review: "En attente de revue",
     active: "Actif",
+    blocked: "Bloqué",
     paused: "En pause",
     paused_balance: "En pause — solde insuffisant",
     stopped: "Arrêté",
@@ -1186,6 +1203,7 @@ const fr: Dict = {
     overview: {
       campaigns: "Campagnes à modérer",
       channels: "Canaux à modérer",
+      miniApps: "Mini apps à modérer",
       withdrawals: "Retraits en attente",
       withdrawalsAmount: "Montant total en attente",
       anomalies: "Anomalies signalées",
@@ -1261,6 +1279,13 @@ const fr: Dict = {
 };
 
 const ru: Dict = {
+  x: {
+    admin: {
+      users: "Пользователи",
+      advertiser: "Рекламодатель",
+      publisher: "Паблишер",
+    },
+  },
   common: {
     brand: "AdsKinz",
     login: "Вход",
@@ -1391,6 +1416,7 @@ const ru: Dict = {
   status: {
     pending_review: "На проверке",
     active: "Активна",
+    blocked: "Заблокирован",
     paused: "Пауза",
     paused_balance: "Пауза — недостаточно средств",
     stopped: "Остановлена",
@@ -1799,6 +1825,7 @@ const ru: Dict = {
     overview: {
       campaigns: "Кампаний на модерации",
       channels: "Каналов на модерации",
+      miniApps: "Мини-приложений на модерации",
       withdrawals: "Выводов в ожидании",
       withdrawalsAmount: "Общая сумма в ожидании",
       anomalies: "Отмеченных аномалий",
@@ -1874,6 +1901,13 @@ const ru: Dict = {
 };
 
 const zh: Dict = {
+  x: {
+    admin: {
+      users: "用户",
+      advertiser: "广告主",
+      publisher: "发布者",
+    },
+  },
   common: {
     brand: "AdsKinz",
     login: "登录",
@@ -1999,6 +2033,7 @@ const zh: Dict = {
   status: {
     pending_review: "待审核",
     active: "投放中",
+    blocked: "已封禁",
     paused: "已暂停",
     paused_balance: "已暂停——余额不足",
     stopped: "已停止",
@@ -2386,6 +2421,7 @@ const zh: Dict = {
     overview: {
       campaigns: "待审核广告",
       channels: "待审核频道",
+      miniApps: "待审核小程序",
       withdrawals: "待处理提现",
       withdrawalsAmount: "待处理总金额",
       anomalies: "标记的异常",

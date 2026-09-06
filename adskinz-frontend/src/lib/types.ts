@@ -94,6 +94,35 @@ export type AdvertiserStats = {
   daily: number[];
 };
 
+export type AdminChannelItem = {
+  id: string;
+  name: string;
+  status: string;
+  publisherEmail: string;
+  publisherId: string;
+  subscribers: number;
+  publicLink: string | null;
+  telegramUsername: string | null;
+  lifetimeEarnings: string;
+  createdAt: string | null;
+};
+
+export type AdminUserItem = {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: "advertiser" | "publisher";
+  isBlocked: boolean;
+  blockedReason: string | null;
+  balance: string;
+  lifetimeValue: string;
+  createdAt: string | null;
+};
+
+export type AdminUserDetail = AdminUserItem & {
+  channels: AdminChannelItem[];
+};
+
 export type CampaignTranslations = {
   campaign_id: string;
   source_language: string;

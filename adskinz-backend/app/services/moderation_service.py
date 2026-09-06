@@ -15,6 +15,7 @@ from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import lazyload
 
 from app.config import settings
 from app.core.enums import (
@@ -157,7 +158,19 @@ async def approve_campaign(
     admin_id: uuid.UUID,
     ip_hash: str | None = None,
 ) -> Campaign:
-    campaign = await session.get(Campaign, campaign_id)
+    # Locked so a second, near-simultaneous approve request (a slow
+    # double-click, or a client-side retry on a slow connection — exactly
+    # what happened here) blocks until this one commits, then correctly
+    # sees status=active and raises ConflictError below instead of racing
+    # into generate_translations a second time and hitting a duplicate-key
+    # error on the translations it just inserted. Campaign.advertiser is
+    # lazy="joined" by default, which Postgres refuses to lock across
+    # (FOR UPDATE cannot apply to the nullable side of an outer join) —
+    # unneeded here anyway, since the advertiser is re-fetched separately
+    # below.
+    campaign = await session.get(
+        Campaign, campaign_id, with_for_update=True, options=[lazyload(Campaign.advertiser)]
+    )
     if campaign is None:
         raise NotFoundError("Campaign not found.")
     if campaign.status != CampaignStatus.PENDING_REVIEW.value:
@@ -201,7 +214,9 @@ async def reject_campaign(
     reason: str,
     ip_hash: str | None = None,
 ) -> Campaign:
-    campaign = await session.get(Campaign, campaign_id)
+    campaign = await session.get(
+        Campaign, campaign_id, with_for_update=True, options=[lazyload(Campaign.advertiser)]
+    )
     if campaign is None:
         raise NotFoundError("Campaign not found.")
     if campaign.status != CampaignStatus.PENDING_REVIEW.value:
