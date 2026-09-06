@@ -69,34 +69,52 @@ async def poll_views() -> dict:
             message_ids = [post.telegram_message_id for post in channel_posts if post.telegram_message_id]
             try:
                 messages = await client.get_messages(chat_id, message_ids=message_ids)
-            except Exception as first_exc:  # noqa: BLE001 - may just need joining, try that before giving up
-                # The MTProto account is a normal Telegram user, not the bot:
-                # Telegram won't resolve a peer for get_messages() until this
-                # account has actually seen that chat at least once. Joining
-                # (for a public channel — the only kind get_messages needs
-                # this recovery for) fixes it permanently for every future
-                # poll, so this self-heals across however many channels
-                # onboard over time instead of requiring anyone to join each
-                # one by hand.
+            except Exception as first_exc:  # noqa: BLE001 - may just need the peer resolved, try that before giving up
+                # A normal Telegram user account (unlike the bot) can't call
+                # get_messages() on a chat it has never seen — Telegram
+                # rejects with PEER_ID_INVALID because it has no cached
+                # peer/access_hash for it yet.
+                #
+                # For a PUBLIC channel this is fixed by simply resolving it
+                # (get_chat by @username) — that alone caches the peer and
+                # does NOT make this account a member. This matters at
+                # scale: a Telegram account can only join a few hundred to a
+                # few thousand chats total, so actually joining every
+                # onboarded channel would hit that wall long before AdsKinz
+                # does (see the 100k-channel goal) and looks like mass/bot
+                # behaviour to Telegram. Only PRIVATE channels (invite link,
+                # no @username) genuinely require joining, since there is no
+                # username to resolve — for those, this does still join, as
+                # a last resort, and only for that one channel.
                 channel = channel_posts[0].channel
-                handle = (channel.telegram_username or "").lstrip("@") or channel.public_link
-                joined = False
-                if handle:
+                username = (channel.telegram_username or "").lstrip("@")
+                resolved = False
+
+                if username:
                     try:
-                        await client.join_chat(handle)
-                        joined = True
+                        await client.get_chat(username)
+                        resolved = True
+                    except Exception as resolve_exc:  # noqa: BLE001 - fall through to the private-channel path
+                        logger.warning(
+                            "views_watcher.resolve_failed chat=%s username=%s error=%s",
+                            chat_id, username, resolve_exc,
+                        )
+                if not resolved and not username and channel.public_link:
+                    try:
+                        await client.join_chat(channel.public_link)
+                        resolved = True
                     except Exception as join_exc:  # noqa: BLE001 - fall through to reporting the original error
                         logger.warning(
-                            "views_watcher.autojoin_failed chat=%s handle=%s error=%s",
-                            chat_id, handle, join_exc,
+                            "views_watcher.autojoin_failed chat=%s link=%s error=%s",
+                            chat_id, channel.public_link, join_exc,
                         )
-                if joined:
+                if resolved:
                     try:
                         messages = await client.get_messages(chat_id, message_ids=message_ids)
                     except Exception as retry_exc:  # noqa: BLE001
                         summary["errors"] += 1
                         summary["channel_errors"].append(
-                            {"chat_id": chat_id, "error": f"post-join retry failed: {retry_exc}"}
+                            {"chat_id": chat_id, "error": f"post-resolve retry failed: {retry_exc}"}
                         )
                         continue
                 elif isinstance(first_exc, FloodWait):
