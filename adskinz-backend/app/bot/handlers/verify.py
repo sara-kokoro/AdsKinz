@@ -66,7 +66,10 @@ async def verify_command(message: Message) -> None:
         await message.answer(f"I could not check the bot permissions: {error}")
         return
 
-    await _persist_verification(chat_id, username, is_admin)
+    # Being "an admin" is not enough: without can_post_messages, Telegram
+    # rejects every send_message call and the channel would sit in the
+    # eligible pool forever without ever actually delivering an ad.
+    await _persist_verification(chat_id, username, is_admin and can_post and can_delete)
     if is_admin and can_post and can_delete:
         await message.answer("Verified: the bot is an admin and can post and delete AdsKinz ads.")
     elif is_admin:

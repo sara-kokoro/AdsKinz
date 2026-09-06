@@ -262,9 +262,13 @@ async def select_for_channel(
     )
     recent_set = set(recent)
     fresh = [c for c in candidates if c.id not in recent_set]
-    pool = fresh or candidates
 
-    return _pick_winner(pool) if pool else None
+    # If every remaining candidate already ran in this channel recently,
+    # skip the slot instead of falling back to a repeat: that fallback used
+    # to silently defeat the whole point of `recent_set` whenever a channel
+    # only had one eligible campaign, letting the same ad post over and
+    # over in the same channel every dispatch cycle.
+    return _pick_winner(fresh) if fresh else None
 
 
 async def channel_has_slot(session: AsyncSession, channel: Channel) -> bool:

@@ -81,6 +81,15 @@ export type Campaign = {
 
 export type Paged<T> = { items: T[]; total: number };
 
+export type RecentPlacementItem = {
+  channelName: string;
+  channelLink: string;
+  postLink: string | null;
+  postedAt: string;
+};
+
+export type RecentPlacementsResponse = { items: RecentPlacementItem[] };
+
 export type AdvertiserStats = {
   balance: string;
   activeBudget: string;

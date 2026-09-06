@@ -53,7 +53,15 @@ async def on_my_chat_member(event: ChatMemberUpdated) -> None:
     if event.chat.type != ChatType.CHANNEL:
         return
 
-    promoted = isinstance(event.new_chat_member, ChatMemberAdministrator)
+    new_member = event.new_chat_member
+    promoted = isinstance(new_member, ChatMemberAdministrator)
+    # "Administrator" alone is not enough: without can_post_messages and
+    # can_delete_messages, Telegram will reject every AdsKinz post and the
+    # channel would otherwise sit marked as verified while never actually
+    # delivering an ad.
+    can_serve_ads = promoted and bool(new_member.can_post_messages) and bool(
+        new_member.can_delete_messages
+    )
     now = datetime.now(UTC)
     async with session_scope() as session:
         channel = await _find_channel(session, event)
@@ -61,7 +69,7 @@ async def on_my_chat_member(event: ChatMemberUpdated) -> None:
             return
 
         channel.bot_admin_last_checked_at = now
-        if promoted:
+        if can_serve_ads:
             channel.bot_admin_verified = True
             channel.telegram_chat_id = event.chat.id
             if event.chat.username:

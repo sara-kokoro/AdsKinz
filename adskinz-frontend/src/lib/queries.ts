@@ -26,6 +26,7 @@ import type {
   Paged,
   PublisherStats,
   Queue,
+  RecentPlacementsResponse,
   UserProfile,
   Withdrawal,
   WithdrawalList,
@@ -96,6 +97,14 @@ export function useCampaignTranslations(id: string, enabled = true) {
   return useQuery({
     queryKey: ["advertiser", "campaign", id, "translations"],
     queryFn: () => apiFetch<CampaignTranslations>(`/advertiser/campaigns/${id}/translations`),
+    enabled: Boolean(id) && enabled,
+  });
+}
+
+export function useCampaignRecentPlacements(id: string, enabled = true) {
+  return useQuery({
+    queryKey: ["advertiser", "campaign", id, "recent-placements"],
+    queryFn: () => apiFetch<RecentPlacementsResponse>(`/advertiser/campaigns/${id}/recent-placements`),
     enabled: Boolean(id) && enabled,
   });
 }
