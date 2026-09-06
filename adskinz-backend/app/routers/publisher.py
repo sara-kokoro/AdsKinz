@@ -40,7 +40,7 @@ from app.core.errors import (
 from app.core.security import generate_kinz_key
 from app.models.finance import Withdrawal
 from app.models.placements import Channel, MiniApp, PlacementDailyStat
-from app.models.tracking import Click, Impression, ScheduledPost
+from app.models.tracking import Click, ScheduledPost
 from app.schemas.publisher import (
     BotStatusItem,
     BotStatusResponse,
@@ -452,7 +452,6 @@ async def channel_stats(
         raise NotFoundError("Channel not found.")
 
     now = datetime.now(UTC)
-    since_24h = now - timedelta(hours=24)
 
     lifetime_clicks = (
         await session.execute(
@@ -462,24 +461,30 @@ async def channel_stats(
         )
     ).scalar_one()
 
-    last_24h_impressions_row = (
+    # Channel-post billing (app/mtproto/views_watcher.py) never writes a row
+    # to Impression — it only exists for mini-app serves — so querying
+    # Impression here always returned zero for every Telegram channel.
+    # PlacementDailyStat is bumped on every channel AND mini-app billing
+    # event (see billing_service._bump_placement_daily) and is the one
+    # table both placement types actually populate, so it's what "today"
+    # should read from. It buckets by UTC calendar day rather than a
+    # rolling 24h window, which is close enough here and matches how the
+    # rest of the platform already buckets daily stats (CampaignDailySpend).
+    today_utc = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_stat = (
         await session.execute(
-            select(func.count(Impression.id), func.coalesce(func.sum(Impression.billed_amount_usd), 0)).where(
-                Impression.placement_type == "channel",
-                Impression.placement_id == channel.id,
-                Impression.served_at >= since_24h,
+            select(
+                PlacementDailyStat.impressions,
+                PlacementDailyStat.clicks,
+                PlacementDailyStat.earnings_usd,
+            ).where(
+                PlacementDailyStat.placement_type == "channel",
+                PlacementDailyStat.placement_id == channel.id,
+                PlacementDailyStat.stat_date == today_utc,
             )
         )
-    ).one()
-    last_24h_clicks_row = (
-        await session.execute(
-            select(func.count(Click.id), func.coalesce(func.sum(Click.billed_amount_usd), 0)).where(
-                Click.placement_type == "channel",
-                Click.placement_id == channel.id,
-                Click.clicked_at >= since_24h,
-            )
-        )
-    ).one()
+    ).one_or_none()
+    today_impressions, today_clicks, today_earnings = today_stat or (0, 0, Decimal("0"))
 
     live_posts_count = (
         await session.execute(
@@ -508,9 +513,9 @@ async def channel_stats(
         lifetimeEarnings=channel.lifetime_earnings_usd,
         ctr=ctr,
         effectiveCpm=effective_cpm.quantize(Decimal("0.0001")),
-        last24hImpressions=int(last_24h_impressions_row[0]),
-        last24hEarnings=Decimal(last_24h_impressions_row[1]) + Decimal(last_24h_clicks_row[1]),
-        last24hClicks=int(last_24h_clicks_row[0]),
+        last24hImpressions=int(today_impressions),
+        last24hEarnings=Decimal(today_earnings),
+        last24hClicks=int(today_clicks),
         adsToday=ads_today,
         maxAdsPerDay=channel.max_ads_per_day,
         effectiveMaxAdsPerDay=channel.effective_max_ads_per_day(now),

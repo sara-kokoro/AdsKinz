@@ -27,17 +27,26 @@ TG_LINK_RE = re.compile(r"^https://t\.me/[A-Za-z0-9_+/-]+$", re.IGNORECASE)
 
 
 def validate_preferred_slots(value: dict[str, list[int]] | None) -> dict[str, list[int]] | None:
+    """``value`` holds UTC minute-of-day slots on a 30-minute grid (0, 30,
+    60, ... 1410) — not hours. This must stay in sync with the frontend's
+    HALF_HOUR_SLOTS (src/components/kit.tsx) and with the consumer in
+    app/services/ad_selection_service.py, which floors "now" onto the same
+    grid before comparing.
+    """
     if not value:
         return None
     cleaned: dict[str, list[int]] = {}
-    for day, hours in value.items():
+    for day, minutes in value.items():
         if day not in WEEKDAY_KEYS:
             raise ValueError(f"Unknown weekday '{day}'. Use one of: {', '.join(WEEKDAY_KEYS)}.")
-        if not hours:
+        if not minutes:
             continue
-        if any(h < 0 or h > 23 for h in hours):
-            raise ValueError("Preferred hours must be UTC hours between 0 and 23.")
-        cleaned[day] = sorted(set(hours))
+        if any(m < 0 or m > 1439 or m % 30 != 0 for m in minutes):
+            raise ValueError(
+                "Preferred slots must be UTC minute-of-day values on a 30-minute grid "
+                "(0 to 1439, in steps of 30)."
+            )
+        cleaned[day] = sorted(set(minutes))
     return cleaned or None
 
 
