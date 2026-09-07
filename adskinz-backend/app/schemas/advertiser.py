@@ -45,6 +45,22 @@ def _validate_destination(value: str) -> str:
     return value
 
 
+def _decimal_from_number(value: object) -> object:
+    """Coerce a JSON float to Decimal via its string form before validation.
+
+    FastAPI parses JSON bodies to plain Python floats before Pydantic ever
+    sees them. Handing a float straight to a Decimal field keeps the float's
+    exact binary value (e.g. 1.7 becomes
+    Decimal('1.6999999999999999555910790149937383830547332763671875')),
+    which then fails a ">= 1.70" comparison even though the advertiser typed
+    exactly the minimum. Going through str() first rounds to what the user
+    actually typed/see (str(1.7) == "1.7"), matching human expectations.
+    """
+    if isinstance(value, float):
+        return Decimal(str(value))
+    return value
+
+
 # --------------------------------------------------------------------------- #
 # Requests
 # --------------------------------------------------------------------------- #
@@ -62,10 +78,15 @@ class CampaignCreateRequest(RequestModel):
     # which is what actually moves money out of the advertiser's wallet.
     daily_budget: Decimal | None = Field(default=None, alias="dailyBudget")
     cpm_bid: Decimal = Field(alias="cpm")
+    # Advertisers can bid per click instead of per mille impressions.
+    cpc_bid: Decimal | None = Field(default=None, alias="cpc")
     image_url: str | None = Field(default=None, alias="imageUrl")
     ai_generated: bool = False
 
     _check_url = field_validator("destination_url")(_validate_destination)
+    _coerce_cpm = field_validator("cpm_bid", mode="before")(_decimal_from_number)
+    _coerce_cpc = field_validator("cpc_bid", mode="before")(_decimal_from_number)
+    _coerce_daily = field_validator("daily_budget", mode="before")(_decimal_from_number)
 
     @field_validator("ad_text")
     @classmethod
@@ -101,18 +122,36 @@ class CampaignCreateRequest(RequestModel):
     @field_validator("cpm_bid")
     @classmethod
     def _min_cpm(cls, value: Decimal) -> Decimal:
+        # Round to cents BEFORE comparing against the floor: comparing the
+        # raw value first lets float-precision noise below the true cent
+        # value (see `_decimal_from_number`) get rejected even when the
+        # advertiser typed exactly the minimum.
+        value = value.quantize(Decimal("0.01"))
         if value < settings.MIN_CPM_BID:
             raise ValueError(f"CPM bid must be at least ${settings.MIN_CPM_BID}.")
-        return value.quantize(Decimal("0.01"))
+        return value
+
+    @field_validator("cpc_bid")
+    @classmethod
+    def _cpc_range(cls, value: Decimal | None) -> Decimal | None:
+        if value is None:
+            return None
+        value = value.quantize(Decimal("0.001"))
+        if value < settings.MIN_CPC_BID or value > settings.MAX_CPC_BID:
+            raise ValueError(
+                f"CPC bid must be between ${settings.MIN_CPC_BID} and ${settings.MAX_CPC_BID}."
+            )
+        return value
 
     @field_validator("daily_budget")
     @classmethod
     def _min_daily(cls, value: Decimal | None) -> Decimal | None:
         if value is None:
             return None
+        value = value.quantize(Decimal("0.01"))
         if value < settings.MIN_DAILY_BUDGET:
             raise ValueError(f"Daily budget must be at least ${settings.MIN_DAILY_BUDGET}.")
-        return value.quantize(Decimal("0.01"))
+        return value
 
 
 class CampaignUpdateRequest(RequestModel):
@@ -128,6 +167,7 @@ class CampaignUpdateRequest(RequestModel):
     total_budget: Decimal | None = Field(default=None, alias="budget")
     daily_budget: Decimal | None = Field(default=None, alias="dailyBudget")
     cpm_bid: Decimal | None = Field(default=None, alias="cpm")
+    cpc_bid: Decimal | None = Field(default=None, alias="cpc")
     image_url: str | None = Field(default=None, alias="imageUrl")
     # Only 'paused' and 'stopped' may be set by the advertiser.
     status: Literal["paused", "active", "stopped"] | None = None
@@ -135,6 +175,11 @@ class CampaignUpdateRequest(RequestModel):
     # balance (the "Top up" / "Recharger" button). This is the only way a
     # campaign's budget actually increases.
     add_budget: Decimal | None = Field(default=None, alias="addBudget", gt=0)
+
+    _coerce_cpm = field_validator("cpm_bid", mode="before")(_decimal_from_number)
+    _coerce_cpc = field_validator("cpc_bid", mode="before")(_decimal_from_number)
+    _coerce_daily = field_validator("daily_budget", mode="before")(_decimal_from_number)
+    _coerce_topup = field_validator("add_budget", mode="before")(_decimal_from_number)
 
     @field_validator("destination_url")
     @classmethod
@@ -172,8 +217,23 @@ class CampaignUpdateRequest(RequestModel):
     @field_validator("cpm_bid")
     @classmethod
     def _min_cpm(cls, value: Decimal | None) -> Decimal | None:
-        if value is not None and value < settings.MIN_CPM_BID:
+        if value is None:
+            return None
+        value = value.quantize(Decimal("0.01"))
+        if value < settings.MIN_CPM_BID:
             raise ValueError(f"CPM bid must be at least ${settings.MIN_CPM_BID}.")
+        return value
+
+    @field_validator("cpc_bid")
+    @classmethod
+    def _cpc_range(cls, value: Decimal | None) -> Decimal | None:
+        if value is None:
+            return None
+        value = value.quantize(Decimal("0.001"))
+        if value < settings.MIN_CPC_BID or value > settings.MAX_CPC_BID:
+            raise ValueError(
+                f"CPC bid must be between ${settings.MIN_CPC_BID} and ${settings.MAX_CPC_BID}."
+            )
         return value
 
 
@@ -199,6 +259,7 @@ class CampaignResponse(APIModel):
     status: FrontendStatus
     format: FrontendFormat
     cpm: Decimal
+    cpc: Decimal | None = None
     budget: Decimal
     spent: Decimal
     clicks: int
@@ -214,6 +275,7 @@ class CampaignResponse(APIModel):
     ad_copy: str | None = Field(default=None, alias="copy", serialization_alias="copy")
     imageUrl: str | None = None
     trackingId: str | None = None
+    postsCount: int | None = None
     createdAt: datetime | None = None
     updatedAt: datetime | None = None
     approvedAt: datetime | None = None

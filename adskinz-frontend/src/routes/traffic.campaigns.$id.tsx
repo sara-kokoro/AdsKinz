@@ -232,9 +232,7 @@ function CampaignDetail() {
                 [t("adv.colFormat"), c.format],
                 [t("adv.targeting"), c.language],
                 [t("adv.colCpm"), fmtMoney(num(c.cpm))],
-                [t("adv.colClicks"), fmtInt(c.clicks)],
-                [t("pub.impressions30"), fmtInt(c.impressions)],
-                [t("pub.ctr"), `${ctr}%`],
+                ...(c.cpc ? [[t("adv.wizard.cpc"), fmtMoney(num(c.cpc))]] : []),
                 [t("admin.detail.trackedUrl"), c.trackingId ? trackingUrl(c.trackingId) : "—"],
               ].map(([k, v]) => (
                 <div key={k} className="border-b border-seam py-2 last:border-0">
@@ -263,6 +261,34 @@ function CampaignDetail() {
             <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap text-paper-dim">{c.copy}</p>
           </Panel>
         </div>
+
+        <Panel>
+          <SectionTitle>{t("adv.detail.stats")}</SectionTitle>
+          <dl className="text-sm">
+            {[
+              [t("adv.detail.spent"), fmtMoney(spent)],
+              [t("adv.detail.publications"), c.postsCount != null ? fmtInt(c.postsCount) : "—"],
+              [t("pub.impressions30"), fmtInt(c.impressions)],
+              [t("adv.colClicks"), fmtInt(c.clicks)],
+              [
+                t("adv.detail.costPerClick"),
+                c.clicks > 0 ? fmtMoney(spent / c.clicks) : "—",
+              ],
+              [t("pub.ctr"), `${ctr}%`],
+              // Subscriber gain/loss and in-app "actions" aren't tracked:
+              // AdsKinz native posts send clicks to the advertiser's own
+              // destination URL rather than driving Telegram channel
+              // subscriptions, so there's no honest number to show here.
+              [t("adv.detail.started"), c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "—"],
+            ].map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between border-b border-seam py-2.5 last:border-0">
+                <dt className="text-sm text-paper-dim">{k}</dt>
+                <dd className="num text-sm font-semibold">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </Panel>
+
 
         <Modal
           open={editing}

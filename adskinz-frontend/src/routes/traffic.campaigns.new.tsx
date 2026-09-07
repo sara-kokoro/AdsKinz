@@ -48,6 +48,7 @@ function Wizard() {
   const [budget, setBudget] = useState("");
   const [daily, setDaily] = useState("");
   const [cpm, setCpm] = useState("");
+  const [cpc, setCpc] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -101,8 +102,13 @@ function Wizard() {
       if (!/^https:\/\/.+\..+/.test(url)) e["url"] = t("adv.wizard.errUrl");
     }
     if (step === 3) {
-      if (Number(budget) < 10 || !budget) e["budget"] = t("adv.wizard.errMinBudget");
+      // Budget is optional at creation time: a campaign can be created with
+      // an isolated $0 budget and funded later via top-up, for advertisers
+      // who don't have wallet balance ready right now. Only validate the
+      // minimum when they actually typed an amount.
+      if (budget !== "" && Number(budget) < 10) e["budget"] = t("adv.wizard.errMinBudget");
       if (Number(cpm) < 1.7 || !cpm) e["cpm"] = t("adv.wizard.errMinCpm");
+      if (cpc !== "" && (Number(cpc) < 0.015 || Number(cpc) > 0.13)) e["cpc"] = t("adv.wizard.errCpcRange");
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -132,6 +138,7 @@ function Wizard() {
         language: lang,
         dailyBudget: daily ? Number(daily) : null,
         cpm: Number(cpm),
+        cpc: cpc ? Number(cpc) : null,
         imageUrl: image?.url ?? null,
         ai_generated: generateCopy.isSuccess,
       },
@@ -428,6 +435,12 @@ function Wizard() {
                     <span className="font-bold text-paper">{t(`adv.wizard.${competitiveness}`)}</span>
                   </p>
                 )}
+              </div>
+              <div>
+                <label className="text-sm font-semibold" htmlFor="cpc">{t("adv.wizard.cpc")}</label>
+                <input id="cpc" inputMode="decimal" value={cpc} onChange={(e) => setCpc(e.target.value)} placeholder="0.030" className="num mt-2 w-full rounded-xl border border-seam bg-transparent p-3 text-sm" />
+                <p className="mt-1 text-xs text-paper-dim">{t("adv.wizard.cpcHint")}</p>
+                <FieldError>{errors["cpc"]}</FieldError>
               </div>
             </div>
           )}

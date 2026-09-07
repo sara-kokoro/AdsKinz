@@ -43,13 +43,16 @@ class Campaign(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
             "'paused_insufficient_balance', 'stopped', 'rejected')",
             name="status_valid",
         ),
-        CheckConstraint("cpm_bid >= 2.00", name="cpm_min"),
+        CheckConstraint("cpm_bid >= 1.70", name="cpm_min"),
         # total_budget is an isolated pot funded from the advertiser's wallet.
         # A brand-new campaign starts at $0 and is funded via a top-up
         # (min settings.MIN_CAMPAIGN_TOPUP per top-up), so 0 is a valid state.
         CheckConstraint("total_budget >= 0.00", name="budget_min"),
         CheckConstraint(
-            "daily_budget IS NULL OR daily_budget >= 2.00", name="daily_budget_min"
+            "daily_budget IS NULL OR daily_budget >= 1.80", name="daily_budget_min"
+        ),
+        CheckConstraint(
+            "cpc_bid IS NULL OR (cpc_bid >= 0.015 AND cpc_bid <= 0.13)", name="cpc_bid_range"
         ),
         CheckConstraint("spent_usd >= 0", name="spent_non_negative"),
         Index("ix_campaigns_advertiser_status", "advertiser_id", "status"),
@@ -82,6 +85,9 @@ class Campaign(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
 
     # Economics
     cpm_bid: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
+    # Optional cost-per-click bid; when set, the ad can compete on a CPC
+    # basis instead of (or alongside) the CPM auction.
+    cpc_bid: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
     # Isolated budget actually reserved for this campaign, moved out of the
     # advertiser's wallet balance on creation (starts at 0) and on every
     # top-up. Never touched by the shared wallet again once reserved.

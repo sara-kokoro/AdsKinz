@@ -216,6 +216,8 @@ class Settings(BaseSettings):
     CAMPAIGN_LOW_BALANCE_THRESHOLD: Decimal = Decimal("5.00")
     MIN_CPM_BID: Decimal = Decimal("1.70")
     MIN_DAILY_BUDGET: Decimal = Decimal("1.80")
+    MIN_CPC_BID: Decimal = Decimal("0.015")
+    MAX_CPC_BID: Decimal = Decimal("0.13")
     MIN_WITHDRAWAL: Decimal = Decimal("50.00")
     MIN_CHANNEL_SUBSCRIBERS: int = 500
     MIN_CHANNEL_NAME_LENGTH: int = 5

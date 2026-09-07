@@ -120,6 +120,7 @@ export type CampaignCreateBody = {
   language: string;
   dailyBudget?: number | null | undefined;
   cpm: number;
+  cpc?: number | null | undefined;
   imageUrl?: string | null | undefined;
   ai_generated?: boolean | undefined;
 };

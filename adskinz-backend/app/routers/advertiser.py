@@ -70,6 +70,7 @@ def _to_response(campaign: Campaign) -> CampaignResponse:
         status=campaign_status_to_frontend(campaign.status),  # type: ignore[arg-type]
         format=campaign_format_to_frontend(campaign.format),  # type: ignore[arg-type]
         cpm=campaign.cpm_bid,
+        cpc=campaign.cpc_bid,
         budget=campaign.total_budget,
         spent=campaign.spent_usd,
         clicks=campaign.clicks,
@@ -180,6 +181,7 @@ async def create_campaign(
         button_label=payload.button_label,
         destination_url=payload.destination_url,
         cpm_bid=payload.cpm_bid,
+        cpc_bid=payload.cpc_bid,
         total_budget=Decimal("0.00"),
         daily_budget=payload.daily_budget,
         submitted_ip_hash=ip_hash,
@@ -201,7 +203,19 @@ async def get_campaign(
     session: SessionDep,
 ) -> CampaignResponse:
     campaign = await _owned_campaign(session, advertiser.id, campaign_id)
-    return _to_response(campaign)
+    posts_count = (
+        await session.execute(
+            select(func.count())
+            .select_from(ScheduledPost)
+            .where(
+                ScheduledPost.campaign_id == campaign.id,
+                ScheduledPost.posted_at.is_not(None),
+            )
+        )
+    ).scalar_one()
+    response = _to_response(campaign)
+    response.postsCount = posts_count
+    return response
 
 
 @router.patch(
@@ -244,6 +258,8 @@ async def update_campaign(
 
     if payload.cpm_bid is not None:
         campaign.cpm_bid = payload.cpm_bid
+    if payload.cpc_bid is not None:
+        campaign.cpc_bid = payload.cpc_bid
     if payload.daily_budget is not None:
         campaign.daily_budget = payload.daily_budget
 

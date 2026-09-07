@@ -58,6 +58,7 @@ export type Campaign = {
   status: string;
   format: string;
   cpm: string;
+  cpc: string | null;
   budget: string;
   spent: string;
   clicks: number;
@@ -71,6 +72,7 @@ export type Campaign = {
   copy: string | null;
   imageUrl: string | null;
   trackingId: string | null;
+  postsCount: number | null;
   createdAt: string | null;
   updatedAt: string | null;
   approvedAt: string | null;
