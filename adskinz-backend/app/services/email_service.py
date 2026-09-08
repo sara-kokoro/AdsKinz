@@ -345,6 +345,22 @@ async def send_channel_approved(to: str, *, channel_name: str) -> bool:
     )
 
 
+async def send_channel_not_started_reminder(to: str, *, channel_name: str) -> bool:
+    title = "Your channel is approved but not earning yet"
+    intro = (
+        f'"{channel_name}" was approved but is still waiting for you to press '
+        f"Start. Until then it receives no ads and earns nothing."
+    )
+    outro = "Open the channel in your dashboard and press Start to begin delivery."
+    return await send_email(
+        to,
+        "AdsKinz — don't forget to start your channel",
+        _render(title, intro, None, outro),
+        _render_html(title=title, intro=intro, outro=outro, icon="alert",
+                     preheader=f'"{channel_name}" is still not started'),
+    )
+
+
 async def send_channel_rejected(to: str, *, channel_name: str, reason: str) -> bool:
     title = "Your channel was rejected"
     intro = f'Your channel "{channel_name}" did not pass moderation.'

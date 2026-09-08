@@ -261,3 +261,45 @@ async def bot_admin_check() -> dict:
     if summary["failed"]:
         await cache_delete_pattern("adsel:*")
     return summary
+
+
+async def remind_unstarted_channels() -> dict:
+    """Nudge publishers who were approved but never pressed Start.
+
+    A channel stuck in APPROVED_NOT_STARTED never enters the eligible pool
+    (see ad_selection_service.eligible_channels) — it delivers zero ads and
+    earns zero revenue, invisibly, for as long as the publisher forgets
+    about it. Sends at most one reminder per approval, after a grace period,
+    so a publisher who's still mid-setup isn't emailed immediately.
+    """
+    now = datetime.now(UTC)
+    remind_after = now - timedelta(hours=settings.UNSTARTED_CHANNEL_REMINDER_HOURS)
+    summary = {"channels_checked": 0, "reminders_sent": 0}
+
+    async with session_scope() as session:
+        channels = (
+            (
+                await session.execute(
+                    select(Channel).where(
+                        Channel.status == ChannelStatus.APPROVED_NOT_STARTED.value,
+                        Channel.approved_at.is_not(None),
+                        Channel.approved_at <= remind_after,
+                        Channel.not_started_reminder_sent_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .unique()
+            .all()
+        )
+        summary["channels_checked"] = len(channels)
+
+        for channel in channels:
+            sent = await email_service.send_channel_not_started_reminder(
+                channel.publisher.email, channel_name=channel.name
+            )
+            if sent:
+                channel.not_started_reminder_sent_at = now
+                summary["reminders_sent"] += 1
+
+    return summary

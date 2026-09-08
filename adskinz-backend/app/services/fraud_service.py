@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import re
 import uuid
+from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -19,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import lazyload
 
 from app.config import settings
-from app.models.tracking import Anomaly, Click
+from app.models.tracking import Anomaly, Click, ScheduledPost, ViewSnapshot
 from app.redis_client import claim_once, click_velocity
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,28 @@ _KNOWN_BROWSER_RE = re.compile(
 VELOCITY_WINDOW_SECONDS = 300
 VELOCITY_HIGH = 8
 VELOCITY_EXTREME = 20
+
+# --- Purchased-views signals (a post whose views were bought, not earned) ---
+# A post needs this many billed views before its own CTR is statistically
+# meaningful enough to compare against anything.
+MIN_VIEWS_FOR_CTR_CHECK = 200
+# A channel needs at least this many qualifying posts before its own click
+# behaviour is trusted as a "baseline" to compare a single post against.
+MIN_POSTS_FOR_BASELINE = 5
+# A post's CTR at or below this fraction of its channel's baseline CTR is
+# flagged — bought views don't click, so a real fraud case collapses far
+# below this, not just "a bit under average".
+CTR_COLLAPSE_RATIO = Decimal("0.20")
+
+# A post needs at least this many view-poll snapshots before "is one of
+# them a burst?" is meaningful.
+MIN_SNAPSHOTS_FOR_BURST_CHECK = 4
+# One interval's delta must clear both of these to count as a burst: an
+# absolute floor (so a tiny channel's normal noise never trips it) and a
+# multiple of the post's own typical interval (so it's relative to what's
+# normal for that post, not a global constant).
+BURST_MIN_ABSOLUTE_VIEWS = 150
+BURST_MULTIPLIER = Decimal("6")
 
 
 async def score_click(
@@ -269,4 +292,145 @@ async def scan_unbilled_click_ratio(session: AsyncSession) -> int:
                 details={"clicks": int(total), "billed": billed},
             )
             flagged += 1
+    return flagged
+
+
+async def scan_channel_ctr_baseline(session: AsyncSession) -> int:
+    """Flag a post whose CTR collapses far below its own channel's baseline.
+
+    This is the strongest purchased-views signal: a channel's audience has a
+    fairly stable click behaviour post to post. Bought views never click, so
+    a post padded with an SMM panel order shows a CTR that craters relative
+    to everything else on the *same* channel — not just "below average" for
+    the platform, which varies a lot channel to channel.
+    """
+    from app.models.placements import Channel
+
+    since = datetime.now(UTC) - timedelta(days=30)
+
+    posts = (
+        await session.execute(
+            select(ScheduledPost).where(
+                ScheduledPost.posted_at >= since,
+                ScheduledPost.billed_views >= MIN_VIEWS_FOR_CTR_CHECK,
+            )
+        )
+    ).scalars().unique().all()
+    if not posts:
+        return 0
+
+    post_ids = [p.id for p in posts]
+    clicks_by_post: dict[uuid.UUID, int] = dict(
+        (await session.execute(
+            select(Click.scheduled_post_id, func.count().label("n"))
+            .where(Click.scheduled_post_id.in_(post_ids))
+            .group_by(Click.scheduled_post_id)
+        )).all()
+    )
+
+    by_channel: dict[uuid.UUID, list[ScheduledPost]] = defaultdict(list)
+    for post in posts:
+        by_channel[post.channel_id].append(post)
+
+    flagged = 0
+    for channel_id, channel_posts in by_channel.items():
+        if len(channel_posts) < MIN_POSTS_FOR_BASELINE:
+            continue
+        total_views = sum(p.billed_views for p in channel_posts)
+        total_clicks = sum(clicks_by_post.get(p.id, 0) for p in channel_posts)
+        if total_views == 0 or total_clicks == 0:
+            continue
+        baseline_ctr = total_clicks / total_views
+
+        for post in channel_posts:
+            post_clicks = clicks_by_post.get(post.id, 0)
+            post_ctr = post_clicks / post.billed_views
+            if post_ctr > baseline_ctr * float(CTR_COLLAPSE_RATIO):
+                continue
+            channel = await session.get(Channel, channel_id)
+            await record_anomaly(
+                session,
+                kind="channel",
+                subject_id=channel_id,
+                subject_label=channel.name if channel else str(channel_id),
+                reason=(
+                    f"A post's CTR ({post_ctr * 100:.2f}%) collapsed to "
+                    f"{(post_ctr / baseline_ctr * 100) if baseline_ctr else 0:.0f}% of this "
+                    f"channel's own baseline ({baseline_ctr * 100:.2f}%) — consistent with "
+                    f"purchased views that don't click"
+                ),
+                score=Decimal("0.80"),
+                details={
+                    "scheduled_post_id": str(post.id),
+                    "tracking_id": post.tracking_id,
+                    "post_views": post.billed_views,
+                    "post_clicks": post_clicks,
+                    "channel_baseline_ctr": round(baseline_ctr, 5),
+                    "channel_posts_sampled": len(channel_posts),
+                },
+            )
+            flagged += 1
+    return flagged
+
+
+async def scan_view_bursts(session: AsyncSession) -> int:
+    """Flag a single 15-minute poll that added an implausible view burst.
+
+    Organic Telegram views trickle in as subscribers open the app over
+    hours; any one poll interval usually adds a small, fairly steady slice
+    of a post's eventual total. An SMM panel instead delivers its order in
+    one or two batches, so one snapshot's delta dwarfs every other snapshot
+    for the same post — a shape genuine traffic essentially never produces.
+    """
+    since = datetime.now(UTC) - timedelta(hours=48)
+    snapshots = (
+        await session.execute(
+            select(ViewSnapshot)
+            .where(ViewSnapshot.polled_at >= since)
+            .order_by(ViewSnapshot.scheduled_post_id, ViewSnapshot.polled_at)
+        )
+    ).scalars().all()
+
+    by_post: dict[uuid.UUID, list[ViewSnapshot]] = defaultdict(list)
+    for snap in snapshots:
+        by_post[snap.scheduled_post_id].append(snap)
+
+    flagged = 0
+    for post_id, rows in by_post.items():
+        if len(rows) < MIN_SNAPSHOTS_FOR_BURST_CHECK:
+            continue
+        latest = rows[-1]
+        if latest.delta < BURST_MIN_ABSOLUTE_VIEWS:
+            continue
+        prior_deltas = [r.delta for r in rows[:-1] if r.delta > 0]
+        if not prior_deltas:
+            continue
+        avg_prior = sum(prior_deltas) / len(prior_deltas)
+        if avg_prior <= 0 or latest.delta < avg_prior * float(BURST_MULTIPLIER):
+            continue
+
+        post = await session.get(ScheduledPost, post_id)
+        if post is None:
+            continue
+        channel = post.channel
+        await record_anomaly(
+            session,
+            kind="channel",
+            subject_id=post.channel_id,
+            subject_label=channel.name if channel else str(post.channel_id),
+            reason=(
+                f"One 15-minute poll added {latest.delta} views — "
+                f"{latest.delta / avg_prior:.1f}x this post's typical interval "
+                f"({avg_prior:.0f} views) — consistent with a bulk view-delivery service"
+            ),
+            score=Decimal("0.70"),
+            details={
+                "scheduled_post_id": str(post_id),
+                "tracking_id": post.tracking_id,
+                "burst_delta": latest.delta,
+                "typical_delta": round(avg_prior, 1),
+                "polled_at": latest.polled_at.isoformat(),
+            },
+        )
+        flagged += 1
     return flagged

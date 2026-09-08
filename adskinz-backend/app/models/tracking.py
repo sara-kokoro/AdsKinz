@@ -75,6 +75,9 @@ class ScheduledPost(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         Numeric(12, 6), nullable=False, default=Decimal("0"), server_default="0"
     )
     language_served: Mapped[str | None] = mapped_column(String(8))
+    # Set once app.mtproto.neighbor_check has compared this post's views to
+    # its channel's neighboring organic posts, so it's never re-checked.
+    neighbor_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     campaign: Mapped["Campaign"] = relationship(back_populates="scheduled_posts", lazy="joined")
     channel: Mapped["Channel"] = relationship(back_populates="scheduled_posts", lazy="joined")

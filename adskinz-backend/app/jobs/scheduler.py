@@ -17,11 +17,16 @@ from app.config import settings
 from app.redis_client import distributed_lock, get_redis
 
 from .budget import spend_flush
-from .channels import bot_admin_check, channel_trust_expiry, refresh_channel_subscribers
+from .channels import (
+    bot_admin_check,
+    channel_trust_expiry,
+    refresh_channel_subscribers,
+    remind_unstarted_channels,
+)
 from .deposits import deposit_watcher
 from .fraud import fraud_scan
 from .posts import auto_delete_posts, expire_posts_for_inactive_campaigns, post_dispatch
-from .views import views_polling
+from .views import neighbor_fraud_check, views_polling
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +118,28 @@ def _register_jobs(scheduler: AsyncIOScheduler) -> None:
         args=("bot_admin_check", bot_admin_check),
         id="bot_admin_check",
         name="bot_admin_check",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=300,
+    )
+    scheduler.add_job(
+        _run,
+        trigger=CronTrigger(hour=4, minute=30, timezone=UTC),
+        args=("neighbor_fraud_check", neighbor_fraud_check),
+        id="neighbor_fraud_check",
+        name="neighbor_fraud_check",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=600,
+    )
+    scheduler.add_job(
+        _run,
+        trigger=CronTrigger(hour=9, minute=0, timezone=UTC),
+        args=("remind_unstarted_channels", remind_unstarted_channels),
+        id="remind_unstarted_channels",
+        name="remind_unstarted_channels",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

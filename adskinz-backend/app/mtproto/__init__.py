@@ -7,12 +7,14 @@ from app.mtproto.client import (
     start_client_background,
     stop_client,
 )
+from app.mtproto.neighbor_check import scan_post_neighbors
 from app.mtproto.views_watcher import poll_views
 
 __all__ = [
     "get_client",
     "is_configured",
     "poll_views",
+    "scan_post_neighbors",
     "start_client",
     "start_client_background",
     "stop_client",

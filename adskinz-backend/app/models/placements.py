@@ -79,6 +79,10 @@ class Channel(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
 
     bot_admin_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     bot_admin_last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Set once a "you're approved but haven't pressed Start" reminder email
+    # has gone out, so `remind_unstarted_channels` never sends it twice for
+    # the same approval.
+    not_started_reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

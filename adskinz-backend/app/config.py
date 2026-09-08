@@ -225,6 +225,9 @@ class Settings(BaseSettings):
     # Ads per day allowed while a channel is in its trust window
     TRUST_WINDOW_MAX_ADS_PER_DAY: int = 1
     TRUST_WINDOW_HOURS: int = 72
+    # How long a channel can sit approved-but-not-started before the
+    # publisher gets a one-time reminder email.
+    UNSTARTED_CHANNEL_REMINDER_HOURS: int = 24
     # Delay after the first channel approval before a payout may be requested
     WITHDRAWAL_COOLDOWN_HOURS: int = 48
     POST_LIFETIME_HOURS: int = 24
