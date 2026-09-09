@@ -15,7 +15,7 @@ async def main():
     url = url.replace('postgresql+asyncpg://', 'postgresql://', 1)
     url = url.replace('postgresql://', 'postgres://', 1)
     ssl = 'require' if 'ssl=require' in settings.DATABASE_URL else None
-    conn = await asyncpg.connect(url, ssl=ssl)
+    conn = await asyncpg.connect(url, ssl=ssl, statement_cache_size=0)
     try:
         await conn.execute(
             'ALTER TABLE IF EXISTS alembic_version '
