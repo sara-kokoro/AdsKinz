@@ -117,7 +117,7 @@ async def _chat(
                 continue
             response.raise_for_status()
             data = response.json()
-            content = data["choices"][0]["message"]["content"]
+            content = data["choices"][0]["message"]["content"] or ""
             usage = (data.get("usage") or {}).get("total_tokens")
             return _clean(content), usage
         except (httpx.HTTPError, KeyError, IndexError, json.JSONDecodeError) as exc:
