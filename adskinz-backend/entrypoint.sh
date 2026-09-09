@@ -4,6 +4,29 @@
 # production - every deploy self-heals the schema first.
 set -e
 
+echo "entrypoint: ensuring alembic_version.version_num is wide enough..."
+python -c "
+import asyncio
+import asyncpg
+from app.config import settings
+
+async def main():
+    url = settings.DATABASE_URL.replace('?ssl=require', '').replace('&ssl=require', '')
+    url = url.replace('postgresql://', 'postgres://', 1)
+    ssl = 'require' if 'ssl=require' in settings.DATABASE_URL else None
+    conn = await asyncpg.connect(url, ssl=ssl)
+    try:
+        await conn.execute(
+            'ALTER TABLE IF EXISTS alembic_version '
+            'ALTER COLUMN version_num TYPE VARCHAR(255)'
+        )
+    finally:
+        await conn.close()
+
+asyncio.run(main())
+"
+echo "entrypoint: alembic_version column check done."
+
 echo "entrypoint: running 'alembic upgrade head'..."
 alembic upgrade head
 echo "entrypoint: migrations up to date, starting the API."
