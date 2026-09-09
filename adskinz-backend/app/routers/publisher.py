@@ -39,6 +39,7 @@ from app.core.errors import (
 )
 from app.core.security import generate_kinz_key
 from app.models.finance import Withdrawal
+from app.models.accounts import Publisher
 from app.models.placements import Channel, MiniApp, PlacementDailyStat
 from app.models.tracking import Click, ScheduledPost
 from app.schemas.publisher import (
@@ -59,7 +60,13 @@ from app.schemas.publisher import (
     WithdrawalResponse,
     validate_preferred_slots,
 )
-from app.services import ad_selection_service, billing_service, moderation_service, upload_service
+from app.services import (
+    ad_selection_service,
+    billing_service,
+    channel_category_service,
+    moderation_service,
+    upload_service,
+)
 
 router = APIRouter(prefix="/publisher", tags=["publisher"])
 
@@ -81,6 +88,8 @@ async def _channel_response(session: SessionDep, channel: Channel) -> ChannelRes
         privateLink=channel.private_invite_link or None,
         adminUsername=channel.admin_username or None,
         logoUrl=channel.logo_url or None,
+        category=channel.category,
+        categorySource=channel.category_source,
         maxAdsPerDay=channel.max_ads_per_day,
         effectiveMaxAdsPerDay=channel.effective_max_ads_per_day(now),
         preferredSlots=channel.preferred_slots,
@@ -231,6 +240,14 @@ async def create_channel(
     except Exception:  # noqa: BLE001 - Telegram being unreachable must not block submission
         pass
 
+    category = payload.category
+    category_source = "manual" if category else None
+    if category is None:
+        detected, source = await channel_category_service.detect_category(
+            payload.name, payload.description
+        )
+        category, category_source = detected, (source if detected else None)
+
     channel = Channel(
         publisher_id=publisher.id,
         name=payload.name,
@@ -248,6 +265,8 @@ async def create_channel(
         telegram_username=telegram_username,
         bot_admin_verified=bot_admin_verified,
         bot_admin_last_checked_at=bot_checked_at,
+        category=category,
+        category_source=category_source,
     )
 
     session.add(channel)
@@ -593,6 +612,15 @@ async def update_channel(
             raise BusinessRuleError("Logo URL must be a valid https:// address.")
         channel.logo_url = logo_url
 
+    if "category" in payload:
+        from app.core.enums import CHANNEL_CATEGORIES
+
+        value = payload["category"] or None
+        if value is not None and value not in CHANNEL_CATEGORIES:
+            raise BusinessRuleError("Unknown channel category.")
+        channel.category = value
+        channel.category_source = "manual" if value else None
+
     await session.commit()
     await session.refresh(channel)
     return await _channel_response(session, channel)
@@ -883,6 +911,16 @@ async def create_withdrawal(
 # --------------------------------------------------------------------------- #
 # Stats
 # --------------------------------------------------------------------------- #
+@router.get(
+    "/channel-categories",
+    summary="Fixed list of channel content categories for the custom dropdown",
+)
+async def channel_categories() -> dict[str, list[str]]:
+    from app.core.enums import CHANNEL_CATEGORIES
+
+    return {"categories": list(CHANNEL_CATEGORIES)}
+
+
 @router.get("/stats", response_model=PublisherStatsResponse, summary="Dashboard stats")
 async def stats(
     publisher: CurrentPublisherDep,
@@ -963,4 +1001,40 @@ async def stats(
         activeChannels=int(active_channels or 0),
         activeMiniApps=int(active_mini_apps or 0),
         daily=daily,
+        isPremium=publisher.is_premium,
+        premiumExpiresAt=publisher.premium_expires_at,
+        premiumAutoRenew=publisher.premium_auto_renew,
+        premiumMonthlyPrice=settings.PREMIUM_MONTHLY_PRICE_USD,
     )
+
+
+@router.post(
+    "/premium/subscribe",
+    response_model=PublisherStatsResponse,
+    summary="Activate or renew premium (charged from available balance)",
+)
+async def subscribe_premium(
+    publisher: CurrentPublisherDep, session: SessionDep
+) -> PublisherStatsResponse:
+    locked = await session.get(Publisher, publisher.id, with_for_update=True)
+    if locked is None:
+        raise BusinessRuleError("Publisher not found.")
+    await billing_service.charge_premium(session, publisher=locked)
+    await session.commit()
+    return await stats(publisher=locked, session=session)
+
+
+@router.post(
+    "/premium/auto-renew",
+    response_model=PublisherStatsResponse,
+    summary="Toggle premium auto-renew",
+)
+async def toggle_premium_auto_renew(
+    payload: dict, publisher: CurrentPublisherDep, session: SessionDep
+) -> PublisherStatsResponse:
+    locked = await session.get(Publisher, publisher.id, with_for_update=True)
+    if locked is None:
+        raise BusinessRuleError("Publisher not found.")
+    locked.premium_auto_renew = bool(payload.get("autoRenew", True))
+    await session.commit()
+    return await stats(publisher=locked, session=session)

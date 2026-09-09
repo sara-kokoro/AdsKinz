@@ -9,7 +9,7 @@ import { AD_LANGUAGES, AD_TEXT_MAX_LENGTH, BUTTON_LABELS } from "@/lib/constants
 import { validateAdHtml } from "@/lib/html-format";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { Campaign } from "@/lib/types";
-import { useCreateCampaign, useGenerateCopy } from "@/lib/queries";
+import { useCreateCampaign, useEmojifyCopy, useGenerateCopy } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { useAuthGuard } from "@/lib/auth";
 
@@ -48,11 +48,14 @@ function Wizard() {
   const [budget, setBudget] = useState("");
   const [daily, setDaily] = useState("");
   const [cpm, setCpm] = useState("");
-  const [cpc, setCpc] = useState("");
+  const [cpcEnabled, setCpcEnabled] = useState(false);
+  const [cpc, setCpc] = useState("0.01");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const generateCopy = useGenerateCopy();
+  const emojifyCopy = useEmojifyCopy();
+  const [aiProvider, setAiProvider] = useState<"mixrouter" | "openrouter">("mixrouter");
   const createCampaign = useCreateCampaign();
 
   const copyIssue = (value: string): string | null => {
@@ -81,7 +84,18 @@ function Wizard() {
 
   const generate = () => {
     generateCopy.mutate(
-      { brief: brief || format, language: lang === "all" ? "en" : lang, tone: "punchy" },
+      { brief: brief || format, language: lang === "all" ? "en" : lang, tone: "punchy", provider: aiProvider },
+      {
+        onSuccess: (res) => setCopy(res.copy),
+        onError: (err) => setErrors((e) => ({ ...e, copy: err instanceof ApiError ? err.message : t("common.loadError") })),
+      },
+    );
+  };
+
+  const emojify = () => {
+    if (!copy.trim()) return;
+    emojifyCopy.mutate(
+      { text: copy, provider: aiProvider },
       {
         onSuccess: (res) => setCopy(res.copy),
         onError: (err) => setErrors((e) => ({ ...e, copy: err instanceof ApiError ? err.message : t("common.loadError") })),
@@ -108,7 +122,7 @@ function Wizard() {
       // minimum when they actually typed an amount.
       if (budget !== "" && Number(budget) < 10) e["budget"] = t("adv.wizard.errMinBudget");
       if (Number(cpm) < 1.7 || !cpm) e["cpm"] = t("adv.wizard.errMinCpm");
-      if (cpc !== "" && (Number(cpc) < 0.015 || Number(cpc) > 0.13)) e["cpc"] = t("adv.wizard.errCpcRange");
+      if (cpcEnabled && (Number(cpc) < 0.01 || Number(cpc) > 0.03)) e["cpc"] = t("adv.wizard.errCpcRange");
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -138,7 +152,7 @@ function Wizard() {
         language: lang,
         dailyBudget: daily ? Number(daily) : null,
         cpm: Number(cpm),
-        cpc: cpc ? Number(cpc) : null,
+        cpc: cpcEnabled ? Number(cpc) : null,
         imageUrl: image?.url ?? null,
         ai_generated: generateCopy.isSuccess,
       },
@@ -437,8 +451,35 @@ function Wizard() {
                 )}
               </div>
               <div>
-                <label className="text-sm font-semibold" htmlFor="cpc">{t("adv.wizard.cpc")}</label>
-                <input id="cpc" inputMode="decimal" value={cpc} onChange={(e) => setCpc(e.target.value)} placeholder="0.030" className="num mt-2 w-full rounded-xl border border-seam bg-transparent p-3 text-sm" />
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold" htmlFor="cpc">{t("adv.wizard.cpc")}</label>
+                  <button
+                    type="button"
+                    onClick={() => setCpcEnabled((v) => !v)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${cpcEnabled ? "bg-accent text-white" : "border border-seam text-paper-dim"}`}
+                  >
+                    {cpcEnabled ? t("adv.wizard.cpcOn") ?? "Activé" : t("adv.wizard.cpcOff") ?? "Désactivé"}
+                  </button>
+                </div>
+                {cpcEnabled && (
+                  <div className="mt-3">
+                    <input
+                      id="cpc"
+                      type="range"
+                      min={0.01}
+                      max={0.03}
+                      step={0.001}
+                      value={cpc}
+                      onChange={(e) => setCpc(e.target.value)}
+                      className="w-full accent-accent"
+                    />
+                    <div className="mt-1 flex items-center justify-between text-xs text-paper-dim">
+                      <span>$0.01</span>
+                      <span className="num font-bold text-paper">${Number(cpc).toFixed(3)}</span>
+                      <span>$0.03</span>
+                    </div>
+                  </div>
+                )}
                 <p className="mt-1 text-xs text-paper-dim">{t("adv.wizard.cpcHint")}</p>
                 <FieldError>{errors["cpc"]}</FieldError>
               </div>

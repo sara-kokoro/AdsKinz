@@ -52,7 +52,7 @@ class Campaign(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
             "daily_budget IS NULL OR daily_budget >= 1.80", name="daily_budget_min"
         ),
         CheckConstraint(
-            "cpc_bid IS NULL OR (cpc_bid >= 0.015 AND cpc_bid <= 0.13)", name="cpc_bid_range"
+            "cpc_bid IS NULL OR (cpc_bid >= 0.01 AND cpc_bid <= 0.03)", name="cpc_bid_range"
         ),
         CheckConstraint("spent_usd >= 0", name="spent_non_negative"),
         Index("ix_campaigns_advertiser_status", "advertiser_id", "status"),

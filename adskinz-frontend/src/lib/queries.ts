@@ -145,8 +145,18 @@ export function useUpdateCampaign(id: string) {
 
 export function useGenerateCopy() {
   return useMutation({
-    mutationFn: (body: { brief: string; language: string; tone: string }) =>
-      apiFetch<{ copy: string; model: string }>("/advertiser/creatives/generate", {
+    mutationFn: (body: { brief: string; language: string; tone: string; provider?: "mixrouter" | "openrouter" }) =>
+      apiFetch<{ copy: string; model: string; provider: string }>("/advertiser/creatives/generate", {
+        method: "POST",
+        body,
+      }),
+  });
+}
+
+export function useEmojifyCopy() {
+  return useMutation({
+    mutationFn: (body: { text: string; provider?: "mixrouter" | "openrouter" }) =>
+      apiFetch<{ copy: string; provider: string }>("/advertiser/creatives/emojify", {
         method: "POST",
         body,
       }),
@@ -218,6 +228,23 @@ export function usePublisherStats() {
   return useQuery({ queryKey: ["publisher", "stats"], queryFn: () => apiFetch<PublisherStats>("/publisher/stats") });
 }
 
+export function useSubscribePremium() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiFetch<PublisherStats>("/publisher/premium/subscribe", { method: "POST" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher", "stats"] }),
+  });
+}
+
+export function useTogglePremiumAutoRenew() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (autoRenew: boolean) =>
+      apiFetch<PublisherStats>("/publisher/premium/auto-renew", { method: "POST", body: { autoRenew } }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher", "stats"] }),
+  });
+}
+
 export function useChannels() {
   return useQuery({
     queryKey: ["publisher", "channels"],
@@ -254,6 +281,7 @@ export type ChannelCreateBody = {
   maxAdsPerDay: number;
   preferredSlots?: Record<string, number[]> | null | undefined;
   description?: string | null | undefined;
+  category?: string | null;
 };
 
 export function useCreateChannel() {
@@ -408,6 +436,18 @@ export function useAdminChannelsCatalog(search: string) {
       const loaded = pages.reduce((n, p) => n + p.items.length, 0);
       return loaded < lastPage.total ? pages.length + 1 : undefined;
     },
+  });
+}
+
+export function useScanChannelCategories() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<{ scanned: number; classified: number; unclassified: number }>(
+        "/admin/channels/scan-categories",
+        { method: "POST" },
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin", "channels"] }),
   });
 }
 

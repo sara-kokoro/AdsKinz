@@ -20,6 +20,7 @@ import {
   inputCls,
 } from "@/components/kit";
 import { IconAlert, IconClock, IconShield } from "@/components/icons";
+import { CategoryDropdown } from "@/components/controls";
 import { Avatar } from "@/components/cards";
 import { ArtChannelPayout, ArtTrustPeriod } from "@/components/illustrations";
 import { ApiError, num } from "@/lib/api";
@@ -82,6 +83,7 @@ function ChannelCard({
           <p className="truncate font-display text-base font-bold">{channel.name}</p>
           <p className="num text-xs text-paper-dim">
             {fmtInt(channel.subscribers)} {t("pub.subscribers")} · {channel.language} · {channel.effectiveMaxAdsPerDay}
+            {channel.category && <> · {t(`channelCategory.${channel.category}`, { defaultValue: channel.category })}</>}
             {t("common.perDay")}
           </p>
         </div>
@@ -360,6 +362,7 @@ function ChannelsPage() {
   const [link, setLink] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
   const [language, setLanguage] = useState(CHANNEL_LANGUAGES[0]?.code ?? "en");
+  const [category, setCategory] = useState<string | null>(null);
   const [frequency, setFrequency] = useState("2");
   const [err, setErr] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -372,6 +375,7 @@ function ChannelsPage() {
     setLink("");
     setAdminUsername("");
     setLanguage(CHANNEL_LANGUAGES[0]?.code ?? "en");
+    setCategory(null);
     setFrequency("2");
     setErr({});
     setFormError(null);
@@ -392,6 +396,7 @@ function ChannelsPage() {
       adminUsername: adminUsername.trim(),
       language,
       maxAdsPerDay: Number(frequency) || 1,
+      category,
     };
     setFormError(null);
     createChannel.mutate(body, {
@@ -495,6 +500,9 @@ function ChannelsPage() {
                   <option key={l.code} value={l.code}>{l.label}</option>
                 ))}
               </select>
+            </Field>
+            <Field label={t("channelCategory.pick")} hint={undefined} htmlFor="cc">
+              <CategoryDropdown value={category} onChange={setCategory} />
             </Field>
             <Field label={t("pub.form.adminUsername")} error={err["adminUsername"]} htmlFor="cu">
               <input id="cu" value={adminUsername} onChange={(e) => setAdminUsername(e.target.value)} placeholder="@username" className={inputCls(!!err["adminUsername"])} />

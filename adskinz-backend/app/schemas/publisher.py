@@ -63,6 +63,20 @@ class ChannelCreateRequest(RequestModel):
     max_ads_per_day: int = Field(default=1, alias="maxAdsPerDay")
     preferred_slots: dict[str, list[int]] | None = Field(default=None, alias="preferredSlots")
     description: str | None = Field(default=None, max_length=600)
+    # Optional: publisher picks it from our custom dropdown. If omitted, the
+    # server auto-detects it (keywords first, AI fallback) on creation.
+    category: str | None = Field(default=None, alias="category")
+
+    @field_validator("category")
+    @classmethod
+    def _known_category(cls, value: str | None) -> str | None:
+        from app.core.enums import CHANNEL_CATEGORIES
+
+        if value is None or value == "":
+            return None
+        if value not in CHANNEL_CATEGORIES:
+            raise ValueError("Unknown channel category.")
+        return value
 
     @field_validator("logo_url")
     @classmethod
@@ -126,6 +140,8 @@ class ChannelResponse(APIModel):
     privateLink: str | None = None
     adminUsername: str | None = None
     logoUrl: str | None = None
+    category: str | None = None
+    categorySource: str | None = None
     maxAdsPerDay: int = 1
     effectiveMaxAdsPerDay: int = 1
     preferredSlots: dict[str, list[int]] | None = None
@@ -352,3 +368,7 @@ class PublisherStatsResponse(APIModel):
     activeChannels: int
     activeMiniApps: int
     daily: list[float] = Field(default_factory=list)
+    isPremium: bool = False
+    premiumExpiresAt: datetime | None = None
+    premiumAutoRenew: bool = True
+    premiumMonthlyPrice: Decimal = Decimal("9.99")

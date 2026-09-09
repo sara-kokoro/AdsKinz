@@ -49,6 +49,8 @@ from app.schemas.advertiser import (
     CampaignResponse,
     CampaignTranslationsResponse,
     CampaignUpdateRequest,
+    EmojifyRequest,
+    EmojifyResponse,
     GenerateCopyRequest,
     GenerateCopyResponse,
     ImageUploadRequest,
@@ -56,7 +58,7 @@ from app.schemas.advertiser import (
     RecentPlacementsResponse,
     TranslationItem,
 )
-from app.services import billing_service, openrouter_service, upload_service
+from app.services import billing_service, mixrouter_service, openrouter_service, upload_service
 
 router = APIRouter(prefix="/advertiser", tags=["advertiser"])
 
@@ -503,10 +505,52 @@ async def generate_creative(
     payload: GenerateCopyRequest,
     advertiser: CurrentAdvertiserDep,
 ) -> GenerateCopyResponse:
-    text, model, tokens = await openrouter_service.generate_ad_copy(
-        payload.brief, language=payload.language, tone=payload.tone
-    )
-    return GenerateCopyResponse(copy=text, model=model, tokens_used=tokens)
+    provider = payload.provider
+    if provider == "mixrouter" and not mixrouter_service.is_configured():
+        # MixRouter key missing on this instance — fall back to OpenRouter
+        # rather than failing the advertiser's request outright.
+        provider = "openrouter"
+
+    service = mixrouter_service if provider == "mixrouter" else openrouter_service
+    try:
+        text, model, tokens = await service.generate_ad_copy(
+            payload.brief, language=payload.language, tone=payload.tone
+        )
+    except Exception:
+        if provider != "openrouter":
+            text, model, tokens = await openrouter_service.generate_ad_copy(
+                payload.brief, language=payload.language, tone=payload.tone
+            )
+            provider = "openrouter"
+        else:
+            raise
+    return GenerateCopyResponse(copy=text, model=model, tokens_used=tokens, provider=provider)
+
+
+@router.post(
+    "/creatives/emojify",
+    response_model=EmojifyResponse,
+    dependencies=[Depends(generate_rate_limit)],
+    summary="Add emojis to already-written ad copy",
+)
+async def emojify_creative(
+    payload: EmojifyRequest,
+    advertiser: CurrentAdvertiserDep,
+) -> EmojifyResponse:
+    provider = payload.provider
+    if provider == "mixrouter" and not mixrouter_service.is_configured():
+        provider = "openrouter"
+
+    service = mixrouter_service if provider == "mixrouter" else openrouter_service
+    try:
+        text = await service.emojify_text(payload.text)
+    except Exception:
+        if provider != "openrouter":
+            text = await openrouter_service.emojify_text(payload.text)
+            provider = "openrouter"
+        else:
+            raise
+    return EmojifyResponse(copy=text, provider=provider)
 
 
 @router.post(

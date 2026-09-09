@@ -96,6 +96,7 @@ class LedgerEntryType(StrEnum):
     WITHDRAWAL_RELEASE = "withdrawal_release"
     WITHDRAWAL_SETTLE = "withdrawal_settle"
     ADMIN_ADJUSTMENT = "admin_adjustment"
+    PREMIUM_CHARGE = "premium_charge"
 
 
 class BillableEvent(StrEnum):
@@ -152,6 +153,16 @@ AD_LANGUAGES: tuple[str, ...] = (
     "all", "en", "fr", "ru", "zh", "es", "pt", "ar", "hi", "id", "tr", "uk",
 )
 
-# Monday-first weekday keys used by Channel.preferred_slots (per-weekday
-# posting hours). Index matches Python's datetime.weekday() (0 = Monday).
+# Channel content categories (auto-detected or picked by the publisher from
+# our own custom dropdown, not the browser's native <select>). Codes are
+# what's stored/sent over the API; the frontend owns the translated labels.
+CHANNEL_CATEGORIES: tuple[str, ...] = (
+    "news_media", "entertainment", "movies_tv", "music", "gaming",
+    "tech", "crypto_finance", "business", "education", "science",
+    "sports", "health_fitness", "beauty_fashion", "food", "travel",
+    "art_design", "photography", "books_literature", "humor_memes",
+    "lifestyle", "family_kids", "spirituality", "politics", "automotive",
+    "real_estate", "adult", "other",
+)
+
 WEEKDAY_KEYS: tuple[str, ...] = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")

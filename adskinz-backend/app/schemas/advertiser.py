@@ -241,6 +241,14 @@ class GenerateCopyRequest(RequestModel):
     brief: str = Field(min_length=3, max_length=600)
     language: str = Field(default="en", max_length=8)
     tone: Literal["neutral", "punchy", "premium", "playful"] = "punchy"
+    # MixRouter is the default provider; OpenRouter (GPT / Grok models) stays
+    # available as an alternate the advertiser can pick from the wizard.
+    provider: Literal["mixrouter", "openrouter"] = "mixrouter"
+
+
+class EmojifyRequest(RequestModel):
+    text: str = Field(min_length=1, max_length=900)
+    provider: Literal["mixrouter", "openrouter"] = "mixrouter"
 
 
 class ImageUploadRequest(RequestModel):
@@ -316,6 +324,12 @@ class GenerateCopyResponse(APIModel):
     ad_copy: str = Field(alias="copy", serialization_alias="copy")
     model_name: str = Field(alias="model", serialization_alias="model")
     tokens_used: int | None = None
+    provider: str = "mixrouter"
+
+
+class EmojifyResponse(APIModel):
+    ad_copy: str = Field(alias="copy", serialization_alias="copy")
+    provider: str = "mixrouter"
 
 
 class TranslationItem(APIModel):

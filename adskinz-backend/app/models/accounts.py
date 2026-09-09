@@ -113,6 +113,12 @@ class Publisher(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_ip_hash: Mapped[str | None] = mapped_column(String(64))
 
+    # Premium tier (poster/creative generation for publishers, $9.99/mo —
+    # charged against available_balance_usd, see billing_service.charge_premium).
+    is_premium: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    premium_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    premium_auto_renew: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+
     channels: Mapped[list["Channel"]] = relationship(
         back_populates="publisher", cascade="all, delete-orphan", lazy="noload"
     )

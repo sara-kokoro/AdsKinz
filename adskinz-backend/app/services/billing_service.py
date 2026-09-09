@@ -398,6 +398,43 @@ async def credit_publisher(
     return publisher
 
 
+async def charge_premium(session: AsyncSession, *, publisher: Publisher) -> Publisher:
+    """Debit PREMIUM_MONTHLY_PRICE_USD from the publisher's available
+    balance and (re)activate premium for PREMIUM_PERIOD_DAYS. Extends from
+    the current expiry if still active, otherwise from now."""
+    price = q2(settings.PREMIUM_MONTHLY_PRICE_USD)
+    if publisher.available_balance_usd < price:
+        raise InsufficientBalanceError(
+            f"Insufficient balance: ${publisher.available_balance_usd} available, "
+            f"${price} required for premium."
+        )
+
+    publisher.available_balance_usd = q2(publisher.available_balance_usd - price)
+
+    now = datetime.now(UTC)
+    base = publisher.premium_expires_at if publisher.premium_expires_at and publisher.premium_expires_at > now else now
+    publisher.premium_expires_at = base + timedelta(days=settings.PREMIUM_PERIOD_DAYS)
+    publisher.is_premium = True
+
+    add_ledger_entry(
+        session,
+        account_type="publisher",
+        account_id=publisher.id,
+        entry_type=LedgerEntryType.PREMIUM_CHARGE.value,
+        amount=-price,
+        balance_after=publisher.available_balance_usd,
+        reference_type="premium_subscription",
+        reference_id=publisher.id,
+        description=f"Premium subscription, {settings.PREMIUM_PERIOD_DAYS} days",
+    )
+    return publisher
+
+
+async def expire_premium(session: AsyncSession, *, publisher: Publisher) -> None:
+    publisher.is_premium = False
+    publisher.premium_auto_renew = False
+
+
 async def _bump_placement_daily(
     session: AsyncSession,
     placement_type: str,

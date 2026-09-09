@@ -26,6 +26,7 @@ from .channels import (
 from .deposits import deposit_watcher
 from .fraud import fraud_scan
 from .posts import auto_delete_posts, expire_posts_for_inactive_campaigns, post_dispatch
+from .premium import premium_renewal
 from .views import neighbor_fraud_check, views_polling
 
 logger = logging.getLogger(__name__)
@@ -144,6 +145,17 @@ def _register_jobs(scheduler: AsyncIOScheduler) -> None:
         max_instances=1,
         coalesce=True,
         misfire_grace_time=300,
+    )
+    scheduler.add_job(
+        _run,
+        trigger=CronTrigger(hour=5, minute=0, timezone=UTC),
+        args=("premium_renewal", premium_renewal),
+        id="premium_renewal",
+        name="premium_renewal",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=600,
     )
     # Wallet-level low-balance pausing and cross-campaign balance allocation
     # are retired: each campaign's budget is now isolated money reserved at

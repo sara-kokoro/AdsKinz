@@ -5,7 +5,7 @@ import { AdminShell } from "@/components/workspaces";
 import {
   Btn, EmptyState, ErrorBanner, LoadMoreSentinel, Panel, RowSkeleton, StatusPill, fmtInt, fmtMoney, inputCls,
 } from "@/components/kit";
-import { useAdminChannelsCatalog, useAdminQueue, useModerate, useResumeChannelAdmin, useSuspendChannelAdmin } from "@/lib/queries";
+import { useAdminChannelsCatalog, useAdminQueue, useModerate, useResumeChannelAdmin, useScanChannelCategories, useSuspendChannelAdmin } from "@/lib/queries";
 import { ApiError, num } from "@/lib/api";
 import { useAuthGuard } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,8 @@ type QueueChannel = {
   adminUsername: string | null;
   botAdminVerified: boolean;
   submittedAt: string | null;
+  category: string | null;
+  categorySource: string | null;
 };
 
 function Row({ k, v }: { k: string; v: string }) {
@@ -53,10 +55,12 @@ function AdminChannels() {
   useAuthGuard("admin");
   const { t } = useTranslation();
   const [tab, setTab] = useState<"pending" | "catalog">("pending");
+  const scanCategories = useScanChannelCategories();
 
   return (
     <AdminShell title={t("admin.nav.channels")}>
-      <div className="mb-5 inline-flex gap-1 rounded-xl border border-seam p-1">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex gap-1 rounded-xl border border-seam p-1">
         <button
           onClick={() => setTab("pending")}
           className={cn("rounded-lg px-4 py-2 text-sm font-semibold", tab === "pending" ? "bg-panel-2" : "text-paper-dim")}
@@ -69,7 +73,21 @@ function AdminChannels() {
         >
           Tous les canaux
         </button>
+        </div>
+        <Btn
+          variant="secondary"
+          disabled={scanCategories.isPending}
+          onClick={() => scanCategories.mutate()}
+        >
+          {scanCategories.isPending ? "Scan en cours…" : "Scanner les catégories"}
+        </Btn>
       </div>
+      {scanCategories.isSuccess && (
+        <p className="mb-4 text-xs text-paper-dim">
+          {scanCategories.data.classified}/{scanCategories.data.scanned} canaux classés
+          ({scanCategories.data.unclassified} non classés).
+        </p>
+      )}
       {tab === "pending" ? <PendingChannels /> : <ChannelCatalog />}
     </AdminShell>
   );
@@ -126,6 +144,7 @@ function PendingChannels() {
               <Row k={t("admin.publisher")} v={ch.publisher} />
               <Row k={t("pub.subscribers")} v={fmtInt(ch.subscribers)} />
               <Row k={t("pub.form.lang")} v={ch.language} />
+              <Row k={t("channelCategory.pick")} v={ch.category ? t(`channelCategory.${ch.category}`, { defaultValue: ch.category }) : "—"} />
               <Row k={t("pub.form.frequency")} v={`${ch.maxAdsPerDay}${t("common.perDay")}`} />
               <Row k={t("pub.form.publicLink")} v={ch.publicLink ?? "—"} />
               <Row k={t("admin.inviteLink")} v={ch.privateLink ?? "—"} />
@@ -196,6 +215,11 @@ function ChannelCatalog() {
                     <StatusPill status={c.status} />
                     <span className="num text-xs text-paper-dim">{fmtInt(c.subscribers)} abonnés</span>
                     <span className="num text-xs text-paper-dim">{fmtMoney(num(c.lifetimeEarnings))} générés</span>
+                    {c.category && (
+                      <span className="rounded-full border border-seam px-2 py-0.5 text-xs text-paper-dim">
+                        {t(`channelCategory.${c.category}`, { defaultValue: c.category })}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">

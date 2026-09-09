@@ -35,11 +35,21 @@ LANGUAGE_NAMES: dict[str, str] = {
 
 _COPY_SYSTEM_PROMPT = (
     "You are a senior performance copywriter for Telegram advertising. "
-    "Write one short ad, 2 to 4 lines, under 300 characters. Be concrete and "
-    "concrete about the benefit. Never invent statistics, testimonials, "
-    "guarantees, awards or user counts. Never promise financial returns. "
-    "Do not use hashtags. At most two emojis. Return only the ad text, with no "
-    "preamble, no quotes and no explanation."
+    "Write one short ad, 2 to 4 lines. Be concrete about the benefit. Never "
+    "invent statistics, testimonials, guarantees, awards or user counts. "
+    "Never promise financial returns. Do not use hashtags. No emojis unless "
+    "asked. Return only the ad text, with no preamble, no quotes and no "
+    "explanation. The text MUST be under {limit} characters total, "
+    "including spaces."
+)
+
+_EMOJIFY_SYSTEM_PROMPT = (
+    "You add tasteful emojis to an existing Telegram ad. Keep every word of "
+    "the original text and its meaning unchanged — only insert emojis at "
+    "natural points (start of lines, after a strong benefit, before the "
+    "call to action). Use at most 4 emojis total, never two in a row. "
+    "Return only the updated text, no preamble, no quotes. The result MUST "
+    "stay under {limit} characters total."
 )
 
 _TRANSLATE_SYSTEM_PROMPT = (
@@ -124,6 +134,7 @@ async def generate_ad_copy(
     brief: str, *, language: str = "en", tone: str = "punchy"
 ) -> tuple[str, str, int | None]:
     """Draft ad copy from a short brief. Returns ``(copy, model, tokens)``."""
+    limit = settings.AD_TEXT_AI_MAX_CHARS
     language_name = LANGUAGE_NAMES.get(language, "English")
     user_prompt = (
         f"Write the ad in {language_name}. Desired tone: {tone}.\n"
@@ -131,15 +142,31 @@ async def generate_ad_copy(
     )
     text, tokens = await _chat(
         [
-            {"role": "system", "content": _COPY_SYSTEM_PROMPT},
+            {"role": "system", "content": _COPY_SYSTEM_PROMPT.format(limit=limit)},
             {"role": "user", "content": user_prompt},
         ],
         temperature=0.85,
-        max_tokens=400,
+        max_tokens=300,
     )
+    text = text[:limit]
     if not text:
         raise UpstreamError("The AI service returned an empty response.")
     return text, settings.OPENROUTER_MODEL, tokens
+
+
+async def emojify_text(text: str) -> str:
+    """Add emojis to an already-written ad, staying under the global cap."""
+    limit = settings.AD_TEXT_AI_MAX_CHARS
+    result, _ = await _chat(
+        [
+            {"role": "system", "content": _EMOJIFY_SYSTEM_PROMPT.format(limit=limit)},
+            {"role": "user", "content": text.strip()},
+        ],
+        temperature=0.4,
+        max_tokens=300,
+    )
+    result = result[:limit]
+    return result or text[:limit]
 
 
 async def translate_text(text: str, *, target_lang: str, source_lang: str = "en") -> str:

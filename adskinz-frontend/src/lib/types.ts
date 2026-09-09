@@ -116,6 +116,8 @@ export type AdminChannelItem = {
   telegramUsername: string | null;
   lifetimeEarnings: string;
   createdAt: string | null;
+  category: string | null;
+  categorySource: string | null;
 };
 
 export type AdminUserItem = {
@@ -200,6 +202,8 @@ export type Channel = {
   privateLink: string | null;
   adminUsername: string | null;
   logoUrl: string | null;
+  category: string | null;
+  categorySource: string | null;
   maxAdsPerDay: number;
   effectiveMaxAdsPerDay: number;
   preferredSlots: Record<string, number[]> | null;
@@ -302,6 +306,10 @@ export type PublisherStats = {
   activeChannels: number;
   activeMiniApps: number;
   daily: number[];
+  isPremium: boolean;
+  premiumExpiresAt: string | null;
+  premiumAutoRenew: boolean;
+  premiumMonthlyPrice: string;
 };
 
 export type AdminOverview = {

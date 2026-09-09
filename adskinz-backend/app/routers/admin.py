@@ -343,6 +343,8 @@ async def queue_channels(
             maxAdsPerDay=row.max_ads_per_day,
             botAdminVerified=row.bot_admin_verified,
             submittedAt=row.created_at,
+            category=row.category,
+            categorySource=row.category_source,
         )
         for row in rows
     ]
@@ -363,6 +365,8 @@ def _channel_catalog_item(row: Channel) -> AdminChannelItem:
         telegramUsername=row.telegram_username,
         lifetimeEarnings=row.lifetime_earnings_usd,
         createdAt=row.created_at,
+        category=row.category,
+        categorySource=row.category_source,
     )
 
 
@@ -463,6 +467,42 @@ async def admin_resume_channel(
     await session.commit()
     await session.refresh(channel)
     return _channel_catalog_item(channel)
+
+
+@router.post(
+    "/channels/scan-categories",
+    summary="Auto-detect the category of every already-added channel that has none yet",
+)
+async def admin_scan_channel_categories(
+    admin: CurrentAdminDep, session: SessionDep
+) -> dict[str, int]:
+    """One-off/repeatable scan for channels submitted before category
+    auto-detection existed, or that a previous scan left unclassified.
+    Keyword matching first (free, instant), AI fallback only for the ones
+    keywords can't resolve. Never overwrites a category a publisher or an
+    admin set manually (category_source == "manual")."""
+    from app.services import channel_category_service
+
+    rows = (
+        await session.execute(
+            select(Channel).where(Channel.category.is_(None))
+        )
+    ).scalars().all()
+
+    scanned = 0
+    classified = 0
+    for channel in rows:
+        category, source = await channel_category_service.detect_category(
+            channel.name, channel.description
+        )
+        scanned += 1
+        if category:
+            channel.category = category
+            channel.category_source = source
+            classified += 1
+
+    await session.commit()
+    return {"scanned": scanned, "classified": classified, "unclassified": scanned - classified}
 
 
 @router.get("/queue/mini-apps", response_model=QueueResponse, summary="Mini App queue")

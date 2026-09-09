@@ -85,6 +85,95 @@ export function LanguageSelect({ compact = false }: { compact?: boolean }) {
 }
 
 
+/** List of channel category codes -> translated labels, keyed to
+ * app.core.enums.CHANNEL_CATEGORIES on the backend. Keep in sync. */
+export const CHANNEL_CATEGORIES = [
+  "news_media", "entertainment", "movies_tv", "music", "gaming",
+  "tech", "crypto_finance", "business", "education", "science",
+  "sports", "health_fitness", "beauty_fashion", "food", "travel",
+  "art_design", "photography", "books_literature", "humor_memes",
+  "lifestyle", "family_kids", "spirituality", "politics", "automotive",
+  "real_estate", "adult", "other",
+] as const;
+
+export type ChannelCategory = (typeof CHANNEL_CATEGORIES)[number];
+
+/** Custom category menu — no native <select>, same pattern as LanguageSelect. */
+export function CategoryDropdown({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: string | null;
+  onChange: (value: string | null) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const label = (code: string | null) =>
+    code ? (t(`channelCategory.${code}`, { defaultValue: code }) as string) : (placeholder ?? t("channelCategory.pick"));
+
+  return (
+    <div className={cn("relative", className)} ref={ref}>
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-seam bg-transparent px-3 text-left text-sm font-semibold transition-colors hover:bg-panel-2"
+      >
+        <span className={value ? "text-paper" : "text-paper-dim"}>{label(value)}</span>
+        <span className="text-paper-dim">▾</span>
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute left-0 right-0 z-50 mt-2 max-h-72 overflow-y-auto rounded-xl border border-seam bg-panel shadow-xl"
+        >
+          {CHANNEL_CATEGORIES.map((code) => (
+            <li key={code}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={code === value}
+                onClick={() => {
+                  onChange(code);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold transition-colors hover:bg-panel-2",
+                  code === value ? "text-signal" : "text-paper",
+                )}
+              >
+                {label(code)}
+                {code === value && <IconCheck className="ml-auto" width={14} height={14} />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function ThemeToggle() {
   const { mode, setMode } = useTheme();
   const { t } = useTranslation();

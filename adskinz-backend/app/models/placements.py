@@ -61,6 +61,10 @@ class Channel(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
     subscriber_count: Mapped[int] = mapped_column(Integer, nullable=False)
     subscriber_count_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     logo_url: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str | None] = mapped_column(String(32))
+    # "manual" (publisher picked it), "keywords" or "ai" (auto-detected),
+    # or NULL if never classified yet.
+    category_source: Mapped[str | None] = mapped_column(String(16))
     max_ads_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     # Per-weekday posting hours, e.g. {"mon": [8, 18], "tue": [], ...}.
     # A missing or empty day means "no restriction that day" — same

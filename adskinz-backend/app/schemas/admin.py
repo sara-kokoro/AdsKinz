@@ -103,6 +103,8 @@ class QueueChannelItem(APIModel):
     maxAdsPerDay: int = 1
     botAdminVerified: bool = False
     submittedAt: datetime | None = None
+    category: str | None = None
+    categorySource: str | None = None
 
 
 class QueueMiniAppItem(APIModel):
@@ -149,6 +151,8 @@ class AdminChannelItem(APIModel):
     telegramUsername: str | None = None
     lifetimeEarnings: Decimal
     createdAt: datetime | None = None
+    category: str | None = None
+    categorySource: str | None = None
 
 
 class AdminChannelListResponse(APIModel):

@@ -121,6 +121,28 @@ class Settings(BaseSettings):
     OPENROUTER_SITE_NAME: str = "AdsKinz"
 
     # ------------------------------------------------------------------ #
+    # MixRouter (default AI ad-copy provider). OpenRouter above stays as
+    # the alternate provider (GPT / Grok models) the advertiser can switch
+    # to from the wizard, and as the automatic fallback if MixRouter fails.
+    # NOTE: MixRouter's endpoint path/model naming could not be verified
+    # against public docs at the time this was wired up — if their API
+    # differs from the OpenAI-compatible /chat/completions shape assumed
+    # here, only MIXROUTER_BASE_URL / MIXROUTER_MODEL need to change.
+    # ------------------------------------------------------------------ #
+    MIXROUTER_API_KEY: str = "sk-O7b9NAbi1NMEVJJoKAdHkosVp5NQOVZdLxcuGeXS0VPib3Qm"
+    MIXROUTER_BASE_URL: str = "https://api.mixrouter.ai/v1"
+    MIXROUTER_MODEL: str = "gpt-4o-mini"
+    MIXROUTER_TIMEOUT_SECONDS: float = 30.0
+    # Hard global cap on AI-generated ad copy (advertiser's own typed HTML
+    # copy is still bounded separately by AD_TEXT_MAX_LENGTH in schemas).
+    AD_TEXT_AI_MAX_CHARS: int = 399
+
+    # Publisher premium tier (poster/creative generation once an AI image
+    # provider is picked — not wired up yet, only the subscription itself).
+    PREMIUM_MONTHLY_PRICE_USD: Decimal = Decimal("9.99")
+    PREMIUM_PERIOD_DAYS: int = 30
+
+    # ------------------------------------------------------------------ #
     # Wallets — WATCH-ONLY deposit derivation (xpub) + sweep signing (xprv).
     # ------------------------------------------------------------------ #
     # Extended public keys used to derive advertiser deposit addresses.
@@ -216,8 +238,9 @@ class Settings(BaseSettings):
     CAMPAIGN_LOW_BALANCE_THRESHOLD: Decimal = Decimal("5.00")
     MIN_CPM_BID: Decimal = Decimal("1.70")
     MIN_DAILY_BUDGET: Decimal = Decimal("1.80")
-    MIN_CPC_BID: Decimal = Decimal("0.015")
-    MAX_CPC_BID: Decimal = Decimal("0.13")
+    MIN_CPC_BID: Decimal = Decimal("0.01")
+    MAX_CPC_BID: Decimal = Decimal("0.03")
+    DEFAULT_CPC_BID: Decimal = Decimal("0.01")
     MIN_WITHDRAWAL: Decimal = Decimal("50.00")
     MIN_CHANNEL_SUBSCRIBERS: int = 500
     MIN_CHANNEL_NAME_LENGTH: int = 5
