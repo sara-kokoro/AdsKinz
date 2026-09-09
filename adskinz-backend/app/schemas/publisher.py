@@ -368,7 +368,3 @@ class PublisherStatsResponse(APIModel):
     activeChannels: int
     activeMiniApps: int
     daily: list[float] = Field(default_factory=list)
-    isPremium: bool = False
-    premiumExpiresAt: datetime | None = None
-    premiumAutoRenew: bool = True
-    premiumMonthlyPrice: Decimal = Decimal("9.99")

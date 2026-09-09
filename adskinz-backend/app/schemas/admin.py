@@ -155,6 +155,17 @@ class AdminChannelItem(APIModel):
     categorySource: str | None = None
 
 
+class AdminChannelDetailResponse(AdminChannelItem):
+    status: str
+    description: str | None = None
+    privateLink: str | None = None
+    adminUsername: str | None = None
+    declaredLanguage: str | None = None
+    maxAdsPerDay: int = 1
+    botAdminVerified: bool = False
+    startedAt: datetime | None = None
+
+
 class AdminChannelListResponse(APIModel):
     items: list[AdminChannelItem]
     total: int
@@ -164,6 +175,7 @@ class AdminUserItem(APIModel):
     id: str
     email: str
     displayName: str | None = None
+    telegramUsername: str | None = None
     role: Literal["advertiser", "publisher"]
     isBlocked: bool
     blockedReason: str | None = None

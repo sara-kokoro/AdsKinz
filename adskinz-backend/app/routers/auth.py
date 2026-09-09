@@ -60,6 +60,7 @@ async def register(
         role=Role(payload.role),
         display_name=payload.display_name,
         telegram_username=payload.telegram_username,
+        referral_code=payload.referral_code,
         ip_hash=ip_hash,
     )
 

@@ -18,7 +18,8 @@ import {
   fmtMoney,
 } from "@/components/kit";
 import { ArtCampaignBroadcast, ArtCampaignEmpty } from "@/components/illustrations";
-import { useAdvertiserStats, useCampaigns } from "@/lib/queries";
+import { ReferralCard } from "@/components/controls";
+import { useAdvertiserReferrals, useAdvertiserStats, useCampaigns, useSubscribePremium, useTogglePremiumAutoRenew } from "@/lib/queries";
 import { num } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useAuthGuard } from "@/lib/auth";
@@ -66,6 +67,7 @@ function Period() {
 function AdvDashboard() {
   const { t } = useTranslation();
   const stats = useAdvertiserStats();
+  const referrals = useAdvertiserReferrals();
   const campaignsQ = useCampaigns();
 
   const s = stats.data;
@@ -132,6 +134,10 @@ function AdvDashboard() {
                 </Panel>
               ))}
         </div>
+
+        <PremiumPanel data={s} />
+
+        <ReferralCard data={referrals.data} isLoading={referrals.isLoading} label="Parrainage annonceurs" />
 
         <Quote tone="bounty" label={t("adv.nav.campaigns")}>{t("adv.quotes.pacing")}</Quote>
 
@@ -231,5 +237,60 @@ function AdvDashboard() {
         </Panel>
       </div>
     </AdvShell>
+  );
+}
+
+function PremiumPanel({ data }: { data: import("@/lib/types").AdvertiserStats | undefined }) {
+  const subscribe = useSubscribePremium();
+  const toggleAutoRenew = useTogglePremiumAutoRenew();
+
+  if (!data) return null;
+
+  const price = num(data.premiumMonthlyPrice) || 9.99;
+  const balance = num(data.balance);
+  const canAfford = balance >= price;
+  const expiresAt = data.premiumExpiresAt ? new Date(data.premiumExpiresAt) : null;
+
+  return (
+    <Panel className="border-bounty/40">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="flex items-center gap-2 text-sm font-bold text-bounty">
+            ✦ Premium {data.isPremium && <span className="rounded-full bg-bounty/15 px-2 py-0.5 text-xs">Actif</span>}
+          </p>
+          <p className="mt-1 text-sm text-paper-dim">
+            {data.isPremium
+              ? `Actif jusqu'au ${expiresAt?.toLocaleDateString("fr-FR") ?? "—"} · ${fmtMoney(price)}/mois, prélevé sur ton solde`
+              : `${fmtMoney(price)}/mois, prélevé sur ton solde. Débloque la génération d'affiches IA pour tes campagnes.`}
+          </p>
+          {!canAfford && !data.isPremium && (
+            <p className="mt-1 text-xs text-danger">Solde insuffisant ({fmtMoney(balance)} disponible).</p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {data.isPremium && (
+            <label className="flex items-center gap-2 text-xs text-paper-dim">
+              <input
+                type="checkbox"
+                checked={data.premiumAutoRenew}
+                onChange={(e) => toggleAutoRenew.mutate(e.target.checked)}
+              />
+              Renouvellement auto
+            </label>
+          )}
+          <Btn
+            disabled={subscribe.isPending || (!canAfford && !data.isPremium)}
+            onClick={() => subscribe.mutate()}
+          >
+            {subscribe.isPending ? "…" : data.isPremium ? "Renouveler maintenant" : "Passer Premium"}
+          </Btn>
+        </div>
+      </div>
+      {subscribe.isError && (
+        <p className="mt-2 text-xs text-danger">
+          {subscribe.error instanceof Error ? subscribe.error.message : "Une erreur est survenue."}
+        </p>
+      )}
+    </Panel>
   );
 }

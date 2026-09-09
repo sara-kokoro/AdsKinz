@@ -97,6 +97,7 @@ class LedgerEntryType(StrEnum):
     WITHDRAWAL_SETTLE = "withdrawal_settle"
     ADMIN_ADJUSTMENT = "admin_adjustment"
     PREMIUM_CHARGE = "premium_charge"
+    REFERRAL_COMMISSION = "referral_commission"
 
 
 class BillableEvent(StrEnum):
@@ -111,6 +112,7 @@ class AuditAction(StrEnum):
     CHANNEL_REJECTED = "channel_rejected"
     CHANNEL_SUSPENDED = "channel_suspended"
     CHANNEL_RESUMED = "channel_resumed"
+    CHANNEL_STARTED = "channel_started"
     MINI_APP_APPROVED = "mini_app_approved"
     MINI_APP_REJECTED = "mini_app_rejected"
     WITHDRAWAL_APPROVED = "withdrawal_approved"

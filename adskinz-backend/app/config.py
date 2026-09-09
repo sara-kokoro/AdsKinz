@@ -129,7 +129,7 @@ class Settings(BaseSettings):
     # differs from the OpenAI-compatible /chat/completions shape assumed
     # here, only MIXROUTER_BASE_URL / MIXROUTER_MODEL need to change.
     # ------------------------------------------------------------------ #
-    MIXROUTER_API_KEY: str = "sk-O7b9NAbi1NMEVJJoKAdHkosVp5NQOVZdLxcuGeXS0VPib3Qm"
+    MIXROUTER_API_KEY: str = ""
     MIXROUTER_BASE_URL: str = "https://api.mixrouter.ai/v1"
     MIXROUTER_MODEL: str = "gpt-4o-mini"
     MIXROUTER_TIMEOUT_SECONDS: float = 30.0
@@ -141,6 +141,10 @@ class Settings(BaseSettings):
     # provider is picked — not wired up yet, only the subscription itself).
     PREMIUM_MONTHLY_PRICE_USD: Decimal = Decimal("9.99")
     PREMIUM_PERIOD_DAYS: int = 30
+
+    # Referral program
+    REFERRAL_PUBLISHER_RATE: Decimal = Decimal("0.03")  # 3% of a referred publisher's earnings
+    REFERRAL_ADVERTISER_RATE: Decimal = Decimal("0.05")  # 5% of a referred advertiser's deposits
 
     # ------------------------------------------------------------------ #
     # Wallets — WATCH-ONLY deposit derivation (xpub) + sweep signing (xprv).

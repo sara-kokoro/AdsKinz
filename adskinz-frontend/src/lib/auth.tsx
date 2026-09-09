@@ -17,6 +17,7 @@ type AuthState = {
     role: Exclude<Role, "admin">;
     display_name?: string;
     telegram_username?: string;
+    ref?: string;
   }) => Promise<RegisterResponse>;
   verifyEmail: (email: string, code: string) => Promise<Role>;
   resendVerification: (email: string) => Promise<RegisterResponse>;

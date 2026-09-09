@@ -33,6 +33,7 @@ class RegisterRequest(RequestModel):
     role: Literal["advertiser", "publisher"] = "advertiser"
     display_name: str | None = Field(default=None, max_length=120)
     telegram_username: str | None = Field(default=None, max_length=64)
+    referral_code: str | None = Field(default=None, max_length=16, alias="ref")
 
     _check_password = field_validator("password")(_validate_password)
 

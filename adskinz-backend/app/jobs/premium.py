@@ -1,6 +1,6 @@
-"""Daily sweep for publisher premium subscriptions.
+"""Daily sweep for advertiser premium subscriptions (AI poster generation).
 
-For every publisher whose premium period has ended:
+For every advertiser whose premium period has ended:
 - if premium_auto_renew and the balance covers PREMIUM_MONTHLY_PRICE_USD,
   charge them for another period (same billing_service.charge_premium path
   as the manual "Subscribe" button);
@@ -16,7 +16,7 @@ from sqlalchemy import select
 
 from app.core.errors import InsufficientBalanceError
 from app.database import session_scope
-from app.models.accounts import Publisher
+from app.models.accounts import Advertiser
 from app.services import billing_service
 
 logger = logging.getLogger(__name__)
@@ -27,13 +27,13 @@ async def premium_renewal() -> dict:
     summary = {"renewed": 0, "expired": 0}
 
     async with session_scope() as session:
-        publishers = (
+        advertisers = (
             (
                 await session.execute(
-                    select(Publisher).where(
-                        Publisher.is_premium.is_(True),
-                        Publisher.premium_expires_at.is_not(None),
-                        Publisher.premium_expires_at <= now,
+                    select(Advertiser).where(
+                        Advertiser.is_premium.is_(True),
+                        Advertiser.premium_expires_at.is_not(None),
+                        Advertiser.premium_expires_at <= now,
                     )
                 )
             )
@@ -41,15 +41,15 @@ async def premium_renewal() -> dict:
             .all()
         )
 
-        for publisher in publishers:
-            if publisher.premium_auto_renew:
+        for advertiser in advertisers:
+            if advertiser.premium_auto_renew:
                 try:
-                    await billing_service.charge_premium(session, publisher=publisher)
+                    await billing_service.charge_premium(session, advertiser=advertiser)
                     summary["renewed"] += 1
                     continue
                 except InsufficientBalanceError:
-                    logger.info("premium.renewal_failed_balance publisher_id=%s", publisher.id)
-            await billing_service.expire_premium(session, publisher=publisher)
+                    logger.info("premium.renewal_failed_balance advertiser_id=%s", advertiser.id)
+            await billing_service.expire_premium(session, advertiser=advertiser)
             summary["expired"] += 1
 
     return summary

@@ -32,6 +32,7 @@ from app.core.errors import (
     ConflictError,
     NotFoundError,
 )
+from app.models.accounts import Advertiser
 from app.models.campaigns import (
     Campaign,
     CampaignDailySpend,
@@ -42,6 +43,7 @@ from app.models.campaigns import (
 )
 from app.models.placements import Channel
 from app.models.tracking import ScheduledPost
+from app.schemas.common import ReferralSummaryResponse
 from app.schemas.advertiser import (
     AdvertiserStatsResponse,
     CampaignCreateRequest,
@@ -489,7 +491,62 @@ async def stats(
         activeCampaigns=int(active_count or 0),
         pendingCampaigns=int(pending_count or 0),
         daily=daily,
+        isPremium=advertiser.is_premium,
+        premiumExpiresAt=advertiser.premium_expires_at,
+        premiumAutoRenew=advertiser.premium_auto_renew,
+        premiumMonthlyPrice=settings.PREMIUM_MONTHLY_PRICE_USD,
     )
+
+
+@router.get(
+    "/referrals",
+    response_model=ReferralSummaryResponse,
+    summary="My referral code, link, and commissions earned from invited advertisers",
+)
+async def my_referrals(advertiser: CurrentAdvertiserDep, session: SessionDep) -> ReferralSummaryResponse:
+    from app.services import referral_service
+
+    summary = await referral_service.referral_summary(session, model=Advertiser, account=advertiser)
+    await session.commit()
+    return ReferralSummaryResponse(
+        code=summary["code"],
+        link=f"{settings.PUBLIC_BASE_URL}/login?role=advertiser&ref={summary['code']}",
+        referredCount=summary["referredCount"],
+        totalEarned=summary["totalEarned"],
+        commissionRate=settings.REFERRAL_ADVERTISER_RATE,
+    )
+
+
+@router.post(
+    "/premium/subscribe",
+    response_model=AdvertiserStatsResponse,
+    summary="Activate or renew premium (charged from balance) — unlocks AI poster generation",
+)
+async def subscribe_premium(
+    advertiser: CurrentAdvertiserDep, session: SessionDep
+) -> AdvertiserStatsResponse:
+    locked = await session.get(Advertiser, advertiser.id, with_for_update=True)
+    if locked is None:
+        raise BusinessRuleError("Advertiser not found.")
+    await billing_service.charge_premium(session, advertiser=locked)
+    await session.commit()
+    return await stats(advertiser=locked, session=session)
+
+
+@router.post(
+    "/premium/auto-renew",
+    response_model=AdvertiserStatsResponse,
+    summary="Toggle premium auto-renew",
+)
+async def toggle_premium_auto_renew(
+    payload: dict, advertiser: CurrentAdvertiserDep, session: SessionDep
+) -> AdvertiserStatsResponse:
+    locked = await session.get(Advertiser, advertiser.id, with_for_update=True)
+    if locked is None:
+        raise BusinessRuleError("Advertiser not found.")
+    locked.premium_auto_renew = bool(payload.get("autoRenew", True))
+    await session.commit()
+    return await stats(advertiser=locked, session=session)
 
 
 # --------------------------------------------------------------------------- #

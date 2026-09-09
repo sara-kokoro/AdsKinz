@@ -11,6 +11,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    ForeignKey,
     Index,
     Integer,
     Numeric,
@@ -57,6 +58,20 @@ class Advertiser(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
         server_default=hd_wallet_index_seq.next_value(),
     )
 
+    # Premium tier (AI poster/creative generation for ad campaigns, $9.99/mo
+    # — charged against balance_usd, see billing_service.charge_premium).
+    is_premium: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    premium_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    premium_auto_renew: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+
+    # Referral program: this advertiser's own shareable code, and who
+    # referred them in (if anyone). The referrer earns REFERRAL_ADVERTISER_RATE
+    # of every deposit this account makes — see billing_service.credit_deposit.
+    referral_code: Mapped[str | None] = mapped_column(String(16), unique=True)
+    referred_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("advertisers.id", ondelete="SET NULL")
+    )
+
     is_blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     blocked_reason: Mapped[str | None] = mapped_column(Text)
     email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
@@ -90,6 +105,14 @@ class Publisher(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
     telegram_username: Mapped[str | None] = mapped_column(String(64))
     country: Mapped[str | None] = mapped_column(String(64))
 
+    # Referral program: this publisher's own shareable code, and who
+    # referred them in (if anyone). The referrer earns REFERRAL_PUBLISHER_RATE
+    # of every earning this account gets — see billing_service.credit_publisher.
+    referral_code: Mapped[str | None] = mapped_column(String(16), unique=True)
+    referred_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("publishers.id", ondelete="SET NULL")
+    )
+
     # Withdrawable right now.
     available_balance_usd: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), nullable=False, default=Decimal("0.00"), server_default="0"
@@ -112,12 +135,6 @@ class Publisher(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
     email_verification_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_ip_hash: Mapped[str | None] = mapped_column(String(64))
-
-    # Premium tier (poster/creative generation for publishers, $9.99/mo —
-    # charged against available_balance_usd, see billing_service.charge_premium).
-    is_premium: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
-    premium_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    premium_auto_renew: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
     channels: Mapped[list["Channel"]] = relationship(
         back_populates="publisher", cascade="all, delete-orphan", lazy="noload"

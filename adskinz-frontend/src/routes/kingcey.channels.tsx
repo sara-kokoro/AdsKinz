@@ -1,11 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AdminShell } from "@/components/workspaces";
 import {
-  Btn, EmptyState, ErrorBanner, LoadMoreSentinel, Panel, RowSkeleton, StatusPill, fmtInt, fmtMoney, inputCls,
+  Btn, EmptyState, ErrorBanner, LoadMoreSentinel, Modal, Panel, RowSkeleton, StatusPill, fmtDate, fmtInt, fmtMoney, inputCls,
 } from "@/components/kit";
-import { useAdminChannelsCatalog, useAdminQueue, useModerate, useResumeChannelAdmin, useScanChannelCategories, useSuspendChannelAdmin } from "@/lib/queries";
+import {
+  useAdminChannelDetail,
+  useAdminChannelsCatalog,
+  useAdminQueue,
+  useModerate,
+  useResumeChannelAdmin,
+  useScanChannelCategories,
+  useStartChannelAdmin,
+  useSuspendChannelAdmin,
+} from "@/lib/queries";
 import { ApiError, num } from "@/lib/api";
 import { useAuthGuard } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -40,7 +50,7 @@ type QueueChannel = {
   categorySource: string | null;
 };
 
-function Row({ k, v }: { k: string; v: string }) {
+function Row({ k, v }: { k: string; v: ReactNode }) {
   return (
     <div className="flex flex-wrap justify-between gap-2 border-b border-seam py-2 text-sm last:border-0">
       <span className="text-paper-dim">{k}</span>
@@ -177,6 +187,7 @@ function PendingChannels() {
 
 function ChannelCatalog() {
   const [search, setSearch] = useState("");
+  const [detailId, setDetailId] = useState<string | null>(null);
   const { data, isLoading, isError, isFetchingNextPage, fetchNextPage, hasNextPage, refetch } =
     useAdminChannelsCatalog(search);
   const suspend = useSuspendChannelAdmin();
@@ -208,8 +219,12 @@ function ChannelCatalog() {
           <ul className="divide-y divide-seam">
             {items.map((c) => (
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                <div className="min-w-0">
-                  <p className="truncate font-bold">{c.name}</p>
+                <button
+                  type="button"
+                  onClick={() => setDetailId(c.id)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <p className="truncate font-bold hover:underline">{c.name}</p>
                   <p className="text-xs text-paper-dim">{c.publisherEmail}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     <StatusPill status={c.status} />
@@ -221,7 +236,7 @@ function ChannelCatalog() {
                       </span>
                     )}
                   </div>
-                </div>
+                </button>
                 <div className="flex shrink-0 items-center gap-2">
                   {c.status === "suspended" ? (
                     <Btn tone="bounty" disabled={resume.isPending} onClick={() => resume.mutate(c.id)}>
@@ -243,6 +258,63 @@ function ChannelCatalog() {
           />
         </Panel>
       )}
+      <ChannelDetailModal id={detailId} onClose={() => setDetailId(null)} />
     </div>
+  );
+}
+
+function ChannelDetailModal({ id, onClose }: { id: string | null; onClose: () => void }) {
+  const { t } = useTranslation();
+  const { data, isLoading, isError, refetch } = useAdminChannelDetail(id);
+  const start = useStartChannelAdmin();
+
+  return (
+    <Modal open={Boolean(id)} onClose={onClose} title={data?.name ?? "…"} wide>
+      {isError && <ErrorBanner onRetry={refetch} />}
+      {isLoading || !data ? (
+        <Panel className="p-0"><RowSkeleton rows={6} /></Panel>
+      ) : (
+        <div className="space-y-5">
+          <Panel>
+            <div className="grid gap-x-8 gap-y-1 md:grid-cols-2">
+              <Row k="Statut" v={<StatusPill status={data.status} />} />
+              <Row k={t("admin.publisher")} v={data.publisherEmail} />
+              <Row k={t("pub.subscribers")} v={fmtInt(data.subscribers)} />
+              <Row k={t("pub.form.lang")} v={data.declaredLanguage ?? "—"} />
+              <Row k={t("channelCategory.pick")} v={data.category ? t(`channelCategory.${data.category}`, { defaultValue: data.category }) : "—"} />
+              <Row k={t("pub.form.frequency")} v={`${data.maxAdsPerDay}${t("common.perDay")}`} />
+              <Row k={t("pub.form.publicLink")} v={data.publicLink ?? "—"} />
+              <Row k={t("admin.inviteLink")} v={data.privateLink ?? "—"} />
+              <Row k={t("pub.form.adminUsername")} v={data.adminUsername ?? "—"} />
+              {data.telegramUsername && (
+                <Row
+                  k="Contacter"
+                  v={
+                    <a href={`https://t.me/${data.telegramUsername}`} target="_blank" rel="noreferrer" className="text-signal hover:underline">
+                      @{data.telegramUsername}
+                    </a>
+                  }
+                />
+              )}
+              <Row k={t("admin.botAdmin")} v={data.botAdminVerified ? t("common.yes") : t("common.no")} />
+              <Row k="Généré (total)" v={fmtMoney(num(data.lifetimeEarnings))} />
+              <Row k="Inscrit le" v={data.createdAt ? fmtDate(data.createdAt) : "—"} />
+              <Row k="Démarré le" v={data.startedAt ? fmtDate(data.startedAt) : "—"} />
+              {data.description && <Row k="Description" v={data.description} />}
+            </div>
+          </Panel>
+          {data.status === "approved_not_started" && (
+            <Panel className="flex items-center justify-between gap-3">
+              <p className="text-sm text-paper-dim">
+                Ce canal est approuvé mais n'a pas encore démarré la diffusion.
+              </p>
+              <Btn tone="bounty" disabled={start.isPending} onClick={() => start.mutate(data.id)}>
+                {start.isPending ? "…" : "Démarrer"}
+              </Btn>
+            </Panel>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }

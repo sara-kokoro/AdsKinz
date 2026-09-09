@@ -39,9 +39,9 @@ from app.core.errors import (
 )
 from app.core.security import generate_kinz_key
 from app.models.finance import Withdrawal
-from app.models.accounts import Publisher
 from app.models.placements import Channel, MiniApp, PlacementDailyStat
 from app.models.tracking import Click, ScheduledPost
+from app.schemas.common import ReferralSummaryResponse
 from app.schemas.publisher import (
     BotStatusItem,
     BotStatusResponse,
@@ -912,6 +912,25 @@ async def create_withdrawal(
 # Stats
 # --------------------------------------------------------------------------- #
 @router.get(
+    "/referrals",
+    response_model=ReferralSummaryResponse,
+    summary="My referral code, link, and commissions earned from invited publishers",
+)
+async def my_referrals(publisher: CurrentPublisherDep, session: SessionDep) -> ReferralSummaryResponse:
+    from app.services import referral_service
+
+    summary = await referral_service.referral_summary(session, model=Publisher, account=publisher)
+    await session.commit()
+    return ReferralSummaryResponse(
+        code=summary["code"],
+        link=f"{settings.PUBLIC_BASE_URL}/login?role=publisher&ref={summary['code']}",
+        referredCount=summary["referredCount"],
+        totalEarned=summary["totalEarned"],
+        commissionRate=settings.REFERRAL_PUBLISHER_RATE,
+    )
+
+
+@router.get(
     "/channel-categories",
     summary="Fixed list of channel content categories for the custom dropdown",
 )
@@ -1001,40 +1020,4 @@ async def stats(
         activeChannels=int(active_channels or 0),
         activeMiniApps=int(active_mini_apps or 0),
         daily=daily,
-        isPremium=publisher.is_premium,
-        premiumExpiresAt=publisher.premium_expires_at,
-        premiumAutoRenew=publisher.premium_auto_renew,
-        premiumMonthlyPrice=settings.PREMIUM_MONTHLY_PRICE_USD,
     )
-
-
-@router.post(
-    "/premium/subscribe",
-    response_model=PublisherStatsResponse,
-    summary="Activate or renew premium (charged from available balance)",
-)
-async def subscribe_premium(
-    publisher: CurrentPublisherDep, session: SessionDep
-) -> PublisherStatsResponse:
-    locked = await session.get(Publisher, publisher.id, with_for_update=True)
-    if locked is None:
-        raise BusinessRuleError("Publisher not found.")
-    await billing_service.charge_premium(session, publisher=locked)
-    await session.commit()
-    return await stats(publisher=locked, session=session)
-
-
-@router.post(
-    "/premium/auto-renew",
-    response_model=PublisherStatsResponse,
-    summary="Toggle premium auto-renew",
-)
-async def toggle_premium_auto_renew(
-    payload: dict, publisher: CurrentPublisherDep, session: SessionDep
-) -> PublisherStatsResponse:
-    locked = await session.get(Publisher, publisher.id, with_for_update=True)
-    if locked is None:
-        raise BusinessRuleError("Publisher not found.")
-    locked.premium_auto_renew = bool(payload.get("autoRenew", True))
-    await session.commit()
-    return await stats(publisher=locked, session=session)

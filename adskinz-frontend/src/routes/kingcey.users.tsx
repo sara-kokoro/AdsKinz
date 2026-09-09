@@ -158,6 +158,21 @@ function UserDetailModal({
                 <StatusPill status={data.isBlocked ? "blocked" : "active"} />
               </div>
               <div className="flex justify-between border-b border-seam py-2 text-sm">
+                <span className="text-paper-dim">Username Telegram</span>
+                {data.telegramUsername ? (
+                  <a
+                    href={`https://t.me/${data.telegramUsername.replace(/^@/, "")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-signal hover:underline"
+                  >
+                    @{data.telegramUsername.replace(/^@/, "")}
+                  </a>
+                ) : (
+                  <span className="font-semibold text-paper-dim">—</span>
+                )}
+              </div>
+              <div className="flex justify-between border-b border-seam py-2 text-sm">
                 <span className="text-paper-dim">Solde</span>
                 <span className="num font-semibold">{fmtMoney(num(data.balance))}</span>
               </div>

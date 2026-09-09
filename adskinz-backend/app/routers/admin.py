@@ -41,6 +41,7 @@ from app.models.finance import Bep20Sweep, Deposit, PlatformRevenue, WalletAddre
 from app.models.placements import Channel, MiniApp
 from app.models.tracking import Anomaly, AuditLog
 from app.schemas.admin import (
+    AdminChannelDetailResponse,
     AdminChannelItem,
     AdminChannelListResponse,
     AdminOverviewResponse,
@@ -405,6 +406,57 @@ async def list_channels(
         .all()
     )
     return AdminChannelListResponse(items=[_channel_catalog_item(row) for row in rows], total=total)
+
+
+@router.get(
+    "/channels/{channel_id}",
+    response_model=AdminChannelDetailResponse,
+    summary="Full details of a single channel",
+)
+async def admin_channel_detail(
+    channel_id: uuid.UUID, admin: CurrentAdminDep, session: SessionDep
+) -> AdminChannelDetailResponse:
+    channel = await session.get(Channel, channel_id, options=[selectinload(Channel.publisher)])
+    if channel is None:
+        raise NotFoundError("Channel not found.")
+    base = _channel_catalog_item(channel)
+    return AdminChannelDetailResponse(
+        **base.model_dump(),
+        status=channel.status,
+        description=channel.description,
+        privateLink=channel.private_invite_link,
+        adminUsername=channel.admin_username,
+        declaredLanguage=channel.declared_language,
+        maxAdsPerDay=channel.max_ads_per_day,
+        botAdminVerified=channel.bot_admin_verified,
+        startedAt=channel.started_at,
+    )
+
+
+@router.post(
+    "/channels/{channel_id}/start",
+    response_model=AdminChannelDetailResponse,
+    summary="Admin-triggered start of delivery on an approved channel",
+)
+async def admin_start_channel(
+    channel_id: uuid.UUID, admin: CurrentAdminDep, session: SessionDep, ip_hash: ClientIPHashDep
+) -> AdminChannelDetailResponse:
+    channel = await session.get(Channel, channel_id, options=[selectinload(Channel.publisher)])
+    if channel is None:
+        raise NotFoundError("Channel not found.")
+    channel = await moderation_service.start_channel(session, channel)
+    moderation_service.log_action(
+        session,
+        admin_id=admin.id,
+        action=AuditAction.CHANNEL_STARTED.value,
+        target_type="channel",
+        target_id=channel.id,
+        target_label=channel.name,
+        details={},
+        ip_hash=ip_hash,
+    )
+    await session.commit()
+    return await admin_channel_detail(channel_id, admin, session)
 
 
 @router.post(
@@ -1244,6 +1296,7 @@ def _user_item(account: Advertiser | Publisher, role: str) -> AdminUserItem:
         id=str(account.id),
         email=account.email,
         displayName=account.display_name,
+        telegramUsername=account.telegram_username,
         role=role,
         isBlocked=account.is_blocked,
         blockedReason=account.blocked_reason,

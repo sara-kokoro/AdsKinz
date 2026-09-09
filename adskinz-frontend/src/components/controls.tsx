@@ -174,6 +174,63 @@ export function CategoryDropdown({
   );
 }
 
+export function ReferralCard({
+  data,
+  isLoading,
+  label,
+}: {
+  data: { code: string; link: string; referredCount: number; totalEarned: string; commissionRate: string } | undefined;
+  isLoading: boolean;
+  label: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  if (isLoading || !data) {
+    return (
+      <div className="rounded-2xl border border-seam bg-panel p-5">
+        <div className="h-20 animate-pulse rounded-xl bg-panel-2" />
+      </div>
+    );
+  }
+
+  const ratePct = (Number(data.commissionRate) * 100).toFixed(0);
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(data.link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard API unavailable — user can still select the text manually
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-seam bg-panel p-5">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-bold text-signal">✦ {label}</p>
+          <p className="mt-1 text-sm text-paper-dim">
+            Gagne {ratePct}% en commission à vie sur chaque {label.toLowerCase().includes("annonceur") ? "dépôt" : "gain"} de tes invités.
+          </p>
+          <p className="num mt-2 text-xs text-paper-dim">
+            {data.referredCount} invité{data.referredCount !== 1 ? "s" : ""} · <span className="font-bold text-paper">${data.totalEarned}</span> gagné en commissions
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <code className="num rounded-lg border border-seam bg-panel-2 px-3 py-2 text-sm font-bold">{data.code}</code>
+          <button
+            type="button"
+            onClick={copyLink}
+            className="rounded-lg bg-signal px-3 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90"
+          >
+            {copied ? "Copié !" : "Copier le lien"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ThemeToggle() {
   const { mode, setMode } = useTheme();
   const { t } = useTranslation();

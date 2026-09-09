@@ -10,6 +10,7 @@ export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
     intent: search.intent === "addAccount" ? ("addAccount" as const) : undefined,
     role: search.role === "publisher" || search.role === "advertiser" ? search.role : undefined,
+    ref: typeof search.ref === "string" ? search.ref : undefined,
   }),
   head: () => ({
     meta: [
@@ -35,7 +36,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const addingAccount = search.intent === "addAccount";
-  const [mode, setMode] = useState<Mode>(addingAccount ? "register" : "login");
+  const [mode, setMode] = useState<Mode>(addingAccount || search.ref ? "register" : "login");
   const [step, setStep] = useState<Step>("login");
   const [accountRole, setAccountRole] = useState<"advertiser" | "publisher">(search.role ?? "advertiser");
   const [email, setEmail] = useState("");
@@ -116,6 +117,7 @@ function LoginPage() {
         role: accountRole,
         ...(displayName.trim() ? { display_name: displayName.trim() } : {}),
         ...(telegram.trim() ? { telegram_username: telegram.trim() } : {}),
+        ...(search.ref ? { ref: search.ref } : {}),
       });
       setDevCode(res.verification_code ?? null);
       setStep("verify");

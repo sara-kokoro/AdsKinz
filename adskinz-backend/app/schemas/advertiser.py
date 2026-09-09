@@ -318,6 +318,10 @@ class AdvertiserStatsResponse(APIModel):
     activeCampaigns: int = 0
     pendingCampaigns: int = 0
     daily: list[float] = Field(default_factory=list)
+    isPremium: bool = False
+    premiumExpiresAt: datetime | None = None
+    premiumAutoRenew: bool = True
+    premiumMonthlyPrice: Decimal = Decimal("9.99")
 
 
 class GenerateCopyResponse(APIModel):

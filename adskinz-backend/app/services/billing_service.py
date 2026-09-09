@@ -395,44 +395,55 @@ async def credit_publisher(
         reference_id=placement_id,
         description=f"{event_type} x{units}",
     )
-    return publisher
-
-
-async def charge_premium(session: AsyncSession, *, publisher: Publisher) -> Publisher:
-    """Debit PREMIUM_MONTHLY_PRICE_USD from the publisher's available
-    balance and (re)activate premium for PREMIUM_PERIOD_DAYS. Extends from
-    the current expiry if still active, otherwise from now."""
-    price = q2(settings.PREMIUM_MONTHLY_PRICE_USD)
-    if publisher.available_balance_usd < price:
-        raise InsufficientBalanceError(
-            f"Insufficient balance: ${publisher.available_balance_usd} available, "
-            f"${price} required for premium."
-        )
-
-    publisher.available_balance_usd = q2(publisher.available_balance_usd - price)
-
-    now = datetime.now(UTC)
-    base = publisher.premium_expires_at if publisher.premium_expires_at and publisher.premium_expires_at > now else now
-    publisher.premium_expires_at = base + timedelta(days=settings.PREMIUM_PERIOD_DAYS)
-    publisher.is_premium = True
-
-    add_ledger_entry(
+    await _pay_referral_commission(
         session,
-        account_type="publisher",
-        account_id=publisher.id,
-        entry_type=LedgerEntryType.PREMIUM_CHARGE.value,
-        amount=-price,
-        balance_after=publisher.available_balance_usd,
-        reference_type="premium_subscription",
-        reference_id=publisher.id,
-        description=f"Premium subscription, {settings.PREMIUM_PERIOD_DAYS} days",
+        model=Publisher,
+        account=publisher,
+        base_amount=amount,
+        rate=settings.REFERRAL_PUBLISHER_RATE,
+        balance_field="available_balance_usd",
+        reference_type=placement_type,
+        reference_id=placement_id,
     )
     return publisher
 
 
-async def expire_premium(session: AsyncSession, *, publisher: Publisher) -> None:
-    publisher.is_premium = False
-    publisher.premium_auto_renew = False
+async def charge_premium(session: AsyncSession, *, advertiser: Advertiser) -> Advertiser:
+    """Debit PREMIUM_MONTHLY_PRICE_USD from the advertiser's balance and
+    (re)activate premium for PREMIUM_PERIOD_DAYS — unlocks AI poster/creative
+    generation for their campaigns. Extends from the current expiry if still
+    active, otherwise from now."""
+    price = q2(settings.PREMIUM_MONTHLY_PRICE_USD)
+    if advertiser.balance_usd < price:
+        raise InsufficientBalanceError(
+            f"Insufficient balance: ${advertiser.balance_usd} available, "
+            f"${price} required for premium."
+        )
+
+    advertiser.balance_usd = q2(advertiser.balance_usd - price)
+
+    now = datetime.now(UTC)
+    base = advertiser.premium_expires_at if advertiser.premium_expires_at and advertiser.premium_expires_at > now else now
+    advertiser.premium_expires_at = base + timedelta(days=settings.PREMIUM_PERIOD_DAYS)
+    advertiser.is_premium = True
+
+    add_ledger_entry(
+        session,
+        account_type="advertiser",
+        account_id=advertiser.id,
+        entry_type=LedgerEntryType.PREMIUM_CHARGE.value,
+        amount=-price,
+        balance_after=advertiser.balance_usd,
+        reference_type="premium_subscription",
+        reference_id=advertiser.id,
+        description=f"Premium subscription, {settings.PREMIUM_PERIOD_DAYS} days",
+    )
+    return advertiser
+
+
+async def expire_premium(session: AsyncSession, *, advertiser: Advertiser) -> None:
+    advertiser.is_premium = False
+    advertiser.premium_auto_renew = False
 
 
 async def _bump_placement_daily(
@@ -471,6 +482,48 @@ async def _bump_placement_daily(
 # --------------------------------------------------------------------------- #
 # Deposits
 # --------------------------------------------------------------------------- #
+async def _pay_referral_commission(
+    session: AsyncSession,
+    *,
+    model: type[Advertiser] | type[Publisher],
+    account: Advertiser | Publisher,
+    base_amount: Decimal,
+    rate: Decimal,
+    balance_field: str,
+    reference_type: str,
+    reference_id: uuid.UUID,
+) -> None:
+    """If ``account`` was referred by someone, pay that referrer ``rate`` of
+    ``base_amount`` (a publisher earning, or an advertiser deposit)."""
+    if account.referred_by_id is None or base_amount <= 0:
+        return
+    referrer = await session.get(model, account.referred_by_id, with_for_update=True)
+    if referrer is None:
+        return
+
+    commission = q2(base_amount * rate)
+    if commission <= 0:
+        return
+
+    account_type = "publisher" if model is Publisher else "advertiser"
+    new_balance = q2(getattr(referrer, balance_field) + commission)
+    setattr(referrer, balance_field, new_balance)
+    if account_type == "publisher":
+        referrer.lifetime_earnings_usd = q2(referrer.lifetime_earnings_usd + commission)
+
+    add_ledger_entry(
+        session,
+        account_type=account_type,
+        account_id=referrer.id,
+        entry_type=LedgerEntryType.REFERRAL_COMMISSION.value,
+        amount=commission,
+        balance_after=new_balance,
+        reference_type=reference_type,
+        reference_id=reference_id,
+        description=f"Referral commission ({rate * 100:.0f}%) from {account.email}",
+    )
+
+
 async def credit_deposit(
     session: AsyncSession,
     *,
@@ -495,6 +548,16 @@ async def credit_deposit(
         reference_type="deposit",
         reference_id=reference_id,
         description=f"Deposit confirmed on {network}",
+    )
+    await _pay_referral_commission(
+        session,
+        model=Advertiser,
+        account=advertiser,
+        base_amount=net_amount,
+        rate=settings.REFERRAL_ADVERTISER_RATE,
+        balance_field="balance_usd",
+        reference_type="deposit",
+        reference_id=reference_id,
     )
     # A top-up may make previously paused campaigns servable again.
     advertiser.low_balance_alerted_at = None

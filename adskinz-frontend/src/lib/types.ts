@@ -103,6 +103,10 @@ export type AdvertiserStats = {
   activeCampaigns: number;
   pendingCampaigns: number;
   daily: number[];
+  isPremium: boolean;
+  premiumExpiresAt: string | null;
+  premiumAutoRenew: boolean;
+  premiumMonthlyPrice: string;
 };
 
 export type AdminChannelItem = {
@@ -120,10 +124,21 @@ export type AdminChannelItem = {
   categorySource: string | null;
 };
 
+export type AdminChannelDetail = AdminChannelItem & {
+  description: string | null;
+  privateLink: string | null;
+  adminUsername: string | null;
+  declaredLanguage: string | null;
+  maxAdsPerDay: number;
+  botAdminVerified: boolean;
+  startedAt: string | null;
+};
+
 export type AdminUserItem = {
   id: string;
   email: string;
   displayName: string | null;
+  telegramUsername: string | null;
   role: "advertiser" | "publisher";
   isBlocked: boolean;
   blockedReason: string | null;
@@ -306,10 +321,14 @@ export type PublisherStats = {
   activeChannels: number;
   activeMiniApps: number;
   daily: number[];
-  isPremium: boolean;
-  premiumExpiresAt: string | null;
-  premiumAutoRenew: boolean;
-  premiumMonthlyPrice: string;
+};
+
+export type ReferralSummary = {
+  code: string;
+  link: string;
+  referredCount: number;
+  totalEarned: string;
+  commissionRate: string;
 };
 
 export type AdminOverview = {

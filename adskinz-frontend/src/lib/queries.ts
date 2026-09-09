@@ -2,6 +2,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./api";
 import type {
+  AdminChannelDetail,
   AdminChannelItem,
   AdminOverview,
   AdminUserDetail,
@@ -26,6 +27,7 @@ import type {
   Paged,
   PublisherStats,
   Queue,
+  ReferralSummary,
   RecentPlacementsResponse,
   UserProfile,
   Withdrawal,
@@ -70,6 +72,30 @@ export function useAdvertiserStats() {
   return useQuery({
     queryKey: ["advertiser", "stats"],
     queryFn: () => apiFetch<AdvertiserStats>("/advertiser/stats"),
+  });
+}
+
+export function useAdvertiserReferrals() {
+  return useQuery({
+    queryKey: ["advertiser", "referrals"],
+    queryFn: () => apiFetch<ReferralSummary>("/advertiser/referrals"),
+  });
+}
+
+export function useSubscribePremium() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiFetch<AdvertiserStats>("/advertiser/premium/subscribe", { method: "POST" }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["advertiser", "stats"] }),
+  });
+}
+
+export function useTogglePremiumAutoRenew() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (autoRenew: boolean) =>
+      apiFetch<AdvertiserStats>("/advertiser/premium/auto-renew", { method: "POST", body: { autoRenew } }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["advertiser", "stats"] }),
   });
 }
 
@@ -228,20 +254,10 @@ export function usePublisherStats() {
   return useQuery({ queryKey: ["publisher", "stats"], queryFn: () => apiFetch<PublisherStats>("/publisher/stats") });
 }
 
-export function useSubscribePremium() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => apiFetch<PublisherStats>("/publisher/premium/subscribe", { method: "POST" }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher", "stats"] }),
-  });
-}
-
-export function useTogglePremiumAutoRenew() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (autoRenew: boolean) =>
-      apiFetch<PublisherStats>("/publisher/premium/auto-renew", { method: "POST", body: { autoRenew } }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["publisher", "stats"] }),
+export function usePublisherReferrals() {
+  return useQuery({
+    queryKey: ["publisher", "referrals"],
+    queryFn: () => apiFetch<ReferralSummary>("/publisher/referrals"),
   });
 }
 
@@ -489,6 +505,24 @@ export function useAdminUserDetail(role: "advertiser" | "publisher" | null, id: 
     queryKey: ["admin", "users", "detail", role, id],
     queryFn: () => apiFetch<AdminUserDetail>(`/admin/users/${role}/${id}`),
     enabled: Boolean(role && id),
+  });
+}
+
+export function useAdminChannelDetail(id: string | null) {
+  return useQuery({
+    queryKey: ["admin", "channels", "detail", id],
+    queryFn: () => apiFetch<AdminChannelDetail>(`/admin/channels/${id}`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useStartChannelAdmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<AdminChannelDetail>(`/admin/channels/${id}/start`, { method: "POST" }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["admin", "channels"] });
+    },
   });
 }
 

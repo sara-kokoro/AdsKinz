@@ -100,3 +100,11 @@ class SparklinePoint(APIModel):
 class MoneyAmount(APIModel):
     amount: Decimal = Field(ge=0)
     currency: str = "USDT"
+
+
+class ReferralSummaryResponse(APIModel):
+    code: str
+    link: str
+    referredCount: int
+    totalEarned: Decimal
+    commissionRate: Decimal

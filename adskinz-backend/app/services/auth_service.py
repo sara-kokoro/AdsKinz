@@ -132,6 +132,7 @@ async def register(
     role: Role,
     display_name: str | None = None,
     telegram_username: str | None = None,
+    referral_code: str | None = None,
     ip_hash: str | None = None,
 ) -> RegisterResponse:
     """Create an unverified advertiser or publisher account.
@@ -140,6 +141,7 @@ async def register(
     sent to the email address. Admin accounts are never created here.
     """
     from app.config import settings
+    from app.services import referral_service
     from app.services.email_service import send_verification_code
 
     email = email.strip().lower()
@@ -157,12 +159,18 @@ async def register(
         telegram_username=telegram_username,
         last_login_ip_hash=ip_hash,
     )
+    if referral_code:
+        referrer = await referral_service.find_by_referral_code(session, model, referral_code)
+        if referrer is not None:
+            account.referred_by_id = referrer.id
     session.add(account)
     try:
         await session.flush()
     except IntegrityError as exc:
         await session.rollback()
         raise ConflictError("An account already exists with this email address.") from exc
+
+    await referral_service.ensure_referral_code(session, account)
 
     code = await _set_verification_code(session, account)
     await session.commit()

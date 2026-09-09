@@ -16,8 +16,9 @@ import {
 import { UsdtMark } from "@/components/usdt";
 import { ArtChannelPayout } from "@/components/illustrations";
 import { LottieAnimation } from "@/components/lottie-animation";
+import { ReferralCard } from "@/components/controls";
 import { num } from "@/lib/api";
-import { usePublisherStats, useSubscribePremium, useTogglePremiumAutoRenew } from "@/lib/queries";
+import { usePublisherReferrals, usePublisherStats } from "@/lib/queries";
 import { useAuthGuard } from "@/lib/auth";
 
 export const Route = createFileRoute("/partner/")({
@@ -36,6 +37,7 @@ function PubDashboard() {
   useAuthGuard("publisher");
   const { t } = useTranslation();
   const { data, isLoading, isError, refetch, isFetching } = usePublisherStats();
+  const referrals = usePublisherReferrals();
 
   const available = num(data?.availableBalance);
   const held = num(data?.heldBalance);
@@ -101,7 +103,7 @@ function PubDashboard() {
               ))}
         </div>
 
-        <PremiumPanel data={data} />
+        <ReferralCard data={referrals.data} isLoading={referrals.isLoading} label="Parrainage éditeurs" />
 
         <Panel className="p-0">
           <div className="p-5">
@@ -118,66 +120,5 @@ function PubDashboard() {
         <Quote tone="neutral" label={t("pub.nav.dashboard")}>{t("pub.quotes.quality")}</Quote>
       </div>
     </PubShell>
-  );
-}
-
-function PremiumPanel({ data }: { data: import("@/lib/types").PublisherStats | undefined }) {
-  const { t } = useTranslation();
-  const subscribe = useSubscribePremium();
-  const toggleAutoRenew = useTogglePremiumAutoRenew();
-
-  if (!data) return null;
-
-  const price = num(data.premiumMonthlyPrice) || 9.99;
-  const balance = num(data.availableBalance);
-  const canAfford = balance >= price;
-  const expiresAt = data.premiumExpiresAt ? new Date(data.premiumExpiresAt) : null;
-
-  return (
-    <Panel className="border-bounty/40">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="flex items-center gap-2 text-sm font-bold text-bounty">
-            ✦ Premium {data.isPremium && <span className="rounded-full bg-bounty/15 px-2 py-0.5 text-xs">Actif</span>}
-          </p>
-          <p className="mt-1 text-sm text-paper-dim">
-            {data.isPremium
-              ? `Actif jusqu'au ${expiresAt?.toLocaleDateString("fr-FR") ?? "—"} · ${fmtMoney(price)}/mois, prélevé sur ton solde`
-              : `${fmtMoney(price)}/mois, prélevé sur ton solde disponible. Débloque la génération d'affiches pour tes canaux.`}
-          </p>
-          {!canAfford && !data.isPremium && (
-            <p className="mt-1 text-xs text-danger">Solde insuffisant ({fmtMoney(balance)} disponible).</p>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {data.isPremium && (
-            <label className="flex items-center gap-2 text-xs text-paper-dim">
-              <input
-                type="checkbox"
-                checked={data.premiumAutoRenew}
-                onChange={(e) => toggleAutoRenew.mutate(e.target.checked)}
-              />
-              Renouvellement auto
-            </label>
-          )}
-          <Btn
-            tone="bounty"
-            disabled={subscribe.isPending || (!canAfford && !data.isPremium)}
-            onClick={() => subscribe.mutate()}
-          >
-            {subscribe.isPending
-              ? "…"
-              : data.isPremium
-                ? "Renouveler maintenant"
-                : "Passer Premium"}
-          </Btn>
-        </div>
-      </div>
-      {subscribe.isError && (
-        <p className="mt-2 text-xs text-danger">
-          {subscribe.error instanceof Error ? subscribe.error.message : "Une erreur est survenue."}
-        </p>
-      )}
-    </Panel>
   );
 }
