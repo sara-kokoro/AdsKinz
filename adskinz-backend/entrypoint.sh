@@ -12,6 +12,7 @@ from app.config import settings
 
 async def main():
     url = settings.DATABASE_URL.replace('?ssl=require', '').replace('&ssl=require', '')
+    url = url.replace('postgresql+asyncpg://', 'postgresql://', 1)
     url = url.replace('postgresql://', 'postgres://', 1)
     ssl = 'require' if 'ssl=require' in settings.DATABASE_URL else None
     conn = await asyncpg.connect(url, ssl=ssl)
