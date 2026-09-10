@@ -16,9 +16,8 @@ import {
 import { UsdtMark } from "@/components/usdt";
 import { ArtChannelPayout } from "@/components/illustrations";
 import { LottieAnimation } from "@/components/lottie-animation";
-import { ReferralCard } from "@/components/controls";
 import { num } from "@/lib/api";
-import { usePublisherReferrals, usePublisherStats } from "@/lib/queries";
+import { usePublisherStats } from "@/lib/queries";
 import { useAuthGuard } from "@/lib/auth";
 
 export const Route = createFileRoute("/partner/")({
@@ -37,7 +36,6 @@ function PubDashboard() {
   useAuthGuard("publisher");
   const { t } = useTranslation();
   const { data, isLoading, isError, refetch, isFetching } = usePublisherStats();
-  const referrals = usePublisherReferrals();
 
   const available = num(data?.availableBalance);
   const held = num(data?.heldBalance);
@@ -103,7 +101,14 @@ function PubDashboard() {
               ))}
         </div>
 
-        <ReferralCard data={referrals.data} isLoading={referrals.isLoading} label="Parrainage éditeurs" />
+        <Link
+          to="/partner/settings"
+          hash="referral"
+          className="flex items-center justify-between rounded-2xl border border-seam bg-panel px-5 py-4 text-sm font-semibold transition-colors hover:bg-panel-2"
+        >
+          <span>🎁 Programme de parrainage</span>
+          <span className="text-signal">Voir dans les paramètres →</span>
+        </Link>
 
         <Panel className="p-0">
           <div className="p-5">

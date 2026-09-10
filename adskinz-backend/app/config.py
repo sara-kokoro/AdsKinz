@@ -113,7 +113,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     OPENROUTER_API_KEY: str = "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"
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-    OPENROUTER_MODEL: str = "moonshotai/kimi-k2-thinking"
+    OPENROUTER_MODEL: str = "anthropic/claude-haiku-4.5"
     OPENROUTER_TIMEOUT_SECONDS: float = 30.0
     # OpenRouter asks integrators to send these two so usage shows up
     # attributed to the app in their dashboard; purely informational.

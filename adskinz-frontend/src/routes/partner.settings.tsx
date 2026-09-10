@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PubShell } from "@/components/workspaces";
 import { Btn, ErrorBanner, Field, FieldError, Panel, SectionTitle, inputCls } from "@/components/kit";
-import { LanguageSelect, ThemeToggle } from "@/components/controls";
+import { LanguageSelect, ReferralCard, ThemeToggle } from "@/components/controls";
 import { ApiError } from "@/lib/api";
 import { useAuth, useAuthGuard } from "@/lib/auth";
-import { useChangePassword, useMe, useUpdateProfile } from "@/lib/queries";
+import { useChangePassword, useMe, usePublisherReferrals, useUpdateProfile } from "@/lib/queries";
 
 export const Route = createFileRoute("/partner/settings")({
   head: () => ({
@@ -27,6 +27,7 @@ function SettingsPage() {
   const { data: me, isLoading, isError, refetch } = useMe();
   const updateProfile = useUpdateProfile();
   const changePassword = useChangePassword();
+  const referrals = usePublisherReferrals();
 
   const [displayName, setDisplayName] = useState("");
   const [telegramUsername, setTelegramUsername] = useState("");
@@ -130,6 +131,10 @@ function SettingsPage() {
             <div><p className="text-sm font-semibold">{t("common.theme")}</p><div className="mt-2"><ThemeToggle /></div></div>
           </div>
         </Panel>
+
+        <div id="referral" className="max-w-xl scroll-mt-24">
+          <ReferralCard data={referrals.data} isLoading={referrals.isLoading} label="Parrainage éditeurs" />
+        </div>
 
         <Panel className="max-w-xl">
           <Btn variant="secondary" tone="danger" onClick={logout}>Sign out</Btn>

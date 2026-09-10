@@ -18,8 +18,7 @@ import {
   fmtMoney,
 } from "@/components/kit";
 import { ArtCampaignBroadcast, ArtCampaignEmpty } from "@/components/illustrations";
-import { ReferralCard } from "@/components/controls";
-import { useAdvertiserReferrals, useAdvertiserStats, useCampaigns, useSubscribePremium, useTogglePremiumAutoRenew } from "@/lib/queries";
+import { useAdvertiserStats, useCampaigns, useSubscribePremium, useTogglePremiumAutoRenew } from "@/lib/queries";
 import { num } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useAuthGuard } from "@/lib/auth";
@@ -67,7 +66,6 @@ function Period() {
 function AdvDashboard() {
   const { t } = useTranslation();
   const stats = useAdvertiserStats();
-  const referrals = useAdvertiserReferrals();
   const campaignsQ = useCampaigns();
 
   const s = stats.data;
@@ -137,7 +135,14 @@ function AdvDashboard() {
 
         <PremiumPanel data={s} />
 
-        <ReferralCard data={referrals.data} isLoading={referrals.isLoading} label="Parrainage annonceurs" />
+        <Link
+          to="/traffic/settings"
+          hash="referral"
+          className="flex items-center justify-between rounded-2xl border border-seam bg-panel px-5 py-4 text-sm font-semibold transition-colors hover:bg-panel-2"
+        >
+          <span>🎁 Programme de parrainage</span>
+          <span className="text-signal">Voir dans les paramètres →</span>
+        </Link>
 
         <Quote tone="bounty" label={t("adv.nav.campaigns")}>{t("adv.quotes.pacing")}</Quote>
 
