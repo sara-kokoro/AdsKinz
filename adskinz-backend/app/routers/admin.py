@@ -422,7 +422,6 @@ async def admin_channel_detail(
     base = _channel_catalog_item(channel)
     return AdminChannelDetailResponse(
         **base.model_dump(),
-        status=channel.status,
         description=channel.description,
         privateLink=channel.private_invite_link,
         adminUsername=channel.admin_username,
