@@ -186,6 +186,7 @@ function PendingChannels() {
 }
 
 function ChannelCatalog() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
   const { data, isLoading, isError, isFetchingNextPage, fetchNextPage, hasNextPage, refetch } =
