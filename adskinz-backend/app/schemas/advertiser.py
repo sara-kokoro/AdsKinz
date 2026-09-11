@@ -78,8 +78,11 @@ class CampaignCreateRequest(RequestModel):
     # which is what actually moves money out of the advertiser's wallet.
     daily_budget: Decimal | None = Field(default=None, alias="dailyBudget")
     cpm_bid: Decimal = Field(alias="cpm")
-    # Advertisers can bid per click instead of per mille impressions.
-    cpc_bid: Decimal | None = Field(default=None, alias="cpc")
+    # Cost-per-click, chosen by the advertiser: settings.MIN_CPC_BID to
+    # settings.MAX_CPC_BID, defaulting to settings.DEFAULT_CPC_BID when not
+    # supplied. Used directly for click billing — no longer derived from
+    # cpm_bid.
+    cpc_bid: Decimal = Field(default_factory=lambda: settings.DEFAULT_CPC_BID, alias="cpc")
     image_url: str | None = Field(default=None, alias="imageUrl")
     ai_generated: bool = False
 
@@ -133,9 +136,7 @@ class CampaignCreateRequest(RequestModel):
 
     @field_validator("cpc_bid")
     @classmethod
-    def _cpc_range(cls, value: Decimal | None) -> Decimal | None:
-        if value is None:
-            return None
+    def _cpc_range(cls, value: Decimal) -> Decimal:
         value = value.quantize(Decimal("0.001"))
         if value < settings.MIN_CPC_BID or value > settings.MAX_CPC_BID:
             raise ValueError(

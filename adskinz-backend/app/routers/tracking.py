@@ -7,6 +7,14 @@ API, never at the frontend. Fraud scoring decides whether the click is
 billed, never whether the end user reaches the advertiser: blocking a real
 person because a heuristic misfired would be far worse than skipping one
 billable click.
+
+The redirect itself only ever waits on ONE fast, indexed lookup (the
+tracking link). Everything else — fraud scoring, the Click row, billing —
+runs as a background task *after* the 302 has already been sent, via its
+own database session (never the request's, which FastAPI tears down once
+the response finishes). That's the fix for the 4-10s redirect delay: the
+whole scoring+billing chain used to run in the request path itself, so the
+visitor's browser sat waiting on all of it before it ever got redirected.
 """
 
 from __future__ import annotations
@@ -15,12 +23,13 @@ import logging
 import re
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
 from app.config import settings
 from app.core.deps import ClientIPHashDep, SessionDep
+from app.database import session_scope
 from app.models.campaigns import Campaign
 from app.models.tracking import Click, TrackingLink
 from app.services import billing_service, fraud_service
@@ -49,6 +58,7 @@ async def track_click(
     request: Request,
     session: SessionDep,
     ip_hash: ClientIPHashDep,
+    background_tasks: BackgroundTasks,
 ) -> RedirectResponse:
     fallback = RedirectResponse(
         url=settings.PUBLIC_BASE_URL, status_code=_REDIRECT_STATUS, headers=_NO_STORE
@@ -57,6 +67,8 @@ async def track_click(
     if not _TRACKING_ID_RE.match(tracking_id):
         return fallback
 
+    # The only DB work the visitor actually waits on: one indexed lookup to
+    # find out where to send them.
     link = (
         await session.execute(
             select(TrackingLink).where(TrackingLink.tracking_id == tracking_id)
@@ -74,20 +86,49 @@ async def track_click(
         # The link still resolves for the user, it is simply no longer billable.
         return redirect
 
-    try:
-        await _record_click(
-            session,
-            link=link,
-            tracking_id=tracking_id,
-            ip_hash=ip_hash,
-            user_agent=request.headers.get("user-agent"),
-            referer=request.headers.get("referer"),
-        )
-    except Exception:  # noqa: BLE001 - a tracking failure must never break the redirect
-        logger.exception("tracking.record_failed tracking_id=%s", tracking_id)
-        await session.rollback()
+    # Scoring, the Click row, and billing all happen after this response is
+    # already on its way to the browser — the visitor never waits on any of
+    # it. Pass plain values, not the request-scoped `link`/`session`
+    # objects: both are torn down once this function returns, before the
+    # background task actually runs.
+    background_tasks.add_task(
+        _record_click_background,
+        link_id=link.id,
+        tracking_id=tracking_id,
+        ip_hash=ip_hash,
+        user_agent=request.headers.get("user-agent"),
+        referer=request.headers.get("referer"),
+    )
 
     return redirect
+
+
+async def _record_click_background(
+    *,
+    link_id,
+    tracking_id: str,
+    ip_hash: str | None,
+    user_agent: str | None,
+    referer: str | None,
+) -> None:
+    """Runs after the redirect has already been sent — its own session,
+    never the request's. A failure here must never surface to the visitor;
+    it already has its page."""
+    try:
+        async with session_scope() as session:
+            link = await session.get(TrackingLink, link_id)
+            if link is None:
+                return
+            await _record_click(
+                session,
+                link=link,
+                tracking_id=tracking_id,
+                ip_hash=ip_hash,
+                user_agent=user_agent,
+                referer=referer,
+            )
+    except Exception:  # noqa: BLE001 - a tracking failure must never propagate
+        logger.exception("tracking.record_failed tracking_id=%s", tracking_id)
 
 
 async def _record_click(
@@ -128,12 +169,11 @@ async def _record_click(
     )
 
     if billable and campaign.is_servable():
-        # Clicks are a bonus signal on top of CPM: they are charged at the
-        # configured click multiplier of the campaign's per-impression price.
-        cost = billing_service.q6(
-            billing_service.impression_cost(campaign.cpm_bid, 1)
-            * settings.CLICK_PRICE_MULTIPLIER
-        )
+        # Flat, advertiser-chosen cost per click (Campaign.cpc_bid, $0.01-
+        # $0.03) — not derived from cpm_bid, which used to make the
+        # per-click price swing with the CPM bid (a high-CPM campaign could
+        # be charged $0.83+ per click nobody had actually chosen).
+        cost = billing_service.q6(campaign.cpc_bid)
         result = await billing_service.charge_campaign(
             session,
             campaign=campaign,

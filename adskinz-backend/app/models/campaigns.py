@@ -52,7 +52,7 @@ class Campaign(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
             "daily_budget IS NULL OR daily_budget >= 1.80", name="daily_budget_min"
         ),
         CheckConstraint(
-            "cpc_bid IS NULL OR (cpc_bid >= 0.01 AND cpc_bid <= 0.03)", name="cpc_bid_range"
+            "cpc_bid >= 0.01 AND cpc_bid <= 0.03", name="cpc_bid_range"
         ),
         CheckConstraint("spent_usd >= 0", name="spent_non_negative"),
         Index("ix_campaigns_advertiser_status", "advertiser_id", "status"),
@@ -87,7 +87,9 @@ class Campaign(Base, UUIDPrimaryKeyMixin, TimestampMixin, UpdatedAtMixin):
     cpm_bid: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
     # Optional cost-per-click bid; when set, the ad can compete on a CPC
     # basis instead of (or alongside) the CPM auction.
-    cpc_bid: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+    cpc_bid: Mapped[Decimal] = mapped_column(
+        Numeric(6, 3), nullable=False, default=Decimal("0.01"), server_default="0.01"
+    )
     # Isolated budget actually reserved for this campaign, moved out of the
     # advertiser's wallet balance on creation (starts at 0) and on every
     # top-up. Never touched by the shared wallet again once reserved.
