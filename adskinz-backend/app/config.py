@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     LOG_LEVEL: str = "INFO"
     ENABLE_API_DOCS: bool = True
-    API_BASE_URL: str = "competent-rebekkah-davelam-58380a6b.koyeb.app"
+    API_BASE_URL: str = "https://competent-rebekkah-davelam-58380a6b.koyeb.app"
     PUBLIC_BASE_URL: str = "https://adskinz.me"
     # Dedicated short-link host for /+{tracking_id} redirects. Must point at
     # this API (a CNAME on the domain provider + a custom domain on Koyeb),
@@ -62,6 +62,13 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 20
     DB_POOL_RECYCLE: int = 1800
     DB_ECHO: bool = False
+    
+    # ── Relais de dépôts JessiKaPay ──
+    JKPAY_RELAY_SECRET: str = "d318961cbc24d3cdf5f86da50488e8a2f55196f976f4091b93e886c2194e4422"          # même valeur que côté jessicapay-backend, à mettre dans .env
+    JKPAY_BACKEND_URL: str = "https://preferred-antonia-youtub-c1a62de8.koyeb.app"           # URL publique de jessicapay-backend (ex: API_BASE_URL de JessiKaPay)
+    PUBLIC_API_BASE_URL: str = "https://competent-rebekkah-davelam-58380a6b.koyeb.app"         # URL publique de adskinz-backend lui-même (avec https://)
+    MONEYFUSION_RELAY_API_URL: str = "https://pay.moneyfusion.net/Adskinz/b65280b02d9e160d/pay/"   # = MONEYFUSION_API_URL de jessicapay-backend/app/config.py
+
 
     # ------------------------------------------------------------------ #
     # Redis — cache, distributed locks, rate limiting, fraud dedup
