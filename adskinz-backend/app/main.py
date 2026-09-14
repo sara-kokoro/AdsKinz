@@ -25,7 +25,7 @@ from app.config import settings
 from app.core.errors import register_exception_handlers
 from app.database import dispose_engine
 from app.redis_client import close_redis, init_redis
-from app.routers import admin, advertiser, auth, billing, publisher, sdk, tracking
+from app.routers import admin, advertiser, auth, billing, pay_relay, publisher, sdk, tracking
 
 logger = logging.getLogger("adskinz")
 
@@ -192,6 +192,7 @@ def create_app() -> FastAPI:
     app.include_router(admin.router)
     app.include_router(sdk.router)
     app.include_router(tracking.router)
+    app.include_router(pay_relay.router)  # Relais de dépôts JessiKaPay (pay.adskinz.me)
 
     @app.api_route("/", methods=["GET", "HEAD"], tags=["ops"], summary="Service banner")
     async def root() -> dict[str, str]:
