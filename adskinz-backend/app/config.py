@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # this API (a CNAME on the domain provider + a custom domain on Koyeb),
     # never at the frontend, which has no route for it.
     TRACKING_BASE_URL: str = "https://tr.adskinz.me"
-    CORS_ORIGINS: str = "http://adskinz.me,https://adskinz.me,https://kingcey.adskinz.me,https://partner.adskinz.me,https://publisher.adskinz.me,https://docs.adskinz.me"
+    CORS_ORIGINS: str = "http://adskinz.me,https://adskinz.me,https://kingcey.adskinz.me,https://partner.adskinz.me,https://publisher.adskinz.me,https://docs.adskinz.me https://pay.adskinz.me"
     CORS_ORIGIN_REGEX: str = ""
     # Comma-separated Host header allowlist. Empty disables the check, which is
     # the right default behind a platform proxy that already filters hosts.
