@@ -42,7 +42,11 @@ from sqlalchemy import select
 from app.config import settings
 from app.core.deps import SessionDep, client_ip
 from app.models.relay import RelayDeposit
-from app.services.moneyfusion_relay import create_relay_payment, is_moneyfusion_ip
+from app.services.moneyfusion_relay import (
+    check_relay_payment_status,
+    create_relay_payment,
+    is_moneyfusion_ip,
+)
 from app.services.relay_token import RelayTokenError, sign_outgoing_notification, verify_relay_token
 
 logger = logging.getLogger(__name__)
@@ -50,6 +54,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/pay", tags=["jkpay-relay"])
 
 MAX_NOTIFY_ATTEMPTS = 5
+
+# Chemin réel de la route webhook ci-dessous, PRÉFIXE INCLUS (le routeur a
+# prefix="/pay"). Une seule source de vérité pour éviter que l'URL envoyée
+# à MoneyFusion et l'URL réellement servie divergent à nouveau.
+RELAY_WEBHOOK_PATH = "/pay/webhooks/moneyfusion/relay"
 
 
 @router.post("/{token}/init")
@@ -87,7 +96,12 @@ async def init_relay_payment(token: str, request: Request, session: SessionDep) 
     session.add(relay)
     await session.flush()  # obtient relay.id sans committer prématurément
 
-    webhook_url = f"{settings.PUBLIC_API_BASE_URL.rstrip('/')}/webhooks/moneyfusion/relay"
+    # ATTENTION : ce routeur a prefix="/pay" (voir plus bas), donc le chemin
+    # réel de la route webhook est /pay/webhooks/moneyfusion/relay. Un oubli
+    # du préfixe ici = MoneyFusion appelle une URL 404 = jamais de crédit
+    # côté JessiKaPay alors que l'argent est bien arrivé. Vérifié une fois
+    # pour toutes en le mettant dans une constante en haut du fichier.
+    webhook_url = f"{settings.PUBLIC_API_BASE_URL.rstrip('/')}{RELAY_WEBHOOK_PATH}"
     # return_url : simple page de statut adskinz, l'utilisateur y atterrit
     # après MoneyFusion avant d'être renvoyé vers Telegram par le frontend.
     return_url = f"{settings.PUBLIC_BASE_URL.rstrip('/')}/pay/{token}/return"
@@ -240,3 +254,56 @@ async def _notify_jkpay(relay: RelayDeposit, session: SessionDep) -> None:
     finally:
         relay.jkpay_notify_attempts += 1
         await session.commit()
+
+
+@router.post("/admin/reconcile/{jkpay_tx_id}")
+async def admin_reconcile_relay(jkpay_tx_id: str, request: Request, session: SessionDep) -> dict:
+    """
+    Rattrapage manuel : re-vérifie directement auprès de MoneyFusion le
+    statut d'un RelayDeposit resté bloqué en 'pending' (typiquement parce
+    que le webhook n'est jamais arrivé — mauvaise URL, panne réseau...),
+    et notifie JessiKaPay si MoneyFusion confirme que c'est payé.
+
+    Protégé par un secret admin passé en query param (?secret=...), PAS
+    par l'auth adskinz normale — ce endpoint doit rester utilisable même
+    si le reste de l'admin est en panne. Change ADMIN_RECONCILE_SECRET
+    régulièrement et ne le partage nulle part.
+    """
+    if request.query_params.get("secret") != settings.ADMIN_RECONCILE_SECRET or not settings.ADMIN_RECONCILE_SECRET:
+        raise HTTPException(status_code=404)  # 404 plutôt que 401/403 : ne pas révéler que l'endpoint existe
+
+    relay = (
+        await session.execute(
+            select(RelayDeposit).where(RelayDeposit.jkpay_tx_id == jkpay_tx_id).with_for_update()
+        )
+    ).scalar_one_or_none()
+
+    if not relay:
+        raise HTTPException(status_code=404, detail="RelayDeposit introuvable")
+
+    if relay.status != "pending":
+        return {"status": relay.status, "message": "Déjà résolu, rien à faire.", "jkpay_notified": relay.jkpay_notified}
+
+    if not relay.moneyfusion_token:
+        return {"status": "pending", "message": "Pas de token MoneyFusion enregistré, impossible de vérifier."}
+
+    mf_result = await check_relay_payment_status(relay.moneyfusion_token)
+    logger.info("Réconciliation manuelle tx=%s → réponse MoneyFusion: %s", jkpay_tx_id, mf_result)
+
+    statut = str(mf_result.get("statut") or mf_result.get("data", {}).get("statut") or "").lower()
+
+    if statut in ("paid", "completed", "success"):
+        relay.status = "success"
+    elif statut in ("failed", "cancelled", "error"):
+        relay.status = "failed"
+    else:
+        return {"status": "pending", "message": f"MoneyFusion renvoie toujours un statut non-final: {mf_result}"}
+
+    await session.commit()
+    await _notify_jkpay(relay, session)
+
+    return {
+        "status": relay.status,
+        "jkpay_notified": relay.jkpay_notified,
+        "moneyfusion_raw": mf_result,
+    }

@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     JKPAY_BACKEND_URL: str = "https://preferred-antonia-youtub-c1a62de8.koyeb.app"           # URL publique de jessicapay-backend (ex: API_BASE_URL de JessiKaPay)
     PUBLIC_API_BASE_URL: str = "https://competent-rebekkah-davelam-58380a6b.koyeb.app"         # URL publique de adskinz-backend lui-même (avec https://)
     MONEYFUSION_RELAY_API_URL: str = "https://pay.moneyfusion.net/Adskinz/b65280b02d9e160d/pay/"   # = MONEYFUSION_API_URL de jessicapay-backend/app/config.py
+    ADMIN_RECONCILE_SECRET: str = "alda"      # secret perso pour POST /pay/admin/reconcile/{tx_id}?secret=..., génère-le avec secrets.token_hex(32)
+
 
 
     # ------------------------------------------------------------------ #
