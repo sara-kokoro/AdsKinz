@@ -160,17 +160,24 @@ async def record_anomaly(
 ) -> Anomaly | None:
     """Persist a finding, de-duplicated over a 24 hour window."""
     since = datetime.now(UTC) - timedelta(hours=24)
+    # `.first()` rather than `.scalar_one_or_none()`: when the scheduler runs
+    # without its Redis lock (or on several workers), two runs can insert the
+    # same finding concurrently, and a strict "at most one row" read would then
+    # crash the whole fraud scan on every tick from that point on.
     existing = (
         await session.execute(
-            select(Anomaly).where(
+            select(Anomaly)
+            .where(
                 Anomaly.kind == kind,
                 Anomaly.subject_id == subject_id,
                 Anomaly.reason == reason,
                 Anomaly.detected_at >= since,
                 Anomaly.resolved.is_(False),
             )
+            .order_by(Anomaly.detected_at.asc())
+            .limit(1)
         )
-    ).scalar_one_or_none()
+    ).scalars().first()
     if existing is not None:
         existing.score = max(existing.score, score)
         return existing

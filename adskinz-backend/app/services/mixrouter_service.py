@@ -1,5 +1,9 @@
 """MixRouter LLM service: default provider for AI ad-copy generation.
 
+It also proofreads campaign translations (``review_translation``): the text
+itself is translated by deep-translator, and MixRouter double-checks the
+result and its HTML markup before it is stored.
+
 This mirrors ``openrouter_service.py`` on purpose — OpenRouter stays wired
 up as the alternate provider (advertiser picks GPT or Grok from the
 wizard) and as the automatic fallback if a MixRouter call fails, so both
@@ -41,6 +45,27 @@ _EMOJIFY_SYSTEM_PROMPT = (
     "call to action). Use at most 4 emojis total, never two in a row. "
     "Return only the updated text, no preamble, no quotes. The result MUST "
     "stay under {limit} characters total."
+)
+
+_REVIEW_SYSTEM_PROMPT = (
+    "You are a bilingual proofreader for Telegram advertising written in Telegram "
+    "HTML. You receive an ORIGINAL ad and a MACHINE TRANSLATION of it, and you "
+    "return the corrected translation.\n"
+    "Rules:\n"
+    "1. Keep every HTML tag exactly as in the original: same tags, same order, "
+    "same nesting, same attributes. Never add, remove, rename or move a tag "
+    "out of order. Never touch a URL or an href value.\n"
+    "2. Only the human-readable text between tags may change. Fix "
+    "mistranslations, broken or awkward sentences (an inline tag such as <b> may "
+    "split a sentence, the translated sentence must still read naturally and each "
+    "tag must still wrap the same idea as in the original), unnatural phrasing "
+    "and spacing or punctuation around tags.\n"
+    "3. Never translate or alter brand names, product names, @usernames or URLs.\n"
+    "4. Keep the line breaks and the emojis.\n"
+    "5. Do not add or remove any claim, offer or number.\n"
+    "6. Any <, > or & in the visible text must be written as an HTML entity.\n"
+    "Return only the final HTML: no preamble, no explanation, no quotes, no "
+    "code fences."
 )
 
 
@@ -135,6 +160,45 @@ async def emojify_text(text: str) -> str:
     )
     result = _clean(raw, limit=limit)
     return result or text[:limit]
+
+
+async def review_translation(
+    original: str,
+    translated: str,
+    *,
+    source_name: str,
+    target_name: str,
+    keep_terms: tuple[str, ...] = (),
+) -> str:
+    """Proofread a machine-translated Telegram-HTML ad and re-check its markup.
+
+    Returns the corrected HTML. The caller must validate it (tags, hrefs,
+    protected terms) before trusting it — a model can still get it wrong.
+    Deliberately not run through ``_clean``: that one truncates to the 399
+    characters of AI-generated copy, which would cut the markup mid-tag.
+    """
+    keep = ""
+    if keep_terms:
+        keep = "Never translate or alter these terms: " + ", ".join(keep_terms) + ".\n"
+    raw = await _chat(
+        [
+            {"role": "system", "content": _REVIEW_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    f"Original language: {source_name}. Target language: {target_name}.\n"
+                    f"{keep}\n"
+                    f"ORIGINAL:\n{original}\n\n"
+                    f"MACHINE TRANSLATION:\n{translated}"
+                ),
+            },
+        ],
+        temperature=0.2,
+        max_tokens=1400,
+    )
+    text = raw.strip()
+    text = re.sub(r"^```[a-zA-Z]*\n?|\n?```$", "", text).strip()
+    return text
 
 
 def is_configured() -> bool:

@@ -32,7 +32,7 @@ from app.models.finance import Withdrawal
 from app.models.placements import Channel, MiniApp
 from app.models.tracking import AuditLog
 from app.redis_client import cache_delete_pattern
-from app.services import billing_service, email_service, openrouter_service
+from app.services import billing_service, email_service, translation_service
 
 logger = logging.getLogger(__name__)
 
@@ -70,19 +70,45 @@ def log_action(
 async def generate_translations(session: AsyncSession, campaign: Campaign) -> int:
     """Translate an approved campaign into every other supported language.
 
-    One OpenRouter call per language. Existing translations are replaced, which is
-    what happens when a campaign is edited and re-approved. A failure on one
-    language does not abort the others — the ad simply falls back to the
+    Text goes through deep-translator (tags and links are copied verbatim, only
+    the wording is translated), then MixRouter proofreads each result and its
+    HTML — see ``translation_service``. Existing translations are replaced,
+    which is what happens when a campaign is edited and re-approved. A failure
+    on one language does not abort the others — the ad simply falls back to the
     original copy for that language.
     """
-    if not openrouter_service.is_configured():
-        logger.warning("translations.skipped campaign=%s reason=openrouter_not_configured", campaign.id)
-        return 0
-
-    source_lang = campaign.target_language if campaign.target_language != "all" else "en"
-    targets = openrouter_service.target_languages(source_lang)
+    source_lang = translation_service.resolve_source_lang(
+        campaign.target_language, campaign.ad_text
+    )
+    targets = translation_service.target_languages(source_lang)
     if not targets:
         return 0
+
+    # Google is told "auto" when the ad targets every language: we only *guess*
+    # the language to label the stored original, Google detects it properly.
+    google_source = "auto" if campaign.target_language == "all" else source_lang
+    sem = asyncio.Semaphore(settings.TRANSLATION_CONCURRENCY)
+
+    async def _one(lang: str) -> tuple[str, translation_service.TranslatedAd] | None:
+        try:
+            translated = await translation_service.translate_ad(
+                text=campaign.ad_text,
+                button_label=campaign.button_label,
+                source_lang=source_lang,
+                google_source=google_source,
+                target_lang=lang,
+                brand_name=campaign.brand_name,
+                sem=sem,
+            )
+            return lang, translated
+        except Exception as exc:  # noqa: BLE001 - one language must not break the rest
+            logger.warning(
+                "translation.failed campaign=%s lang=%s error=%s", campaign.id, lang, exc
+            )
+            return None
+
+    # All the slow network work happens before the database is touched.
+    results = await asyncio.gather(*(_one(lang) for lang in targets))
 
     # Drop the previous set so a re-approval never leaves stale copy behind.
     existing = (
@@ -98,39 +124,31 @@ async def generate_translations(session: AsyncSession, campaign: Campaign) -> in
     )
     for row in existing:
         await session.delete(row)
-
-    async def _one(lang: str) -> tuple[str, str, str] | None:
-        try:
-            text = await openrouter_service.translate_text(
-                campaign.ad_text, target_lang=lang, source_lang=source_lang
-            )
-            label = await openrouter_service.translate_button_label(
-                campaign.button_label, target_lang=lang
-            )
-            return lang, text, label
-        except Exception as exc:  # noqa: BLE001 - one language must not break the rest
-            logger.warning(
-                "translation.failed campaign=%s lang=%s error=%s", campaign.id, lang, exc
-            )
-            return None
-
-    results = await asyncio.gather(*(_one(lang) for lang in targets))
+    # The DELETEs must reach the database *before* the new INSERTs below.
+    # SQLAlchemy's unit of work emits INSERTs before DELETEs within a single
+    # flush, so without this explicit flush the fresh (campaign_id, lang_code)
+    # rows collide with the old ones on uq_campaign_translations_campaign_lang
+    # — which is exactly what made every re-approval of an edited campaign
+    # fail with a 500.
+    await session.flush()
 
     created = 0
+    reviewed = 0
     for result in results:
         if result is None:
             continue
-        lang, text, label = result
+        lang, translated = result
         session.add(
             CampaignTranslation(
                 campaign_id=campaign.id,
                 lang_code=lang,
-                translated_text=text,
-                translated_button_label=label,
-                source="openrouter",
+                translated_text=translated.text,
+                translated_button_label=translated.button_label,
+                source=translated.source,
             )
         )
         created += 1
+        reviewed += int(translated.reviewed)
 
     # Store the source language too, so serving never has to special-case it.
     session.add(
@@ -144,7 +162,10 @@ async def generate_translations(session: AsyncSession, campaign: Campaign) -> in
     )
 
     campaign.translations_generated = created > 0
-    logger.info("translations.generated campaign=%s count=%s", campaign.id, created)
+    logger.info(
+        "translations.generated campaign=%s source=%s count=%s ai_reviewed=%s",
+        campaign.id, source_lang, created, reviewed,
+    )
     return created
 
 

@@ -118,7 +118,7 @@ class Settings(BaseSettings):
     ENABLE_SCHEDULER: bool = True
 
 # ------------------------------------------------------------------ #
-    # OpenRouter (ad copy generation + translations)
+    # OpenRouter (ad copy generation — no longer used for translations)
     # ------------------------------------------------------------------ #
     OPENROUTER_API_KEY: str = "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"
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
@@ -293,6 +293,13 @@ class Settings(BaseSettings):
     LOW_BALANCE_ALERT_RATIO: Decimal = Decimal("0.10")
     FRAUD_SCORE_BILLING_THRESHOLD: Decimal = Decimal("0.70")
     SUPPORTED_TRANSLATION_LANGS: str = "en,fr,ru,zh"
+    # Campaign translation = deep-translator (Google, no API key) for the text,
+    # then an optional MixRouter pass that re-checks the wording and the HTML
+    # markup. See app/services/translation_service.py.
+    TRANSLATION_AI_REVIEW: bool = True
+    TRANSLATION_REVIEW_TIMEOUT_SECONDS: float = 25.0
+    TRANSLATION_HTTP_TIMEOUT_SECONDS: float = 15.0
+    TRANSLATION_CONCURRENCY: int = 4
     DEFAULT_WITHDRAWAL_MEMO: str = " Adsversite with AdsKinz"
 
     # ------------------------------------------------------------------ #

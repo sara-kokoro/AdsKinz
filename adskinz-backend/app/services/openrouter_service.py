@@ -1,8 +1,7 @@
-"""OpenRouter LLM service: ad copy generation and campaign translation.
+"""OpenRouter LLM service: ad copy generation (GPT / Grok alternate provider).
 
-Translations are produced **once, at approval time**, and stored in
-``campaign_translations``. They are never generated while serving an
-impression: an ad request must stay a database read.
+Campaign translations no longer go through OpenRouter: see
+``translation_service.py`` (deep-translator + a MixRouter review pass).
 """
 
 from __future__ import annotations
@@ -60,13 +59,6 @@ _EMOJIFY_SYSTEM_PROMPT = (
     "stay under {limit} characters total."
 )
 
-_TRANSLATE_SYSTEM_PROMPT = (
-    "You are a professional advertising translator. Translate the ad copy into "
-    "the requested language, preserving meaning, tone, line breaks and emojis. "
-    "Adapt idioms rather than translating them literally. Do not add or remove "
-    "any claim. Return only the translation, with no preamble and no quotes."
-)
-
 _MAX_COPY_CHARS = 900
 
 
@@ -93,7 +85,7 @@ def _clean(text: str) -> str:
     text = re.sub(r"^```[a-zA-Z]*\n?|```$", "", text).strip()
     if len(text) >= 2 and text[0] in "\"'“«" and text[-1] in "\"'”»":
         text = text[1:-1].strip()
-    for prefix in ("Ad copy:", "Translation:", "Here is", "Voici"):
+    for prefix in ("Ad copy:", "Here is", "Voici"):
         if text.lower().startswith(prefix.lower()):
             text = text[len(prefix):].lstrip(": ").strip()
     return text[:_MAX_COPY_CHARS]
@@ -175,54 +167,6 @@ async def emojify_text(text: str) -> str:
     )
     result = result[:limit]
     return result or text[:limit]
-
-
-async def translate_text(text: str, *, target_lang: str, source_lang: str = "en") -> str:
-    """Translate one ad copy into one target language (one call per language)."""
-    target_name = LANGUAGE_NAMES.get(target_lang, target_lang)
-    source_name = LANGUAGE_NAMES.get(source_lang, source_lang)
-    translated, _ = await _chat(
-        [
-            {"role": "system", "content": _TRANSLATE_SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": (
-                    f"Source language: {source_name}. Target language: {target_name}.\n\n"
-                    f"{text}"
-                ),
-            },
-        ],
-        temperature=0.2,
-        max_tokens=600,
-    )
-    return translated or text
-
-
-async def translate_button_label(label: str, *, target_lang: str) -> str:
-    """Translate a call-to-action label, keeping it short enough for a button."""
-    target_name = LANGUAGE_NAMES.get(target_lang, target_lang)
-    translated, _ = await _chat(
-        [
-            {
-                "role": "system",
-                "content": (
-                    "Translate this call-to-action button label. Keep it under "
-                    "22 characters. Return only the translated label."
-                ),
-            },
-            {"role": "user", "content": f"Target language: {target_name}\nLabel: {label}"},
-        ],
-        temperature=0.1,
-        max_tokens=40,
-    )
-    cleaned = (translated or label).strip()
-    return cleaned[:40] if cleaned else label
-
-
-def target_languages(source_lang: str) -> list[str]:
-    """The supported languages to generate, excluding the source one."""
-    supported = settings.translation_langs
-    return [lang for lang in supported if lang != source_lang]
 
 
 def is_configured() -> bool:
