@@ -76,11 +76,10 @@ const en = {
       "In channels, AdsKinz posts through the channel's own admin bot — same layout, same rhythm as everything else in the feed. In Mini Apps, the Kinz-ID SDK drops the same native format between two actions. Campaigns start at $10, reviewed within a few hours.",
     finalCta: "Ready to put your first ad in front of a real feed?",
     stats: {
-      languages: "Languages supported",
+      channels: "Connected channels",
+      miniApps: "Mini Apps",
+      impressionsWeek: "Impressions per week",
       cpm: "Minimum CPM",
-      formats: "Native formats",
-      launch: "Average launch time",
-      launchValue: "< 4h",
     },
     formats: {
       title: "Three native formats",
@@ -128,17 +127,109 @@ const en = {
       pubB3: "Withdraw in USDT TON from $50",
     },
     faq: {
-      title: "Questions",
-      q1: "What is the minimum campaign budget?",
-      a1: "None. A campaign is created with a $0 budget, then you fund it yourself from your wallet — $10 minimum per top-up.",
-      q2: "How many subscribers do I need to monetize a channel?",
-      a2: "500 subscribers. Mini Apps have no subscriber requirement at all.",
-      q3: "How are publishers paid?",
-      a3: "In USDT on TON, once your available balance reaches $50.",
-      q4: "How often will ads be posted in my channel?",
-      a4: "You choose: 0 to 3 ads per day, with optional preferred UTC time slots.",
-      q5: "Is the SDK available for Mini Apps?",
-      a5: "Yes. The Kinz-ID SDK covers interstitial and pop interstitial, with integration docs at docs.adskinz.io.",
+      title: "Frequently asked questions",
+      sub: "Channels, Mini Apps, deposits, withdrawals and pricing — the long answers, in one place.",
+      more: "Still unsure about something?",
+      moreBtn: "Ask us on Telegram",
+      groups: [
+        {
+          label: "Telegram channels",
+          items: [
+            {
+              q: "How do I connect my Telegram channel?",
+              a: "Add your channel name and public t.me link in the publisher dashboard, then add our bot as an administrator with permission to post and delete messages. Moderation usually takes a few hours.",
+            },
+            {
+              q: "Is there a minimum number of subscribers?",
+              a: "Yes, 500 subscribers. Mini Apps and bots have no subscriber requirement at all.",
+            },
+            {
+              q: "How many ads will be posted in my channel?",
+              a: "You choose: 0 to 3 native posts per day, with optional preferred UTC time slots.",
+            },
+            {
+              q: "Can I pause a channel?",
+              a: "Yes, anytime, from your publisher dashboard — no penalty, no explanation needed.",
+            },
+          ],
+        },
+        {
+          label: "Mini Apps & bots",
+          items: [
+            {
+              q: "What do I need to connect a Mini App?",
+              a: "The app name, its direct link (https://t.me/YourBot/app), the underlying web URL, and your bot ID. You then receive a Kinz-ID key to paste into the SDK.",
+            },
+            {
+              q: "Which ad formats are available in Mini Apps?",
+              a: "Interstitial and pop formats, both rendered natively inside your app. Enable one or both, and disable them anytime.",
+            },
+            {
+              q: "How long does the SDK integration take?",
+              a: "A few minutes: one script, one key, one call at the moment you want an ad shown.",
+            },
+            {
+              q: "Do Mini Apps need a subscriber threshold?",
+              a: "No. Mini Apps and bots are accepted on traffic quality alone.",
+            },
+          ],
+        },
+        {
+          label: "Deposits",
+          items: [
+            {
+              q: "How do I fund my advertiser wallet?",
+              a: "By crypto: USDT on TRC20, TON, and BEP20 (BNB). Mobile money deposits are coming soon.",
+            },
+            {
+              q: "Is there a minimum deposit?",
+              a: "No minimum to fund your wallet. Running a campaign needs at least $10 allocated to it.",
+            },
+            {
+              q: "Can I get a refund of an unspent budget?",
+              a: "Unspent budget stays on your wallet balance and can be moved to another campaign at any time.",
+            },
+          ],
+        },
+        {
+          label: "Withdrawals",
+          items: [
+            {
+              q: "What is the minimum payout?",
+              a: "$50. Below that, earnings simply accumulate on your available balance until you cross the threshold.",
+            },
+            {
+              q: "Which network can I withdraw to?",
+              a: "USDT on TON only. Double-check the address you paste — a payout sent to the wrong network cannot be recovered.",
+            },
+            {
+              q: "How long does a withdrawal take?",
+              a: "Requests are reviewed and paid within one business day in most cases.",
+            },
+            {
+              q: "Are there withdrawal fees?",
+              a: "No AdsKinz fee — only the TON network fee applies.",
+            },
+          ],
+        },
+        {
+          label: "Pricing",
+          items: [
+            {
+              q: "What is the minimum CPM?",
+              a: "$1.70 per thousand impressions — the floor advertisers can bid, and the base publisher earnings are calculated from.",
+            },
+            {
+              q: "What about cost per click?",
+              a: "Advertisers also set a cost-per-click between $0.01 and $0.03 (default $0.01), billed separately from impressions.",
+            },
+            {
+              q: "How are publisher earnings calculated?",
+              a: "Publishers keep 65% of every validated impression and click, at the winning campaign's rate — AdsKinz keeps 35% as its commission.",
+            },
+          ],
+        },
+      ],
     },
     mock: {
       channel: "Crypto Signals Daily",
@@ -749,11 +840,10 @@ const fr: Dict = {
       "Dans les canaux, AdsKinz publie l'annonce via le bot administrateur du canal — même mise en page, même rythme que le reste du fil. Dans les Mini Apps, le SDK Kinz-ID insère le même format natif entre deux actions. Campagnes dès 10 $, revue en quelques heures.",
     finalCta: "Prêt à voir ta pub se fondre dans un vrai fil ?",
     stats: {
-      languages: "Langues prises en charge",
+      channels: "Canaux connectés",
+      miniApps: "Mini Apps",
+      impressionsWeek: "Impressions par semaine",
       cpm: "CPM minimum",
-      formats: "Formats natifs",
-      launch: "Délai de lancement moyen",
-      launchValue: "< 4 h",
     },
     formats: {
       title: "Trois formats natifs",
@@ -801,17 +891,109 @@ const fr: Dict = {
       pubB3: "Retrait en USDT TON dès 50 $",
     },
     faq: {
-      title: "Questions",
-      q1: "Quel est le budget minimum d'une campagne ?",
-      a1: "Aucun. Une campagne est créée avec un budget de 0 $, puis vous la financez vous-même depuis votre portefeuille — minimum 10 $ par recharge.",
-      q2: "Combien d'abonnés faut-il pour monétiser un canal ?",
-      a2: "500 abonnés. Les Mini Apps n'ont aucune exigence d'abonnés.",
-      q3: "Comment les publishers sont-ils payés ?",
-      a3: "En USDT sur TON, dès que le solde disponible atteint 50 $.",
-      q4: "À quelle fréquence des pubs seront publiées dans mon canal ?",
-      a4: "Vous choisissez : 0 à 3 pubs par jour, avec des créneaux UTC préférés en option.",
-      q5: "Le SDK est-il disponible pour les Mini Apps ?",
-      a5: "Oui. Le SDK Kinz-ID couvre l'interstitiel et le pop interstitiel, avec la documentation sur docs.adskinz.io.",
+      title: "Questions fréquentes",
+      sub: "Canaux, Mini Apps, dépôts, retraits et tarification — les réponses détaillées, au même endroit.",
+      more: "Une question sans réponse ?",
+      moreBtn: "Écrivez-nous sur Telegram",
+      groups: [
+        {
+          label: "Canaux Telegram",
+          items: [
+            {
+              q: "Comment connecter mon canal Telegram ?",
+              a: "Ajoute le nom de ton canal et son lien public t.me dans l'espace publisher, puis ajoute notre bot comme administrateur avec le droit de publier et supprimer des messages. La modération prend généralement quelques heures.",
+            },
+            {
+              q: "Y a-t-il un minimum d'abonnés ?",
+              a: "Oui, 500 abonnés. Les Mini Apps et les bots n'ont aucune exigence d'abonnés.",
+            },
+            {
+              q: "Combien de pubs seront publiées dans mon canal ?",
+              a: "Tu choisis : 0 à 3 posts natifs par jour, avec des créneaux UTC préférés en option.",
+            },
+            {
+              q: "Puis-je mettre un canal en pause ?",
+              a: "Oui, à tout moment, depuis ton tableau de bord publisher — sans pénalité, sans justification.",
+            },
+          ],
+        },
+        {
+          label: "Mini Apps & bots",
+          items: [
+            {
+              q: "De quoi ai-je besoin pour connecter une Mini App ?",
+              a: "Le nom de l'app, son lien direct (https://t.me/TonBot/app), l'URL web sous-jacente, et l'ID de ton bot. Tu reçois ensuite une clé Kinz-ID à coller dans le SDK.",
+            },
+            {
+              q: "Quels formats de pub sont disponibles en Mini App ?",
+              a: "Interstitiel et pop, tous deux affichés nativement dans ton app. Active l'un ou l'autre, désactive-les à tout moment.",
+            },
+            {
+              q: "Combien de temps prend l'intégration du SDK ?",
+              a: "Quelques minutes : un script, une clé, un appel au moment où tu veux afficher une pub.",
+            },
+            {
+              q: "Les Mini Apps ont-elles un seuil d'abonnés ?",
+              a: "Non. Les Mini Apps et les bots sont acceptés uniquement sur la qualité du trafic.",
+            },
+          ],
+        },
+        {
+          label: "Dépôts",
+          items: [
+            {
+              q: "Comment alimenter mon portefeuille annonceur ?",
+              a: "En crypto : USDT sur TRC20, TON et BEP20 (BNB). Les dépôts en mobile money arrivent bientôt.",
+            },
+            {
+              q: "Y a-t-il un dépôt minimum ?",
+              a: "Aucun minimum pour alimenter ton portefeuille. Faire tourner une campagne nécessite au moins 10 $ alloués dessus.",
+            },
+            {
+              q: "Puis-je être remboursé d'un budget non dépensé ?",
+              a: "Le budget non dépensé reste sur ton solde et peut être déplacé vers une autre campagne à tout moment.",
+            },
+          ],
+        },
+        {
+          label: "Retraits",
+          items: [
+            {
+              q: "Quel est le retrait minimum ?",
+              a: "50 $. En dessous, les gains s'accumulent simplement sur ton solde disponible jusqu'à atteindre ce seuil.",
+            },
+            {
+              q: "Vers quel réseau puis-je retirer ?",
+              a: "USDT sur TON uniquement. Vérifie bien l'adresse collée — un paiement envoyé au mauvais réseau ne peut pas être récupéré.",
+            },
+            {
+              q: "Combien de temps prend un retrait ?",
+              a: "Les demandes sont examinées et payées sous un jour ouvré dans la plupart des cas.",
+            },
+            {
+              q: "Y a-t-il des frais de retrait ?",
+              a: "Aucun frais AdsKinz — seuls les frais du réseau TON s'appliquent.",
+            },
+          ],
+        },
+        {
+          label: "Tarification",
+          items: [
+            {
+              q: "Quel est le CPM minimum ?",
+              a: "1,70 $ pour mille impressions — le plancher que les annonceurs peuvent enchérir, et la base de calcul des gains publisher.",
+            },
+            {
+              q: "Et le coût par clic ?",
+              a: "Les annonceurs fixent aussi un coût par clic entre 0,01 $ et 0,03 $ (0,01 $ par défaut), facturé séparément des impressions.",
+            },
+            {
+              q: "Comment les gains publisher sont-ils calculés ?",
+              a: "Les publishers gardent 65 % de chaque impression et clic validés, au tarif de la campagne gagnante — AdsKinz garde 35 % de commission.",
+            },
+          ],
+        },
+      ],
     },
     mock: {
       channel: "Crypto Signals Daily",
@@ -1417,11 +1599,10 @@ const ru: Dict = {
       "В каналах AdsKinz публикует объявление через бота-администратора канала — тот же вид, тот же ритм, что и остальная лента. В Mini Apps SDK Kinz-ID показывает тот же нативный формат между двумя действиями. Кампании — от $10, модерация в течение нескольких часов.",
     finalCta: "Готовы увидеть свою рекламу в настоящей ленте?",
     stats: {
-      languages: "Поддерживаемые языки",
+      channels: "Подключённых каналов",
+      miniApps: "Mini Apps",
+      impressionsWeek: "Показов в неделю",
       cpm: "Минимальный CPM",
-      formats: "Нативные форматы",
-      launch: "Среднее время запуска",
-      launchValue: "< 4 ч",
     },
     formats: {
       title: "Три нативных формата",
@@ -1469,17 +1650,109 @@ const ru: Dict = {
       pubB3: "Вывод в USDT TON от $50",
     },
     faq: {
-      title: "Вопросы",
-      q1: "Каков минимальный бюджет кампании?",
-      a1: "Никакого. Кампания создаётся с бюджетом $0, а пополняете вы её сами из кошелька — минимум $10 за пополнение.",
-      q2: "Сколько подписчиков нужно для монетизации канала?",
-      a2: "500 подписчиков. Для Mini Apps требований по подписчикам нет вовсе.",
-      q3: "Как получают выплаты паблишеры?",
-      a3: "В USDT на TON, как только доступный баланс достигает $50.",
-      q4: "Как часто реклама будет выходить в моём канале?",
-      a4: "Вы выбираете: от 0 до 3 реклам в день, с опциональными предпочтительными слотами по UTC.",
-      q5: "Есть ли SDK для Mini Apps?",
-      a5: "Да. Kinz-ID SDK поддерживает интерстишиал и pop-интерстишиал, документация — на docs.adskinz.io.",
+      title: "Часто задаваемые вопросы",
+      sub: "Каналы, Mini Apps, депозиты, выводы и тарифы — подробные ответы в одном месте.",
+      more: "Остался вопрос без ответа?",
+      moreBtn: "Напишите нам в Telegram",
+      groups: [
+        {
+          label: "Telegram-каналы",
+          items: [
+            {
+              q: "Как подключить мой Telegram-канал?",
+              a: "Добавь название канала и публичную ссылку t.me в кабинете паблишера, затем добавь нашего бота администратором с правом публиковать и удалять сообщения. Модерация обычно занимает несколько часов.",
+            },
+            {
+              q: "Есть ли минимум подписчиков?",
+              a: "Да, 500 подписчиков. Для Mini Apps и ботов требований по подписчикам нет вовсе.",
+            },
+            {
+              q: "Сколько реклам будет выходить в моём канале?",
+              a: "Ты выбираешь: от 0 до 3 нативных постов в день, с опциональными предпочтительными UTC-слотами.",
+            },
+            {
+              q: "Могу я поставить канал на паузу?",
+              a: "Да, в любой момент, из кабинета паблишера — без штрафов и объяснений.",
+            },
+          ],
+        },
+        {
+          label: "Mini Apps и боты",
+          items: [
+            {
+              q: "Что нужно для подключения Mini App?",
+              a: "Название приложения, прямая ссылка (https://t.me/ТвойБот/app), базовый веб-адрес и ID бота. После этого ты получаешь ключ Kinz-ID для SDK.",
+            },
+            {
+              q: "Какие форматы рекламы доступны в Mini App?",
+              a: "Интерстишиал и pop — оба отображаются нативно внутри приложения. Включай любой из них и отключай в любой момент.",
+            },
+            {
+              q: "Сколько занимает интеграция SDK?",
+              a: "Несколько минут: один скрипт, один ключ, один вызов в момент показа рекламы.",
+            },
+            {
+              q: "Есть ли порог подписчиков для Mini Apps?",
+              a: "Нет. Mini Apps и боты принимаются только по качеству трафика.",
+            },
+          ],
+        },
+        {
+          label: "Депозиты",
+          items: [
+            {
+              q: "Как пополнить кошелёк рекламодателя?",
+              a: "Криптовалютой: USDT на TRC20, TON и BEP20 (BNB). Депозиты через мобильные деньги появятся скоро.",
+            },
+            {
+              q: "Есть ли минимальный депозит?",
+              a: "Минимума для пополнения кошелька нет. Для запуска кампании нужно выделить на неё не менее $10.",
+            },
+            {
+              q: "Можно вернуть неизрасходованный бюджет?",
+              a: "Неизрасходованный бюджет остаётся на балансе и может быть перенесён на другую кампанию в любой момент.",
+            },
+          ],
+        },
+        {
+          label: "Выводы",
+          items: [
+            {
+              q: "Какая минимальная сумма вывода?",
+              a: "$50. До этого порога заработок просто накапливается на доступном балансе.",
+            },
+            {
+              q: "В какую сеть можно выводить?",
+              a: "Только USDT на TON. Внимательно проверяй вставленный адрес — платёж в неверную сеть невозможно вернуть.",
+            },
+            {
+              q: "Сколько занимает вывод?",
+              a: "В большинстве случаев заявки рассматриваются и оплачиваются в течение одного рабочего дня.",
+            },
+            {
+              q: "Есть ли комиссия за вывод?",
+              a: "Комиссии AdsKinz нет — применяется только комиссия сети TON.",
+            },
+          ],
+        },
+        {
+          label: "Тарифы",
+          items: [
+            {
+              q: "Какой минимальный CPM?",
+              a: "$1.70 за тысячу показов — минимальная ставка рекламодателя и база расчёта дохода паблишера.",
+            },
+            {
+              q: "А как насчёт цены за клик?",
+              a: "Рекламодатели также задают цену за клик от $0.01 до $0.03 (по умолчанию $0.01), которая оплачивается отдельно от показов.",
+            },
+            {
+              q: "Как считается доход паблишера?",
+              a: "Паблишеры получают 65% с каждого подтверждённого показа и клика по ставке победившей кампании — AdsKinz оставляет 35% комиссии.",
+            },
+          ],
+        },
+      ],
     },
     mock: {
       channel: "Crypto Signals Daily",
@@ -2077,11 +2350,10 @@ const zh: Dict = {
       "在频道里，AdsKinz 通过该频道自己的管理员机器人发布广告——排版和节奏与频道其他内容完全一致。在 Mini App 中，Kinz-ID SDK 会在两个操作之间插入同样的原生广告形式。广告预算最低 10 美元，审核通常在几小时内完成。",
     finalCta: "准备好让你的广告融入真实的信息流了吗？",
     stats: {
-      languages: "支持语言",
+      channels: "已接入频道",
+      miniApps: "Mini App 数量",
+      impressionsWeek: "每周展示次数",
       cpm: "最低 CPM",
-      formats: "原生格式",
-      launch: "平均上线时间",
-      launchValue: "< 4 小时",
     },
     formats: {
       title: "三种原生格式",
@@ -2126,16 +2398,108 @@ const zh: Dict = {
     },
     faq: {
       title: "常见问题",
-      q1: "广告的最低预算是多少？",
-      a1: "没有下限。广告创建时预算为 $0，之后由您从钱包自行充值——每次充值最低 $10。",
-      q2: "频道变现需要多少订阅者？",
-      a2: "500 名订阅者。Mini App 完全没有订阅者要求。",
-      q3: "发布者如何收款？",
-      a3: "可用余额达到 $50 后，通过 TON 网络以 USDT 支付。",
-      q4: "我的频道会多久出现一次广告？",
-      a4: "由您决定：每天 0 到 3 条，并可选填偏好的 UTC 时间段。",
-      q5: "Mini App 有 SDK 吗？",
-      a5: "有。Kinz-ID SDK 支持插屏与弹出插屏，接入文档见 docs.adskinz.io。",
+      sub: "频道、Mini App、充值、提现与定价——详细解答都在这里。",
+      more: "还有没解决的问题？",
+      moreBtn: "在 Telegram 上联系我们",
+      groups: [
+        {
+          label: "Telegram 频道",
+          items: [
+            {
+              q: "如何接入我的 Telegram 频道？",
+              a: "在发布者后台填写频道名称和公开的 t.me 链接，然后将我们的机器人添加为管理员，并授予发布和删除消息的权限。审核通常几个小时内完成。",
+            },
+            {
+              q: "有最低订阅者要求吗？",
+              a: "有，500 名订阅者。Mini App 和机器人完全没有订阅者要求。",
+            },
+            {
+              q: "我的频道会出现多少广告？",
+              a: "由你决定：每天 0 到 3 条原生广告，并可选填偏好的 UTC 时间段。",
+            },
+            {
+              q: "我可以暂停某个频道吗？",
+              a: "可以，随时在发布者后台操作——没有任何处罚，也无需说明原因。",
+            },
+          ],
+        },
+        {
+          label: "Mini App 与机器人",
+          items: [
+            {
+              q: "接入 Mini App 需要什么？",
+              a: "应用名称、直达链接（https://t.me/你的Bot/app）、底层网页地址，以及机器人 ID。之后你会获得一个 Kinz-ID 密钥，粘贴到 SDK 中即可。",
+            },
+            {
+              q: "Mini App 中有哪些广告形式？",
+              a: "插屏和弹出两种形式，均以原生方式呈现在你的应用内。可任意开启或关闭，随时生效。",
+            },
+            {
+              q: "SDK 接入需要多久？",
+              a: "几分钟：一段脚本、一个密钥，在需要展示广告时调用一次即可。",
+            },
+            {
+              q: "Mini App 有订阅者门槛吗？",
+              a: "没有。Mini App 和机器人仅凭流量质量即可被接受。",
+            },
+          ],
+        },
+        {
+          label: "充值",
+          items: [
+            {
+              q: "如何给广告主钱包充值？",
+              a: "通过加密货币：USDT（TRC20、TON、BEP20/BNB 网络）。移动货币（Mobile Money）充值即将上线。",
+            },
+            {
+              q: "有最低充值额度吗？",
+              a: "给钱包充值没有最低限额。但要让一个广告开始投放，至少需要为其分配 $10 预算。",
+            },
+            {
+              q: "未花完的预算可以退回吗？",
+              a: "未花完的预算会保留在你的余额中，随时可转用于其他广告。",
+            },
+          ],
+        },
+        {
+          label: "提现",
+          items: [
+            {
+              q: "最低提现金额是多少？",
+              a: "$50。在达到这个门槛之前，收益会持续累积在你的可用余额中。",
+            },
+            {
+              q: "可以提现到哪个网络？",
+              a: "仅支持 TON 网络的 USDT。请仔细核对填写的地址——打到错误网络的款项无法找回。",
+            },
+            {
+              q: "提现需要多久？",
+              a: "大多数情况下，申请会在一个工作日内完成审核并付款。",
+            },
+            {
+              q: "提现有手续费吗？",
+              a: "AdsKinz 不收取任何手续费——只需支付 TON 网络本身的手续费。",
+            },
+          ],
+        },
+        {
+          label: "定价",
+          items: [
+            {
+              q: "最低 CPM 是多少？",
+              a: "每千次展示 $1.70——这是广告主可出价的下限，也是发布者收益的计算基础。",
+            },
+            {
+              q: "点击费用如何计算？",
+              a: "广告主还可以设置每次点击 $0.01 至 $0.03 的费用（默认 $0.01），与展示费用分开计费。",
+            },
+            {
+              q: "发布者收益如何计算？",
+              a: "发布者按中标广告的费率，从每次经验证的展示和点击中获得 65% 的收益——AdsKinz 保留 35% 作为平台佣金。",
+            },
+          ],
+        },
+      ],
     },
     mock: {
       channel: "Crypto Signals Daily",

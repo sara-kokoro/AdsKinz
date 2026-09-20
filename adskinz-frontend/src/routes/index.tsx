@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { LanguageSelect, ThemeToggle } from "@/components/controls";
 import { Logo } from "@/components/dashboard-shell";
 import { IconSparkle } from "@/components/icons";
@@ -149,10 +149,10 @@ function Landing() {
   const { t } = useTranslation();
 
   const stats = [
-    { label: t("landing.stats.languages"), value: "12" },
-    { label: t("landing.stats.cpm"), value: "$2.00" },
-    { label: t("landing.stats.formats"), value: "3" },
-    { label: t("landing.stats.launch"), value: t("landing.stats.launchValue") },
+    { label: t("landing.stats.channels"), value: "1,304" },
+    { label: t("landing.stats.miniApps"), value: "89" },
+    { label: t("landing.stats.impressionsWeek"), value: "+590K" },
+    { label: t("landing.stats.cpm"), value: "$1.70" },
   ];
 
   const formats = [
@@ -188,7 +188,8 @@ function Landing() {
     desc: t(`landing.how.s${n}d`),
   }));
 
-  const faq = [1, 2, 3, 4, 5].map((n) => ({ q: t(`landing.faq.q${n}`), a: t(`landing.faq.a${n}`) }));
+  type FaqGroup = { label: string; items: { q: string; a: string }[] };
+  const faqGroups = t("landing.faq.groups", { returnObjects: true }) as FaqGroup[];
 
   return (
     <div className="min-h-screen bg-ink">
@@ -330,15 +331,35 @@ function Landing() {
         {/* FAQ */}
         <section id="faq" className="mx-auto max-w-3xl px-4 py-16">
           <h2 className="font-display text-3xl font-extrabold tracking-tight">{t("landing.faq.title")}</h2>
-          <div className="mt-8 divide-y divide-seam border-y border-seam">
-            {faq.map((f) => (
-              <div key={f.q} className="py-5">
-                <h3 className="text-base font-bold">{f.q}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-paper-dim">
-                  <Trans>{f.a}</Trans>
-                </p>
+          <p className="mt-2 text-paper-dim">{t("landing.faq.sub")}</p>
+          <div className="mt-8 space-y-8">
+            {faqGroups.map((group) => (
+              <div key={group.label}>
+                <h3 className="text-xs font-bold tracking-wide text-signal">{group.label}</h3>
+                <div className="mt-2 divide-y divide-seam border-y border-seam">
+                  {group.items.map((f) => (
+                    <details key={f.q} className="group py-4">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold">
+                        {f.q}
+                        <span className="shrink-0 text-paper-dim transition-transform group-open:rotate-45">+</span>
+                      </summary>
+                      <p className="mt-2 text-sm leading-relaxed text-paper-dim">{f.a}</p>
+                    </details>
+                  ))}
+                </div>
               </div>
             ))}
+          </div>
+          <div className="mt-8 flex flex-wrap items-center gap-3 rounded-2xl border border-seam p-5">
+            <p className="text-sm font-semibold">{t("landing.faq.more")}</p>
+            <a
+              href="https://t.me/AdsKinzBot"
+              target="_blank"
+              rel="noreferrer"
+              className="ml-auto rounded-xl border border-seam px-4 py-2 text-sm font-semibold hover:bg-panel"
+            >
+              {t("landing.faq.moreBtn")}
+            </a>
           </div>
         </section>
 
