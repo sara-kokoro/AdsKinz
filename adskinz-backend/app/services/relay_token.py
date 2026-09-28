@@ -3,9 +3,10 @@ AdsKinz — Vérification du token de relais JessiKaPay
 =========================================================
 
 Ce module authentifie les requêtes qui arrivent sur pay.adskinz.me/{token}.
-Le token est généré côté JessiKaPay (voir jessicapay-backend/app/services/relay_token.py,
-fonction `sign_relay_payload`) et contient toutes les infos du dépôt
-(montant, téléphone, opérateur...) signées avec un secret partagé.
+Le token est généré côté JessiKaPay (voir jessicapay-backend/app/services/
+relay_token.py, fonction sign_relay_payload) et contient toutes les infos
+du dépôt (montant, téléphone, opérateur, ET DEPUIS PEU webhook_path)
+signées avec un secret partagé.
 
 Pourquoi pas juste un JSON en clair dans l'URL ?
   Parce que l'utilisateur (ou n'importe qui interceptant le lien) pourrait
@@ -19,6 +20,13 @@ Secret partagé : settings.JKPAY_RELAY_SECRET (variable d'env, JAMAIS de valeur
 par défaut en dur — voir config.py). Ce secret doit être STRICTEMENT identique
 des deux côtés (adskinz-backend et jessicapay-backend) et ne doit jamais
 apparaître dans un log, un repo public ou une réponse HTTP.
+
+── webhook_path ──────────────────────────────────────────────────────
+JessiKaPay décide, via ce champ signé, quel endpoint chez lui MoneyFusion
+doit notifier (dépôt normal vs dépôt externe pour une app tierce). adskinz
+fait confiance à cette valeur exactement comme il fait confiance à `amount`
+— elle est signée par JessiKaPay, adskinz ne fait que la relayer. Une
+validation basique (préfixe "/webhooks/") reste appliquée par précaution.
 """
 
 from __future__ import annotations
@@ -34,6 +42,8 @@ from typing import Any
 from app.config import settings
 from app.core.errors import AuthenticationError
 
+DEFAULT_WEBHOOK_PATH = "/webhooks/moneyfusion/deposit"
+
 
 class RelayTokenError(AuthenticationError):
     code = "relay_token_invalid"
@@ -48,8 +58,10 @@ class RelayPayload:
     operator: str
     country: str
     customer_name: str
-    tgid: str            # Telegram user id JessiKaPay, pour traçabilité côté adskinz
-    exp: int              # Timestamp Unix d'expiration
+    tgid: str             # Telegram user id JessiKaPay, pour traçabilité côté adskinz
+    webhook_path: str     # Chemin JessiKaPay à notifier une fois payé (voir docstring)
+    status_path: str      # Chemin JessiKaPay à interroger pour le polling de statut
+    exp: int               # Timestamp Unix d'expiration
 
 
 def _b64url_encode(raw: bytes) -> str:
@@ -72,8 +84,6 @@ def verify_relay_token(token: str) -> RelayPayload:
     vérification cryptographique pure.
     """
     if not settings.JKPAY_RELAY_SECRET:
-        # Fail-closed : si le secret n'est pas configuré, on refuse tout,
-        # plutôt que de laisser passer des tokens non vérifiés.
         raise RelayTokenError("Service de relais non configuré.")
 
     try:
@@ -99,6 +109,15 @@ def verify_relay_token(token: str) -> RelayPayload:
     if not isinstance(amount, int) or amount <= 0:
         raise RelayTokenError("Montant invalide dans le token.")
 
+    webhook_path = str(data.get("webhook_path") or DEFAULT_WEBHOOK_PATH)
+    if not webhook_path.startswith("/webhooks/"):
+        # Précaution : un token malformé ou d'une version antérieure ne doit
+        # jamais faire pointer le webhook MoneyFusion n'importe où.
+        webhook_path = DEFAULT_WEBHOOK_PATH
+
+    tx_id_str = str(data.get("tx_id", ""))
+    status_path = str(data.get("status_path") or f"/deposit/status/{tx_id_str}")
+
     try:
         return RelayPayload(
             tx_id=str(data["tx_id"]),
@@ -108,25 +127,9 @@ def verify_relay_token(token: str) -> RelayPayload:
             country=str(data["country"]),
             customer_name=str(data.get("customer_name") or "Client"),
             tgid=str(data.get("tgid") or ""),
+            webhook_path=webhook_path,
+            status_path=status_path,
             exp=exp,
         )
     except KeyError as e:
         raise RelayTokenError(f"Champ manquant dans le token: {e}")
-
-
-def sign_outgoing_notification(raw_body: bytes) -> tuple[str, str]:
-    """
-    Signe le corps de la requête envoyée à JessiKaPay pour notifier un dépôt.
-    Réutilise EXACTEMENT le même algorithme que jessicapay-backend/app/services/
-    hmac_signature.py (compute_signature), avec JKPAY_RELAY_SECRET comme clé
-    partagée, pour que JessiKaPay puisse vérifier avec sa fonction existante
-    verify_signature() sans rien dupliquer côté JessiKaPay.
-
-    Retourne (timestamp, signature) à mettre dans les headers X-Timestamp / X-Signature.
-    """
-    timestamp = str(int(time.time()))
-    payload = f"{timestamp}.{raw_body.decode('utf-8')}"
-    signature = hmac.new(
-        settings.JKPAY_RELAY_SECRET.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
-    ).hexdigest()
-    return timestamp, signature

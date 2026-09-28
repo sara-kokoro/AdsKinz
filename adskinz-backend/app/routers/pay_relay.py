@@ -8,39 +8,35 @@ sur domaine gratuit (jkpay.vercel.app) et qu'adskinz.me est un domaine
 payant. AdsKinz sert ici de simple façade technique pour les dépôts
 JessiKaPay — jamais de payout, jamais de logique métier JessiKaPay.
 
-VERSION SIMPLIFIÉE : adskinz ne fait plus que CRÉER le paiement MoneyFusion
-sous l'identité adskinz.me (Origin/Referer). La confirmation MoneyFusion
-(webhook) part DIRECTEMENT vers jessicapay-backend/webhooks/moneyfusion.py
-— le code déjà existant et déjà éprouvé côté JessiKaPay. adskinz ne relaie
-plus aucune notification : il n'est dans la boucle que pour la création.
-
-Ce qui a disparu par rapport à la première version (et pourquoi c'est mieux) :
-  - Le webhook /pay/webhooks/moneyfusion/relay : plus la peine, MoneyFusion
-    parle directement à JessiKaPay.
-  - _notify_jkpay (notification HMAC adskinz → JessiKaPay) : supprimé, un
-    maillon de moins qui peut mal tourner (secret désynchronisé, URL fausse,
-    panne réseau entre les deux backends...).
-  - JKPAY_RELAY_SECRET : plus nécessaire, plus rien à garder identique des
-    deux côtés.
+VERSION GÉNÉRIQUE : adskinz ne connaît plus aucun chemin JessiKaPay en
+dur. Le token signé (voir services/relay_token.py) transporte lui-même
+`webhook_path` (où MoneyFusion doit notifier) et `status_path` (où
+adskinz doit interroger le statut pour le polling). Ça permet à
+JessiKaPay de brancher plusieurs flux différents (dépôt normal vers le
+solde de l'utilisateur payeur, dépôt externe vers le solde du
+propriétaire d'une app tierce, etc.) sans qu'adskinz ait besoin d'être
+modifié à chaque fois — adskinz ne fait que créer le paiement MoneyFusion
+sous l'identité adskinz.me et relayer les deux chemins fournis.
 
 Flux complet :
-  1. JessiKaPay signe un token et redirige l'utilisateur vers
-     GET /pay/{token} (page adskinz dédiée).
+  1. JessiKaPay signe un token (montant, tx_id, webhook_path, status_path...)
+     et redirige l'utilisateur vers GET /pay/{token} (page adskinz dédiée).
   2. Le frontend adskinz appelle POST /pay/{token}/init → on vérifie le
      token, on enregistre un RelayDeposit "pending" (pour trace/audit),
-     on appelle MoneyFusion avec l'identité adskinz.me MAIS un
-     webhook_url qui pointe directement sur jessicapay-backend, puis on
-     renvoie payment_url au frontend qui redirige l'utilisateur dessus.
-  3. MoneyFusion notifie JessiKaPay directement — adskinz n'est plus
-     dans la boucle. JessiKaPay crédite via son code existant.
+     on appelle MoneyFusion avec l'identité adskinz.me et un webhook_url
+     construit à partir de payload.webhook_path, puis on renvoie
+     payment_url au frontend qui redirige l'utilisateur dessus.
+  3. MoneyFusion notifie JessiKaPay directement (webhook_path) — adskinz
+     n'est plus dans la boucle de crédit.
   4. Le frontend adskinz poll GET /pay/{token}/status, qui relaie la
-     question à JessiKaPay (GET /deposit/status/{tx_id}) côté serveur —
-     adskinz ne connaît jamais lui-même le vrai statut, il le redemande
-     à chaque fois à la seule source de vérité : JessiKaPay.
+     question à payload.status_path côté JessiKaPay serveur-à-serveur.
 
 Sécurité :
   - Le montant vient UNIQUEMENT du token signé, jamais du corps de la
     requête POST /init — impossible pour l'utilisateur de le changer.
+  - webhook_path/status_path viennent aussi UNIQUEMENT du token signé
+    par JessiKaPay — adskinz ne fait jamais confiance à une valeur
+    fournie par le frontend ou l'utilisateur pour ces champs.
 """
 
 from __future__ import annotations
@@ -61,6 +57,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/pay", tags=["jkpay-relay"])
 
+# Surtaxe fixe ajoutée par adskinz sur chaque dépôt relayé, pour couvrir ses
+# propres frais d'infra (Neon, etc.). Ajoutée UNIQUEMENT au montant facturé
+# à MoneyFusion — le montant crédité côté JessiKaPay reste basé sur
+# payload.amount (celui signé par JessiKaPay), totalement inchangé.
+RELAY_SURCHARGE_FCFA = 100
+
 
 @router.post("/{token}/init")
 async def init_relay_payment(token: str, request: Request, session: SessionDep) -> dict:
@@ -70,8 +72,6 @@ async def init_relay_payment(token: str, request: Request, session: SessionDep) 
     except RelayTokenError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
-    # Idempotence : si ce tx_id a déjà été initié (rafraîchissement de page,
-    # double-clic...), on ne recrée pas de session MoneyFusion.
     existing = (
         await session.execute(
             select(RelayDeposit).where(RelayDeposit.jkpay_tx_id == payload.tx_id)
@@ -93,16 +93,13 @@ async def init_relay_payment(token: str, request: Request, session: SessionDep) 
     session.add(relay)
     await session.flush()
 
-    # ── LE POINT CLÉ ──────────────────────────────────────────────────
-    # webhook_url pointe DIRECTEMENT sur jessicapay-backend, pas sur
-    # adskinz. MoneyFusion n'a aucune restriction sur la destination du
-    # webhook (ce n'est pas une page visitée par un navigateur) — seule
-    # la création du paiement doit émaner d'adskinz.me.
-    webhook_url = f"{settings.JKPAY_BACKEND_URL.rstrip('/')}/webhooks/moneyfusion/deposit"
+    # webhook_path est fourni et signé par JessiKaPay — adskinz ne fait que
+    # préfixer avec son URL de backend JessiKaPay connue (JKPAY_BACKEND_URL).
+    webhook_url = f"{settings.JKPAY_BACKEND_URL.rstrip('/')}{payload.webhook_path}"
     return_url = f"{settings.PUBLIC_BASE_URL.rstrip('/')}/pay/{token}/return"
 
     result = await create_relay_payment(
-        amount=payload.amount,
+        amount=payload.amount + RELAY_SURCHARGE_FCFA,
         tx_id=payload.tx_id,
         customer_name=payload.customer_name,
         customer_phone=payload.phone,
@@ -131,16 +128,16 @@ async def init_relay_payment(token: str, request: Request, session: SessionDep) 
 @router.get("/{token}/status")
 async def relay_status(token: str) -> dict:
     """
-    Poll du statut par la page adskinz. adskinz ne stocke plus le
-    résultat lui-même (il ne reçoit plus le webhook) — il redemande à
-    JessiKaPay, seule source de vérité, à chaque appel.
+    Poll du statut par la page adskinz. adskinz ne stocke pas le résultat
+    lui-même — il redemande à JessiKaPay, via status_path (signé dans le
+    token), seule source de vérité, à chaque appel.
     """
     try:
         payload = verify_relay_token(token)
     except RelayTokenError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
 
-    url = f"{settings.JKPAY_BACKEND_URL.rstrip('/')}/deposit/status/{payload.tx_id}"
+    url = f"{settings.JKPAY_BACKEND_URL.rstrip('/')}{payload.status_path}"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(url)
@@ -154,10 +151,6 @@ async def relay_status(token: str) -> dict:
         raise HTTPException(status_code=502, detail="Erreur JessiKaPay")
 
     data = resp.json()
-    # data = {"tx_id", "status", "amount", "fee", "credited", "moneyfusion_status"}
-    # status JessiKaPay est déjà "pending" | "completed" | "failed" — on le
-    # renvoie tel quel, la page adskinz sait déjà interpréter "success"/
-    # "failed"/autre comme pending, donc on normalise juste "completed".
     jk_status = data.get("status")
     normalized = "success" if jk_status == "completed" else ("failed" if jk_status == "failed" else "pending")
 
